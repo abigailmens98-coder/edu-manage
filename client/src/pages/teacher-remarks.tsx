@@ -5,16 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Save, CheckCircle, AlertCircle } from "lucide-react";
-import { MOCK_STUDENTS, ACADEMIC_TERMS } from "@/lib/mock-data";
+import { FileText, Save, CheckCircle, Info } from "lucide-react";
+import { MOCK_STUDENTS, ACADEMIC_TERMS, getGESGrade } from "@/lib/mock-data";
 
 interface StudentRemarks {
   studentId: string;
   studentName: string;
+  classLevel: string;
+  examScore: number;
+  assessmentScore: number;
   attendance: string;
   attitude: string;
   conduct: string;
@@ -32,14 +34,37 @@ export default function TeacherRemarks() {
 
   const activeStudent = MOCK_STUDENTS.find(s => s.id === selectedStudent);
 
-  const handleRemarkChange = (field: keyof StudentRemarks, value: string) => {
+  // Determine if student is in Basic 7-9 or Basic 1-6
+  const getClassLevelType = (grade: string): "senior" | "junior" => {
+    const basicNum = parseInt(grade.replace("Basic ", ""));
+    return basicNum >= 7 ? "senior" : "junior";
+  };
+
+  // Calculate final score based on class level
+  const calculateFinalScore = (examScore: number, assessmentScore: number, classLevel: string): number => {
+    const type = getClassLevelType(classLevel);
+    if (type === "senior") {
+      // Basic 7-9: Exams 70%, Assessment 30%
+      return (examScore * 0.7) + (assessmentScore * 0.3);
+    } else {
+      // Basic 1-6: Exams 50%, Assessment 50%
+      return (examScore * 0.5) + (assessmentScore * 0.5);
+    }
+  };
+
+  const handleRemarkChange = (field: string, value: string | number) => {
     if (!selectedStudent) return;
+    const numValue = typeof value === "number" ? value : (field === "examScore" || field === "assessmentScore" ? parseFloat(value) || 0 : value);
+    
     setRemarks(prev => ({
       ...prev,
       [selectedStudent]: {
         ...prev[selectedStudent] || {
           studentId: selectedStudent,
           studentName: activeStudent?.name || "",
+          classLevel: activeStudent?.grade || "",
+          examScore: 0,
+          assessmentScore: 0,
           attendance: "",
           attitude: "",
           conduct: "",
@@ -47,7 +72,7 @@ export default function TeacherRemarks() {
           classTeacherRemark: "",
           formMaster: ""
         },
-        [field]: value
+        [field]: numValue
       }
     }));
   };
@@ -58,6 +83,9 @@ export default function TeacherRemarks() {
   };
 
   const currentRemark = selectedStudent ? remarks[selectedStudent] : null;
+  const finalScore = currentRemark ? calculateFinalScore(currentRemark.examScore, currentRemark.assessmentScore, currentRemark.classLevel) : 0;
+  const gradeInfo = getGESGrade(finalScore);
+  const classType = activeStudent ? getClassLevelType(activeStudent.grade) : "junior";
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,23 +104,35 @@ export default function TeacherRemarks() {
       <main className="p-6">
         <div className="max-w-6xl mx-auto space-y-6">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Terminal Report - Remarks & Details</h1>
-            <p className="text-muted-foreground mt-1">Enter student remarks, attendance, conduct and other details</p>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Terminal Report - Exam & Assessment Grades</h1>
+            <p className="text-muted-foreground mt-1">Enter exam scores and class assessment marks to generate final grades</p>
           </div>
 
-          <Tabs defaultValue="remarks" className="w-full">
+          <Tabs defaultValue="grades" className="w-full">
             <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-              <TabsTrigger value="remarks">Enter Remarks</TabsTrigger>
+              <TabsTrigger value="grades">Enter Grades</TabsTrigger>
               <TabsTrigger value="preview">Preview Report</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="remarks" className="mt-6">
+            <TabsContent value="grades" className="mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Student Remarks & Details</CardTitle>
-                  <CardDescription>Fill in remarks, attendance, attitude, conduct and other details for students</CardDescription>
+                  <CardTitle>Enter Exam & Assessment Scores</CardTitle>
+                  <CardDescription>System will automatically calculate final grades based on class level</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Grading Information */}
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800 ml-2">
+                      <strong>Grading Breakdown:</strong>
+                      <div className="mt-2 text-xs space-y-1">
+                        <p>• <strong>Basic 7-9:</strong> End-of-Term Exams = 70%, Class Assessment = 30%</p>
+                        <p>• <strong>Basic 1-6:</strong> End-of-Term Exams = 50%, Class Assessment = 50%</p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+
                   <div className="space-y-2">
                     <Label>Select Academic Term</Label>
                     <Select value={selectedTerm} onValueChange={setSelectedTerm}>
@@ -116,7 +156,7 @@ export default function TeacherRemarks() {
                       <SelectContent>
                         {MOCK_STUDENTS.map(s => (
                           <SelectItem key={s.id} value={s.id}>
-                            {s.name} ({s.id})
+                            {s.name} ({s.grade})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -124,13 +164,75 @@ export default function TeacherRemarks() {
                   </div>
 
                   {selectedStudent && (
-                    <div className="border-t pt-6 space-y-4">
+                    <div className="border-t pt-6 space-y-6">
                       <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
                         <p className="text-sm text-foreground">
-                          <span className="font-semibold">{activeStudent?.name}</span> (ID: {activeStudent?.id})
+                          <span className="font-semibold">{activeStudent?.name}</span> - {activeStudent?.grade}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Grading Type: {classType === "senior" ? "70% Exam / 30% Assessment" : "50% Exam / 50% Assessment"}
                         </p>
                       </div>
 
+                      {/* Exam and Assessment Scores */}
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="examScore">End-of-Term Exam Score (0-100)</Label>
+                          <Input
+                            id="examScore"
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="Enter exam score"
+                            value={currentRemark?.examScore || ""}
+                            onChange={(e) => handleRemarkChange("examScore", e.target.value)}
+                          />
+                          {currentRemark?.examScore !== undefined && (
+                            <p className="text-xs text-muted-foreground">
+                              Contribution: {(currentRemark.examScore * (classType === "senior" ? 0.7 : 0.5)).toFixed(1)} points
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="assessmentScore">Class Assessment Score (0-100)</Label>
+                          <Input
+                            id="assessmentScore"
+                            type="number"
+                            min="0"
+                            max="100"
+                            placeholder="Enter assessment score"
+                            value={currentRemark?.assessmentScore || ""}
+                            onChange={(e) => handleRemarkChange("assessmentScore", e.target.value)}
+                          />
+                          {currentRemark?.assessmentScore !== undefined && (
+                            <p className="text-xs text-muted-foreground">
+                              Contribution: {(currentRemark.assessmentScore * (classType === "senior" ? 0.3 : 0.5)).toFixed(1)} points
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Final Grade Display */}
+                      {currentRemark?.examScore !== undefined && currentRemark?.assessmentScore !== undefined && (
+                        <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-lg p-4">
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                              <p className="text-xs text-muted-foreground">Final Score</p>
+                              <p className="text-2xl font-bold text-primary">{finalScore.toFixed(1)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Grade</p>
+                              <p className="text-2xl font-bold text-secondary">{gradeInfo.grade}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground">Description</p>
+                              <p className="text-sm font-semibold text-foreground">{gradeInfo.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Attendance and Conduct */}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="attendance">Attendance (e.g., 95/100)</Label>
@@ -142,7 +244,7 @@ export default function TeacherRemarks() {
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="attitude">Attitude (e.g., EXCELLENT)</Label>
+                          <Label htmlFor="attitude">Attitude</Label>
                           <Select 
                             value={currentRemark?.attitude || ""} 
                             onValueChange={(val) => handleRemarkChange("attitude", val)}
@@ -180,10 +282,10 @@ export default function TeacherRemarks() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="interest">Interest (e.g., HOLDS VARIED INTERESTS)</Label>
+                          <Label htmlFor="interest">Interest</Label>
                           <Input
                             id="interest"
-                            placeholder="E.g., Holds varied interests in sports and arts"
+                            placeholder="E.g., Holds varied interests"
                             value={currentRemark?.interest || ""}
                             onChange={(e) => handleRemarkChange("interest", e.target.value)}
                           />
@@ -194,7 +296,7 @@ export default function TeacherRemarks() {
                         <Label htmlFor="classTeacherRemark">Class Teacher's Remarks</Label>
                         <Textarea
                           id="classTeacherRemark"
-                          placeholder="E.g., More room for improvement in mathematics. Otherwise a well-behaved student."
+                          placeholder="Enter detailed remarks for the student"
                           value={currentRemark?.classTeacherRemark || ""}
                           onChange={(e) => handleRemarkChange("classTeacherRemark", e.target.value)}
                           className="min-h-24"
@@ -202,7 +304,7 @@ export default function TeacherRemarks() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="formMaster">Form Master/Class Master Name</Label>
+                        <Label htmlFor="formMaster">Form Master Name</Label>
                         <Input
                           id="formMaster"
                           placeholder="Enter your name as form master"
@@ -215,7 +317,7 @@ export default function TeacherRemarks() {
                         <Alert className="bg-green-50 border-green-200">
                           <CheckCircle className="h-4 w-4 text-green-600" />
                           <AlertDescription className="text-green-800 ml-2">
-                            Remarks saved successfully!
+                            Grades and remarks saved successfully!
                           </AlertDescription>
                         </Alert>
                       )}
@@ -226,7 +328,7 @@ export default function TeacherRemarks() {
                   <CardFooter>
                     <Button onClick={handleSave} className="w-full gap-2">
                       <Save className="h-4 w-4" />
-                      Save Remarks
+                      Save Grades & Remarks
                     </Button>
                   </CardFooter>
                 )}
@@ -237,9 +339,9 @@ export default function TeacherRemarks() {
               {selectedStudent && currentRemark && (
                 <Card>
                   <CardContent className="pt-6">
-                    <div className="bg-white p-8 border-2 border-gray-800 space-y-4">
-                      <div className="border-b-2 border-gray-800 pb-4 text-center">
-                        <h2 className="text-lg font-bold">UNIVERSITY BASIC SCHOOL</h2>
+                    <div className="bg-white p-8 border-2 border-gray-800 space-y-6">
+                      <div className="border-b-2 border-gray-800 pb-4 text-center space-y-1">
+                        <h2 className="text-lg font-bold">UNIVERSITY BASIC SCHOOL - TARKWA</h2>
                         <p className="text-xs font-serif italic">Knowledge, Truth and Excellence</p>
                         <h3 className="text-sm font-bold mt-2 border-2 border-blue-600 inline-block px-4 py-1">TERMINAL REPORT</h3>
                       </div>
@@ -248,15 +350,45 @@ export default function TeacherRemarks() {
                         <div>
                           <p><strong>Name of Student:</strong> {activeStudent?.name.toUpperCase()}</p>
                           <p><strong>Student ID:</strong> {activeStudent?.id}</p>
+                          <p><strong>Class:</strong> {activeStudent?.grade}</p>
                         </div>
                         <div>
                           <p><strong>Number On Roll:</strong> {MOCK_STUDENTS.indexOf(activeStudent || MOCK_STUDENTS[0]) + 1}</p>
-                          <p><strong>Next Term Begins:</strong> To be announced</p>
+                          <p><strong>Term:</strong> Term 1</p>
+                          <p><strong>Year:</strong> 2024</p>
                         </div>
                       </div>
 
+                      {/* Grades Summary */}
+                      <div className="border-2 border-blue-600 rounded-lg p-4 bg-blue-50">
+                        <h3 className="font-bold text-blue-900 mb-3">OVERALL ACADEMIC PERFORMANCE</h3>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div className="border-r border-blue-300">
+                            <p className="text-xs text-blue-700">End-of-Term Exam</p>
+                            <p className="text-xl font-bold text-blue-900">{currentRemark.examScore}</p>
+                            <p className="text-xs text-blue-600">
+                              ({classType === "senior" ? "70%" : "50%"}) = {(currentRemark.examScore * (classType === "senior" ? 0.7 : 0.5)).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="border-r border-blue-300">
+                            <p className="text-xs text-blue-700">Class Assessment</p>
+                            <p className="text-xl font-bold text-blue-900">{currentRemark.assessmentScore}</p>
+                            <p className="text-xs text-blue-600">
+                              ({classType === "senior" ? "30%" : "50%"}) = {(currentRemark.assessmentScore * (classType === "senior" ? 0.3 : 0.5)).toFixed(1)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-blue-700">Final Grade</p>
+                            <p className="text-2xl font-bold text-blue-900">{gradeInfo.grade}</p>
+                            <p className="text-xs font-semibold text-blue-900">{gradeInfo.description}</p>
+                            <p className="text-lg font-bold text-primary mt-1">{finalScore.toFixed(1)}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Other Details */}
                       <div className="mt-6 space-y-2 text-sm">
-                        <p><strong>Attendance:</strong> {currentRemark.attendance} <span className="text-muted-foreground">Out of 100 school days</span></p>
+                        <p><strong>Attendance:</strong> {currentRemark.attendance}</p>
                         <p><strong>Attitude:</strong> {currentRemark.attitude}</p>
                         <p><strong>Conduct:</strong> {currentRemark.conduct}</p>
                         <p><strong>Interest:</strong> {currentRemark.interest}</p>
@@ -271,6 +403,7 @@ export default function TeacherRemarks() {
                         </div>
                         <div className="text-center text-xs text-muted-foreground">
                           <p>Generated by University Basic School</p>
+                          <p>Tarkwa, Ghana</p>
                         </div>
                       </div>
                     </div>

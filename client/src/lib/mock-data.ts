@@ -1,9 +1,9 @@
 export const MOCK_STUDENTS = [
-  { id: "S001", name: "Alice Johnson", grade: "10th", email: "alice@student.academia.edu", status: "Active", attendance: "98%" },
-  { id: "S002", name: "Bob Smith", grade: "11th", email: "bob@student.academia.edu", status: "Active", attendance: "92%" },
-  { id: "S003", name: "Charlie Brown", grade: "9th", email: "charlie@student.academia.edu", status: "Inactive", attendance: "85%" },
-  { id: "S004", name: "Diana Prince", grade: "12th", email: "diana@student.academia.edu", status: "Active", attendance: "100%" },
-  { id: "S005", name: "Evan Wright", grade: "10th", email: "evan@student.academia.edu", status: "Warning", attendance: "78%" },
+  { id: "S001", name: "Alice Johnson", grade: "Basic 9", email: "alice@student.academia.edu", status: "Active", attendance: "98%" },
+  { id: "S002", name: "Bob Smith", grade: "Basic 8", email: "bob@student.academia.edu", status: "Active", attendance: "92%" },
+  { id: "S003", name: "Charlie Brown", grade: "Basic 7", email: "charlie@student.academia.edu", status: "Inactive", attendance: "85%" },
+  { id: "S004", name: "Diana Prince", grade: "Basic 6", email: "diana@student.academia.edu", status: "Active", attendance: "100%" },
+  { id: "S005", name: "Evan Wright", grade: "Basic 5", email: "evan@student.academia.edu", status: "Warning", attendance: "78%" },
 ];
 
 export const MOCK_TEACHERS = [

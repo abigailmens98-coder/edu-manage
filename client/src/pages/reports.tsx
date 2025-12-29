@@ -5,18 +5,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MOCK_STUDENTS, MOCK_SUBJECTS } from "@/lib/mock-data";
+import { MOCK_STUDENTS, MOCK_SUBJECTS, ACADEMIC_TERMS, getGESGrade } from "@/lib/mock-data";
 import { FileBarChart, Download, Printer, CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 
 export default function Reports() {
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
+  const [selectedTerm, setSelectedTerm] = useState<string>(ACADEMIC_TERMS[0]?.id || "");
 
-  const getGradeColor = (grade: number) => {
-    if (grade >= 90) return "text-green-600";
-    if (grade >= 80) return "text-blue-600";
-    if (grade >= 70) return "text-yellow-600";
+  const getGradeColor = (score: number) => {
+    if (score >= 80) return "text-green-600";
+    if (score >= 70) return "text-blue-600";
+    if (score >= 60) return "text-yellow-600";
+    if (score >= 50) return "text-orange-600";
     return "text-red-600";
   };
 
@@ -118,13 +120,15 @@ export default function Reports() {
                 </div>
                 
                 <div className="space-y-2">
-                   <Label>Academic Period</Label>
-                   <Select defaultValue="2023-2024">
+                   <Label>Academic Term</Label>
+                   <Select value={selectedTerm} onValueChange={setSelectedTerm}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="2023-2024">2023-2024 Academic Year</SelectItem>
+                      {ACADEMIC_TERMS.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

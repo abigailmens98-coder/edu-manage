@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BookOpen, LogOut, CheckCircle, AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
-import { MOCK_SUBJECTS, MOCK_STUDENTS } from "@/lib/mock-data";
+import { MOCK_SUBJECTS, MOCK_STUDENTS, getGESGrade, ACADEMIC_TERMS } from "@/lib/mock-data";
 
 interface StudentGrade {
   studentId: string;
@@ -22,7 +22,7 @@ export default function TeacherDashboard() {
   const { username, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [selectedSubject, setSelectedSubject] = useState<string>("");
-  const [selectedTerm, setSelectedTerm] = useState<string>("term1");
+  const [selectedTerm, setSelectedTerm] = useState<string>(ACADEMIC_TERMS[0]?.id || "");
   const [grades, setGrades] = useState<StudentGrade[]>(
     MOCK_STUDENTS.map(s => ({ studentId: s.id, studentName: s.name, grade: "" }))
   );
@@ -110,15 +110,17 @@ export default function TeacherDashboard() {
                     </div>
                     <div className="space-y-2">
                       <Label>Academic Term</Label>
-                      <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                      <Select value={selectedTerm} onValueChange={setSelectedTerm} disabled>
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="term1">Term 1 (Fall)</SelectItem>
-                          <SelectItem value="term2">Term 2 (Spring)</SelectItem>
+                          {ACADEMIC_TERMS.filter(t => t.status === "Active").map(t => (
+                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-xs text-muted-foreground">Terms are set by administrators only</p>
                     </div>
                   </div>
 
@@ -144,11 +146,7 @@ export default function TeacherDashboard() {
                         <TableBody>
                           {grades.map((entry) => {
                             const score = parseInt(entry.grade) || 0;
-                            const letterGrade = 
-                              score >= 90 ? 'A' : 
-                              score >= 80 ? 'B' : 
-                              score >= 70 ? 'C' : 
-                              score >= 60 ? 'D' : 'F';
+                            const gradeData = score > 0 ? getGESGrade(score) : { grade: '-', description: '' };
                             
                             return (
                               <TableRow key={entry.studentId}>
@@ -165,8 +163,11 @@ export default function TeacherDashboard() {
                                     className="h-8"
                                   />
                                 </TableCell>
-                                <TableCell className="font-bold">
-                                  {entry.grade ? letterGrade : '-'}
+                                <TableCell>
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-sm">{gradeData.grade}</span>
+                                    <span className="text-xs text-muted-foreground">{gradeData.description}</span>
+                                  </div>
                                 </TableCell>
                               </TableRow>
                             );

@@ -1,4 +1,8 @@
 import { Switch, Route } from "wouter";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Toaster } from "@/components/ui/toaster";
+import Login from "@/pages/login";
+import TeacherDashboard from "@/pages/teacher-dashboard";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
@@ -6,23 +10,38 @@ import Teachers from "@/pages/teachers";
 import Academics from "@/pages/academics";
 import Reports from "@/pages/reports";
 import NotFound from "@/pages/not-found";
-import { Toaster } from "@/components/ui/toaster";
+
+function AppRoutes() {
+  const { isAuthenticated, role } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Login />;
+  }
+
+  if (role === "teacher") {
+    return <TeacherDashboard />;
+  }
+
+  return (
+    <DashboardLayout>
+      <Switch>
+        <Route path="/" component={Dashboard} />
+        <Route path="/students" component={Students} />
+        <Route path="/teachers" component={Teachers} />
+        <Route path="/academics" component={Academics} />
+        <Route path="/reports" component={Reports} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
+  );
+}
 
 function App() {
   return (
-    <>
-      <DashboardLayout>
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/students" component={Students} />
-          <Route path="/teachers" component={Teachers} />
-          <Route path="/academics" component={Academics} />
-          <Route path="/reports" component={Reports} />
-          <Route component={NotFound} />
-        </Switch>
-      </DashboardLayout>
+    <AuthProvider>
+      <AppRoutes />
       <Toaster />
-    </>
+    </AuthProvider>
   );
 }
 

@@ -56,14 +56,16 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
-      <div className="p-6">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-            <GraduationCap className="h-5 w-5 text-primary-foreground" />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-serif text-lg font-bold tracking-tight">UBS</span>
-            <span className="text-xs font-medium text-sidebar-foreground/70">University Basic</span>
+      <div className="p-4 space-y-6">
+        <div className="flex flex-col items-center gap-3 pb-4 border-b border-sidebar-border">
+          <img 
+            src="/school-logo.png" 
+            alt="UBS Logo" 
+            className="h-16 w-16 object-contain"
+          />
+          <div className="text-center">
+            <div className="font-serif text-sm font-bold text-sidebar-foreground">University Basic School</div>
+            <div className="text-xs text-sidebar-foreground/70">TARKWA</div>
           </div>
         </div>
         

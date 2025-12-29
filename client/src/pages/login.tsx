@@ -33,16 +33,21 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary via-background to-primary/10 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-background to-blue-100/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
-              <GraduationCap className="h-9 w-9 text-primary-foreground" />
-            </div>
+        <div className="text-center mb-8 space-y-4">
+          <div className="flex justify-center">
+            <img 
+              src="/school-logo.png" 
+              alt="University Basic School Logo" 
+              className="h-24 w-24 object-contain drop-shadow-lg"
+            />
           </div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">University Basic School</h1>
-          <p className="text-muted-foreground mt-2">Administrative Management System</p>
+          <div>
+            <h1 className="text-4xl font-serif font-bold text-blue-900">University Basic School</h1>
+            <p className="text-sm font-italic text-blue-700 mt-1 tracking-wide">Knowledge, Truth and Excellence</p>
+            <p className="text-xs text-muted-foreground mt-3">Administrative Management System</p>
+          </div>
         </div>
 
         <Card className="border-0 shadow-lg">

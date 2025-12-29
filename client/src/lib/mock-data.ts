@@ -14,10 +14,17 @@ export const MOCK_TEACHERS = [
 ];
 
 export const MOCK_SUBJECTS = [
-  { id: "SUB001", name: "Advanced Physics", code: "PHY301", teacher: "Dr. Sarah Conner", students: 24 },
-  { id: "SUB002", name: "World History", code: "HIS101", teacher: "Mr. John Keating", students: 30 },
-  { id: "SUB003", name: "Calculus I", code: "MAT201", teacher: "Ms. Ellen Ripley", students: 18 },
-  { id: "SUB004", name: "Biology Lab", code: "BIO202", teacher: "Prof. Alan Grant", students: 22 },
+  { id: "SUB001", name: "Career Technology", code: "CAR101", teacher: "Unassigned", students: 0 },
+  { id: "SUB002", name: "Computing", code: "COM101", teacher: "Unassigned", students: 0 },
+  { id: "SUB003", name: "Creative Arts & Design", code: "CAD101", teacher: "Unassigned", students: 0 },
+  { id: "SUB004", name: "English Language", code: "ENG101", teacher: "Unassigned", students: 0 },
+  { id: "SUB005", name: "Fante", code: "FAN101", teacher: "Unassigned", students: 0 },
+  { id: "SUB006", name: "French", code: "FRE101", teacher: "Unassigned", students: 0 },
+  { id: "SUB007", name: "Mathematics", code: "MAT101", teacher: "Unassigned", students: 0 },
+  { id: "SUB008", name: "Physical Health Education", code: "PHE101", teacher: "Unassigned", students: 0 },
+  { id: "SUB009", name: "Religious & Moral Education", code: "RME101", teacher: "Unassigned", students: 0 },
+  { id: "SUB010", name: "Science", code: "SCI101", teacher: "Unassigned", students: 0 },
+  { id: "SUB011", name: "Social Studies", code: "SOC101", teacher: "Unassigned", students: 0 },
 ];
 
 export const ACADEMIC_TERMS = [

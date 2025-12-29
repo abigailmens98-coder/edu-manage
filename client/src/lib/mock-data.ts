@@ -4,6 +4,8 @@ export const MOCK_STUDENTS = [
   { id: "S003", name: "Charlie Brown", grade: "Basic 7", email: "charlie@student.academia.edu", status: "Inactive", attendance: "85%" },
   { id: "S004", name: "Diana Prince", grade: "Basic 6", email: "diana@student.academia.edu", status: "Active", attendance: "100%" },
   { id: "S005", name: "Evan Wright", grade: "Basic 5", email: "evan@student.academia.edu", status: "Warning", attendance: "78%" },
+  { id: "S006", name: "Amara Mensah", grade: "KG 2", email: "amara@student.academia.edu", status: "Active", attendance: "96%" },
+  { id: "S007", name: "Kwame Asante", grade: "KG 1", email: "kwame@student.academia.edu", status: "Active", attendance: "88%" },
 ];
 
 export const MOCK_TEACHERS = [
@@ -14,22 +16,27 @@ export const MOCK_TEACHERS = [
 ];
 
 export const MOCK_SUBJECTS = [
-  // Subjects for Basic 1-6 (All Primary & Lower Junior)
-  { id: "SUB001", name: "Computing", code: "COM101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
-  { id: "SUB002", name: "Creative Arts & Design", code: "CAD101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
-  { id: "SUB003", name: "English Language", code: "ENG101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB004", name: "Fante", code: "FAN101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB005", name: "French", code: "FRE101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB006", name: "History of Ghana", code: "HOG101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
-  { id: "SUB007", name: "Mathematics", code: "MAT101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB008", name: "Our World and Our People", code: "OWO101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
-  { id: "SUB009", name: "Physical Health Education", code: "PHE101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB010", name: "Religious & Moral Education", code: "RME101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB011", name: "Science", code: "SCI101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  // Subjects for KG 1-2 (Kindergarten)
+  { id: "SUB001", name: "Creative Arts & Design", code: "CAD101", teacher: "Unassigned", students: 0, classLevels: ["KG 1", "KG 2"] },
+  { id: "SUB002", name: "Literacy", code: "LIT101", teacher: "Unassigned", students: 0, classLevels: ["KG 1", "KG 2"] },
+  { id: "SUB003", name: "Numeracy", code: "NUM101", teacher: "Unassigned", students: 0, classLevels: ["KG 1", "KG 2"] },
+  { id: "SUB004", name: "Our World and Our People", code: "OWO101", teacher: "Unassigned", students: 0, classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
+  { id: "SUB005", name: "Writing", code: "WRI101", teacher: "Unassigned", students: 0, classLevels: ["KG 1", "KG 2"] },
+  
+  // Subjects for Basic 1-6 (Primary & Lower Junior)
+  { id: "SUB006", name: "Computing", code: "COM101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
+  { id: "SUB007", name: "English Language", code: "ENG101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB008", name: "Fante", code: "FAN101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB009", name: "French", code: "FRE101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB010", name: "History of Ghana", code: "HOG101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6"] },
+  { id: "SUB011", name: "Mathematics", code: "MAT101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB012", name: "Physical Health Education", code: "PHE101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB013", name: "Religious & Moral Education", code: "RME101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB014", name: "Science", code: "SCI101", teacher: "Unassigned", students: 0, classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
   
   // Subjects for Basic 7-9 (Upper Junior Secondary)
-  { id: "SUB012", name: "Career Technology", code: "CAR101", teacher: "Unassigned", students: 0, classLevels: ["Basic 7", "Basic 8", "Basic 9"] },
-  { id: "SUB013", name: "Social Studies", code: "SOC101", teacher: "Unassigned", students: 0, classLevels: ["Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB015", name: "Career Technology", code: "CAR101", teacher: "Unassigned", students: 0, classLevels: ["Basic 7", "Basic 8", "Basic 9"] },
+  { id: "SUB016", name: "Social Studies", code: "SOC101", teacher: "Unassigned", students: 0, classLevels: ["Basic 7", "Basic 8", "Basic 9"] },
 ];
 
 export const ACADEMIC_TERMS = [

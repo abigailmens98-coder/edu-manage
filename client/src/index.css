@@ -59,52 +59,52 @@
 }
 
 :root {
-  /* Light Blue & Cream Academic Theme */
+  /* University Basic School - Royal Blue, Gold & Cream Theme */
   
   --background: 30 100% 98%; /* Warm cream background */
-  --foreground: 210 40% 20%; /* Dark blue text */
+  --foreground: 210 50% 15%; /* Deep blue text */
 
   --card: 0 0% 100%;
-  --card-foreground: 210 40% 20%;
+  --card-foreground: 210 50% 15%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 210 40% 20%;
+  --popover-foreground: 210 50% 15%;
 
-  --primary: 210 70% 60%; /* Light Blue */
+  --primary: 210 100% 40%; /* Royal Blue from logo */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 30 80% 92%; /* Cream */
-  --secondary-foreground: 210 40% 20%;
+  --secondary: 45 100% 50%; /* Gold from logo */
+  --secondary-foreground: 210 50% 15%;
 
   --muted: 30 70% 94%;
   --muted-foreground: 210 20% 50%;
 
-  --accent: 210 70% 60%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 45 100% 50%; /* Gold accent */
+  --accent-foreground: 210 50% 15%;
 
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 30 60% 88%;
-  --input: 30 60% 88%;
-  --ring: 210 70% 60%;
+  --border: 210 70% 90%;
+  --input: 210 70% 90%;
+  --ring: 210 100% 40%;
 
   --radius: 0.5rem;
 
-  --sidebar: 210 65% 25%; /* Darker blue sidebar */
+  --sidebar: 210 70% 20%; /* Deep royal blue sidebar */
   --sidebar-foreground: 30 100% 98%;
-  --sidebar-primary: 210 70% 60%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 210 65% 35%;
+  --sidebar-primary: 45 100% 50%; /* Gold highlight */
+  --sidebar-primary-foreground: 210 50% 15%;
+  --sidebar-accent: 210 70% 30%;
   --sidebar-accent-foreground: 30 100% 98%;
-  --sidebar-border: 210 65% 35%;
-  --sidebar-ring: 210 70% 60%;
+  --sidebar-border: 210 70% 30%;
+  --sidebar-ring: 45 100% 50%;
 
-  --chart-1: 210 70% 60%;
-  --chart-2: 210 65% 50%;
-  --chart-3: 210 60% 40%;
-  --chart-4: 30 80% 70%;
-  --chart-5: 210 50% 70%;
+  --chart-1: 210 100% 40%;
+  --chart-2: 45 100% 50%;
+  --chart-3: 210 70% 50%;
+  --chart-4: 8 70% 50%;
+  --chart-5: 210 50% 60%;
 }
 
 .dark {

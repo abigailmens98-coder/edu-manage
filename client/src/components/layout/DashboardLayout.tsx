@@ -47,8 +47,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Students", href: "/students", icon: Users },
     { name: "Teachers", href: "/teachers", icon: GraduationCap },
     { name: "Academics", href: "/academics", icon: BookOpen },
+    { name: "Subjects", href: "/subjects", icon: BookOpen },
     { name: "Terms", href: "/terms", icon: BookOpen },
     { name: "Reports", href: "/reports", icon: FileBarChart },
+    { name: "Remarks", href: "/remarks", icon: FileBarChart },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 

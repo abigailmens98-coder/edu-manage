@@ -8,8 +8,10 @@ import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
 import Teachers from "@/pages/teachers";
 import Academics from "@/pages/academics";
+import ManageSubjects from "@/pages/manage-subjects";
 import Terms from "@/pages/terms";
 import Reports from "@/pages/reports";
+import TeacherRemarks from "@/pages/teacher-remarks";
 import NotFound from "@/pages/not-found";
 
 function AppRoutes() {
@@ -30,8 +32,10 @@ function AppRoutes() {
         <Route path="/students" component={Students} />
         <Route path="/teachers" component={Teachers} />
         <Route path="/academics" component={Academics} />
+        <Route path="/subjects" component={ManageSubjects} />
         <Route path="/terms" component={Terms} />
         <Route path="/reports" component={Reports} />
+        <Route path="/remarks" component={TeacherRemarks} />
         <Route component={NotFound} />
       </Switch>
     </DashboardLayout>

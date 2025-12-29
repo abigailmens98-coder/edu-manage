@@ -50,7 +50,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
             <GraduationCap className="h-5 w-5 text-primary-foreground" />
           </div>
-          <span className="font-serif text-xl font-bold tracking-tight">Academia</span>
+          <div className="flex flex-col leading-tight">
+            <span className="font-serif text-lg font-bold tracking-tight">UBS</span>
+            <span className="text-xs font-medium text-sidebar-foreground/70">University Basic</span>
+          </div>
         </div>
         
         <nav className="space-y-1">

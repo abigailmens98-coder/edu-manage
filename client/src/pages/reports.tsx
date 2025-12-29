@@ -146,7 +146,7 @@ export default function Reports() {
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="font-serif text-2xl">Report Card</CardTitle>
-                      <p className="text-sm text-muted-foreground">Academia High School</p>
+                      <p className="text-sm text-muted-foreground">University Basic School</p>
                     </div>
                     <div className="text-right">
                        <h3 className="font-bold">{MOCK_STUDENTS.find(s => s.id === selectedStudent)?.name}</h3>

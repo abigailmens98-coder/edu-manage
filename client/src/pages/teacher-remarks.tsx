@@ -41,15 +41,27 @@ export default function TeacherRemarks() {
     return MOCK_SUBJECTS.filter(s => s.classLevels.includes(classLevel));
   };
 
+  // Get grading system based on class level
+  const getGradingSystem = (grade: string): { examMax: number; assessmentMax: number; examLabel: string; assessmentLabel: string } => {
+    const basicNum = parseInt(grade.replace(/[^0-9]/g, ""));
+    if (basicNum >= 1 && basicNum <= 5) {
+      // Basic 1-5: 50/50
+      return { examMax: 50, assessmentMax: 50, examLabel: "0-50", assessmentLabel: "0-50" };
+    } else {
+      // Basic 6+: 70/30
+      return { examMax: 70, assessmentMax: 30, examLabel: "0-70", assessmentLabel: "0-30" };
+    }
+  };
+
   // Determine if student is in Basic 7-9 or Basic 1-6
   const getClassLevelType = (grade: string): "senior" | "junior" => {
     const basicNum = parseInt(grade.replace(/[^0-9]/g, ""));
     return basicNum >= 7 ? "senior" : "junior";
   };
 
-  // Calculate final score: Exam (70 points) + Assessment (30 points) = 100 points total
+  // Calculate final score: Add exam + assessment scores (always sums to 100)
   const calculateFinalScore = (examScore: number, assessmentScore: number, classLevel: string): number => {
-    // Simply add exam (0-70) + assessment (0-30) = final score (0-100)
+    // Simply add exam + assessment = final score (0-100)
     return examScore + assessmentScore;
   };
 
@@ -97,6 +109,7 @@ export default function TeacherRemarks() {
   const finalScore = currentRemark ? calculateFinalScore(currentRemark.examScore, currentRemark.assessmentScore, currentRemark.classLevel) : 0;
   const gradeInfo = getGESGrade(finalScore);
   const classType = activeStudent ? getClassLevelType(activeStudent.grade) : "junior";
+  const gradingSystem = activeStudent ? getGradingSystem(activeStudent.grade) : { examMax: 70, assessmentMax: 30, examLabel: "0-70", assessmentLabel: "0-30" };
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,8 +151,8 @@ export default function TeacherRemarks() {
                     <AlertDescription className="text-blue-800 ml-2">
                       <strong>Grading Breakdown:</strong>
                       <div className="mt-2 text-xs space-y-1">
-                        <p>• <strong>End-of-Term Exams:</strong> 70 points (0-70 scale)</p>
-                        <p>• <strong>Class Assessment:</strong> 30 points (0-30 scale)</p>
+                        <p>• <strong>End-of-Term Exams:</strong> {gradingSystem.examMax} points ({gradingSystem.examLabel} scale)</p>
+                        <p>• <strong>Class Assessment:</strong> {gradingSystem.assessmentMax} points ({gradingSystem.assessmentLabel} scale)</p>
                         <p>• <strong>Total Grade:</strong> 100 points (Exam + Assessment)</p>
                       </div>
                     </AlertDescription>
@@ -182,43 +195,43 @@ export default function TeacherRemarks() {
                           <span className="font-semibold">{activeStudent?.name}</span> - {activeStudent?.grade}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Score Breakdown: Exam (70 pts) + Assessment (30 pts) = Total (100 pts)
+                          Score Breakdown: Exam ({gradingSystem.examMax} pts) + Assessment ({gradingSystem.assessmentMax} pts) = Total (100 pts)
                         </p>
                       </div>
 
                       {/* Exam and Assessment Scores */}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="examScore">End-of-Term Exam Score (0-70)</Label>
+                          <Label htmlFor="examScore">End-of-Term Exam Score (0-{gradingSystem.examMax})</Label>
                           <Input
                             id="examScore"
                             type="number"
                             min="0"
-                            max="70"
-                            placeholder="Enter exam score (out of 70)"
+                            max={gradingSystem.examMax}
+                            placeholder={`Enter exam score (out of ${gradingSystem.examMax})`}
                             value={currentRemark?.examScore || ""}
                             onChange={(e) => handleRemarkChange("examScore", e.target.value)}
                           />
                           {currentRemark?.examScore !== undefined && (
                             <p className="text-xs text-muted-foreground">
-                              Points: {currentRemark.examScore} / 70
+                              Points: {currentRemark.examScore} / {gradingSystem.examMax}
                             </p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="assessmentScore">Class Assessment Score (0-30)</Label>
+                          <Label htmlFor="assessmentScore">Class Assessment Score (0-{gradingSystem.assessmentMax})</Label>
                           <Input
                             id="assessmentScore"
                             type="number"
                             min="0"
-                            max="30"
-                            placeholder="Enter assessment score (out of 30)"
+                            max={gradingSystem.assessmentMax}
+                            placeholder={`Enter assessment score (out of ${gradingSystem.assessmentMax})`}
                             value={currentRemark?.assessmentScore || ""}
                             onChange={(e) => handleRemarkChange("assessmentScore", e.target.value)}
                           />
                           {currentRemark?.assessmentScore !== undefined && (
                             <p className="text-xs text-muted-foreground">
-                              Points: {currentRemark.assessmentScore} / 30
+                              Points: {currentRemark.assessmentScore} / {gradingSystem.assessmentMax}
                             </p>
                           )}
                         </div>
@@ -230,11 +243,11 @@ export default function TeacherRemarks() {
                           <div className="grid grid-cols-4 gap-3 text-center">
                             <div className="border-r border-primary/20">
                               <p className="text-xs text-muted-foreground">Exam</p>
-                              <p className="text-lg font-bold text-primary">{currentRemark.examScore}/70</p>
+                              <p className="text-lg font-bold text-primary">{currentRemark.examScore}/{gradingSystem.examMax}</p>
                             </div>
                             <div className="border-r border-primary/20">
                               <p className="text-xs text-muted-foreground">Assessment</p>
-                              <p className="text-lg font-bold text-primary">{currentRemark.assessmentScore}/30</p>
+                              <p className="text-lg font-bold text-primary">{currentRemark.assessmentScore}/{gradingSystem.assessmentMax}</p>
                             </div>
                             <div className="border-r border-primary/20">
                               <p className="text-xs text-muted-foreground">Final Score</p>
@@ -435,11 +448,11 @@ export default function TeacherRemarks() {
                         <div className="grid grid-cols-4 gap-3 text-center">
                           <div className="border-r border-blue-300">
                             <p className="text-xs text-blue-700">End-of-Term Exam</p>
-                            <p className="text-xl font-bold text-blue-900">{currentRemark.examScore}/70</p>
+                            <p className="text-xl font-bold text-blue-900">{currentRemark.examScore}/{gradingSystem.examMax}</p>
                           </div>
                           <div className="border-r border-blue-300">
                             <p className="text-xs text-blue-700">Class Assessment</p>
-                            <p className="text-xl font-bold text-blue-900">{currentRemark.assessmentScore}/30</p>
+                            <p className="text-xl font-bold text-blue-900">{currentRemark.assessmentScore}/{gradingSystem.assessmentMax}</p>
                           </div>
                           <div className="border-r border-blue-300">
                             <p className="text-xs text-blue-700">Total Score</p>

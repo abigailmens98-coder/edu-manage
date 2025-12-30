@@ -30,9 +30,31 @@ interface StudentRemarks {
 export default function TeacherRemarks() {
   const { username } = useAuth();
   const [selectedTerm, setSelectedTerm] = useState<string>(ACADEMIC_TERMS.find(t => t.status === "Active")?.id || "");
+  const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedStudent, setSelectedStudent] = useState<string>("");
   const [remarks, setRemarks] = useState<Record<string, StudentRemarks>>({});
   const [submitted, setSubmitted] = useState(false);
+
+  // Get unique classes from students
+  const getUniqueClasses = () => {
+    const classes = Array.from(new Set(MOCK_STUDENTS.map(s => s.grade))).sort((a, b) => {
+      const aNum = parseInt(a.replace(/[^0-9]/g, ""));
+      const bNum = parseInt(b.replace(/[^0-9]/g, ""));
+      return aNum - bNum;
+    });
+    return classes;
+  };
+
+  // Get students in selected class
+  const getStudentsByClass = (classLevel: string) => {
+    return MOCK_STUDENTS.filter(s => s.grade === classLevel);
+  };
+
+  // Handle class selection
+  const handleClassSelect = (classLevel: string) => {
+    setSelectedClass(classLevel);
+    setSelectedStudent(""); // Reset student selection when class changes
+  };
 
   const activeStudent = MOCK_STUDENTS.find(s => s.id === selectedStudent);
 
@@ -173,15 +195,31 @@ export default function TeacherRemarks() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Select Student</Label>
-                    <Select value={selectedStudent} onValueChange={setSelectedStudent}>
+                    <Label>Select Class</Label>
+                    <Select value={selectedClass} onValueChange={handleClassSelect}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Choose a student..." />
+                        <SelectValue placeholder="Choose a class..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {MOCK_STUDENTS.map(s => (
+                        {getUniqueClasses().map(classLevel => (
+                          <SelectItem key={classLevel} value={classLevel}>
+                            {classLevel} ({getStudentsByClass(classLevel).length} students)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Select Student</Label>
+                    <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={!selectedClass}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedClass ? "Choose a student..." : "Select a class first..."} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {selectedClass && getStudentsByClass(selectedClass).map(s => (
                           <SelectItem key={s.id} value={s.id}>
-                            {s.name} ({s.grade})
+                            {s.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

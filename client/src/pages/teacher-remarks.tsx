@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Save, CheckCircle, Info } from "lucide-react";
-import { MOCK_STUDENTS, ACADEMIC_TERMS, getGESGrade } from "@/lib/mock-data";
+import { FileText, Save, CheckCircle, Info, Download, BookOpen } from "lucide-react";
+import { MOCK_STUDENTS, ACADEMIC_TERMS, MOCK_SUBJECTS, getGESGrade } from "@/lib/mock-data";
 
 interface StudentRemarks {
   studentId: string;
@@ -17,7 +18,8 @@ interface StudentRemarks {
   classLevel: string;
   examScore: number;
   assessmentScore: number;
-  attendance: string;
+  attendance: number;
+  attendanceOut: number;
   attitude: string;
   conduct: string;
   interest: string;
@@ -34,9 +36,14 @@ export default function TeacherRemarks() {
 
   const activeStudent = MOCK_STUDENTS.find(s => s.id === selectedStudent);
 
+  // Get subjects for student's class
+  const getStudentSubjects = (classLevel: string) => {
+    return MOCK_SUBJECTS.filter(s => s.classLevels.includes(classLevel));
+  };
+
   // Determine if student is in Basic 7-9 or Basic 1-6
   const getClassLevelType = (grade: string): "senior" | "junior" => {
-    const basicNum = parseInt(grade.replace("Basic ", ""));
+    const basicNum = parseInt(grade.replace(/[^0-9]/g, ""));
     return basicNum >= 7 ? "senior" : "junior";
   };
 
@@ -54,7 +61,10 @@ export default function TeacherRemarks() {
 
   const handleRemarkChange = (field: string, value: string | number) => {
     if (!selectedStudent) return;
-    const numValue = typeof value === "number" ? value : (field === "examScore" || field === "assessmentScore" ? parseFloat(value) || 0 : value);
+    let numValue = value;
+    if (field === "examScore" || field === "assessmentScore" || field === "attendance" || field === "attendanceOut") {
+      numValue = parseFloat(String(value)) || 0;
+    }
     
     setRemarks(prev => ({
       ...prev,
@@ -65,7 +75,8 @@ export default function TeacherRemarks() {
           classLevel: activeStudent?.grade || "",
           examScore: 0,
           assessmentScore: 0,
-          attendance: "",
+          attendance: 0,
+          attendanceOut: 100,
           attitude: "",
           conduct: "",
           interest: "",
@@ -75,6 +86,12 @@ export default function TeacherRemarks() {
         [field]: numValue
       }
     }));
+  };
+
+  // Generate PDF (mock implementation)
+  const handleGeneratePDF = () => {
+    if (!currentRemark) return;
+    alert(`PDF would be generated for ${activeStudent?.name}'s report. This is a preview - actual PDF export would require backend integration.`);
   };
 
   const handleSave = () => {
@@ -232,16 +249,54 @@ export default function TeacherRemarks() {
                         </div>
                       )}
 
+                      {/* Student Subjects */}
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <BookOpen className="h-4 w-4" />
+                          Subjects for {activeStudent?.grade}
+                        </Label>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-wrap gap-2">
+                          {getStudentSubjects(activeStudent?.grade || "").length > 0 ? (
+                            getStudentSubjects(activeStudent?.grade || "").map(subj => (
+                              <Badge key={subj.id} variant="secondary" className="text-xs">
+                                {subj.name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No subjects assigned yet</p>
+                          )}
+                        </div>
+                      </div>
+
                       {/* Attendance and Conduct */}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="attendance">Attendance (e.g., 95/100)</Label>
-                          <Input
-                            id="attendance"
-                            placeholder="e.g., 95/100"
-                            value={currentRemark?.attendance || ""}
-                            onChange={(e) => handleRemarkChange("attendance", e.target.value)}
-                          />
+                          <Label htmlFor="attendance">Attendance (Days Present)</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="attendance"
+                              type="number"
+                              min="0"
+                              placeholder="e.g., 85"
+                              value={currentRemark?.attendance || ""}
+                              onChange={(e) => handleRemarkChange("attendance", e.target.value)}
+                              className="flex-1"
+                            />
+                            <span className="text-xs text-muted-foreground flex items-center">out of</span>
+                            <Input
+                              type="number"
+                              min="1"
+                              placeholder="100"
+                              value={currentRemark?.attendanceOut || 100}
+                              onChange={(e) => handleRemarkChange("attendanceOut", e.target.value)}
+                              className="w-20"
+                            />
+                          </div>
+                          {currentRemark?.attendance !== undefined && currentRemark?.attendanceOut && (
+                            <p className="text-xs text-muted-foreground">
+                              {((currentRemark.attendance / currentRemark.attendanceOut) * 100).toFixed(1)}% attendance rate
+                            </p>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="attitude">Attitude</Label>
@@ -282,13 +337,22 @@ export default function TeacherRemarks() {
                           </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="interest">Interest</Label>
-                          <Input
-                            id="interest"
-                            placeholder="E.g., Holds varied interests"
-                            value={currentRemark?.interest || ""}
-                            onChange={(e) => handleRemarkChange("interest", e.target.value)}
-                          />
+                          <Label htmlFor="interest">Interest in Studies</Label>
+                          <Select 
+                            value={currentRemark?.interest || ""} 
+                            onValueChange={(val) => handleRemarkChange("interest", val)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select interest level" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="VERY KEEN">Very Keen</SelectItem>
+                              <SelectItem value="KEEN">Keen</SelectItem>
+                              <SelectItem value="MODERATE">Moderate</SelectItem>
+                              <SelectItem value="MINIMAL">Minimal</SelectItem>
+                              <SelectItem value="NEEDS ENCOURAGEMENT">Needs Encouragement</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
 
@@ -325,10 +389,14 @@ export default function TeacherRemarks() {
                   )}
                 </CardContent>
                 {selectedStudent && (
-                  <CardFooter>
-                    <Button onClick={handleSave} className="w-full gap-2">
+                  <CardFooter className="gap-2">
+                    <Button onClick={handleSave} className="flex-1 gap-2">
                       <Save className="h-4 w-4" />
                       Save Grades & Remarks
+                    </Button>
+                    <Button onClick={handleGeneratePDF} variant="outline" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Export PDF
                     </Button>
                   </CardFooter>
                 )}
@@ -386,12 +454,24 @@ export default function TeacherRemarks() {
                         </div>
                       </div>
 
+                      {/* Subjects Studied */}
+                      <div className="border-t-2 border-gray-400 pt-4">
+                        <h4 className="font-bold text-gray-800 mb-2">SUBJECTS STUDIED</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs mb-4">
+                          {getStudentSubjects(activeStudent?.grade || "").map(subj => (
+                            <div key={subj.id} className="border border-gray-300 p-2">
+                              <p className="font-semibold">{subj.name}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Other Details */}
-                      <div className="mt-6 space-y-2 text-sm">
-                        <p><strong>Attendance:</strong> {currentRemark.attendance}</p>
+                      <div className="space-y-2 text-sm">
+                        <p><strong>Attendance:</strong> {currentRemark.attendance} / {currentRemark.attendanceOut} days ({((currentRemark.attendance / currentRemark.attendanceOut) * 100).toFixed(1)}%)</p>
                         <p><strong>Attitude:</strong> {currentRemark.attitude}</p>
                         <p><strong>Conduct:</strong> {currentRemark.conduct}</p>
-                        <p><strong>Interest:</strong> {currentRemark.interest}</p>
+                        <p><strong>Interest in Studies:</strong> {currentRemark.interest}</p>
                         <p><strong>Class Teacher's Remarks:</strong> {currentRemark.classTeacherRemark}</p>
                         <p><strong>Form Master:</strong> {currentRemark.formMaster}</p>
                       </div>

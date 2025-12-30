@@ -44,11 +44,11 @@ export default function TeacherRemarks() {
   // Get grading system based on class level
   const getGradingSystem = (grade: string): { examMax: number; assessmentMax: number; examLabel: string; assessmentLabel: string } => {
     const basicNum = parseInt(grade.replace(/[^0-9]/g, ""));
-    if (basicNum >= 1 && basicNum <= 5) {
-      // Basic 1-5: 50/50
+    if (basicNum >= 1 && basicNum <= 6) {
+      // Basic 1-6: 50/50
       return { examMax: 50, assessmentMax: 50, examLabel: "0-50", assessmentLabel: "0-50" };
     } else {
-      // Basic 6+: 70/30
+      // Basic 7-9: 70/30
       return { examMax: 70, assessmentMax: 30, examLabel: "0-70", assessmentLabel: "0-30" };
     }
   };

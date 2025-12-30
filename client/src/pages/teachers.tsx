@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Search, MoreHorizontal, Mail, Trash2, Edit, AlertCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { MOCK_TEACHERS } from "@/lib/mock-data";
 
 interface Teacher {
   id: string;
@@ -22,7 +23,7 @@ interface Teacher {
 
 export default function Teachers() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [teachers, setTeachers] = useState<Teacher[]>(require("@/lib/mock-data").MOCK_TEACHERS);
+  const [teachers, setTeachers] = useState<Teacher[]>(MOCK_TEACHERS);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
   const [newTeacher, setNewTeacher] = useState({ name: "", subject: "", email: "", username: "", password: "", secretWord: "" });

@@ -9,10 +9,10 @@ export const MOCK_STUDENTS = [
 ];
 
 export const MOCK_TEACHERS = [
-  { id: "T001", name: "Dr. Sarah Conner", subject: "Physics", email: "sarah@academia.edu", classes: 4 },
-  { id: "T002", name: "Prof. Alan Grant", subject: "Biology", email: "alan@academia.edu", classes: 3 },
-  { id: "T003", name: "Ms. Ellen Ripley", subject: "Mathematics", email: "ellen@academia.edu", classes: 5 },
-  { id: "T004", name: "Mr. John Keating", subject: "Literature", email: "john@academia.edu", classes: 4 },
+  { id: "T001", name: "Dr. Sarah Conner", subject: "Physics", email: "sarah@academia.edu", username: "teacher_001", password: "teacher123", secretWord: "ghana", classes: 4 },
+  { id: "T002", name: "Prof. Alan Grant", subject: "Biology", email: "alan@academia.edu", username: "teacher_002", password: "teacher123", secretWord: "excellence", classes: 3 },
+  { id: "T003", name: "Ms. Ellen Ripley", subject: "Mathematics", email: "ellen@academia.edu", username: "teacher_003", password: "teacher123", secretWord: "knowledge", classes: 5 },
+  { id: "T004", name: "Mr. John Keating", subject: "Literature", email: "john@academia.edu", username: "teacher_004", password: "teacher123", secretWord: "truth", classes: 4 },
 ];
 
 export const MOCK_SUBJECTS = [

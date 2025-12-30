@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MOCK_STUDENTS } from "@/lib/mock-data";
-import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface Student {
@@ -26,6 +26,8 @@ export default function Students() {
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
   const [csvLoading, setCsvLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -198,11 +200,17 @@ export default function Students() {
         </div>
       </div>
 
+      {successMessage && (
+        <Alert className="bg-green-50 border-green-200">
+          <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
             <CardTitle>All Students</CardTitle>
-            <div className="relative w-64">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Search by name or ID..." 
@@ -246,7 +254,7 @@ export default function Students() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`button-menu-student-${student.id}`}>
                           <span className="sr-only">Open menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -254,7 +262,13 @@ export default function Students() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>View Profile</DropdownMenuItem>
                         <DropdownMenuItem>Edit Details</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Suspend Student</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setDeleteConfirm(student.id)}
+                          className="text-destructive"
+                          data-testid={`button-delete-student-${student.id}`}
+                        >
+                          Delete Student
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -264,6 +278,46 @@ export default function Students() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <Dialog open={true} onOpenChange={() => setDeleteConfirm(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-red-600">Delete Student</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this student from the system? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-900">
+                <strong>{students.find(s => s.id === deleteConfirm)?.name}</strong> will be permanently removed from the system.
+              </p>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button 
+                variant="outline" 
+                onClick={() => setDeleteConfirm(null)}
+                data-testid="button-cancel-delete-student"
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => {
+                  setStudents(students.filter(s => s.id !== deleteConfirm));
+                  setDeleteConfirm(null);
+                  setSuccessMessage("Student deleted from system");
+                  setTimeout(() => setSuccessMessage(""), 3000);
+                }}
+                data-testid="button-confirm-delete-student"
+              >
+                Delete Student
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

@@ -47,16 +47,10 @@ export default function TeacherRemarks() {
     return basicNum >= 7 ? "senior" : "junior";
   };
 
-  // Calculate final score based on class level
+  // Calculate final score: Exam (70 points) + Assessment (30 points) = 100 points total
   const calculateFinalScore = (examScore: number, assessmentScore: number, classLevel: string): number => {
-    const type = getClassLevelType(classLevel);
-    if (type === "senior") {
-      // Basic 7-9: Exams 70%, Assessment 30%
-      return (examScore * 0.7) + (assessmentScore * 0.3);
-    } else {
-      // Basic 1-6: Exams 50%, Assessment 50%
-      return (examScore * 0.5) + (assessmentScore * 0.5);
-    }
+    // Simply add exam (0-70) + assessment (0-30) = final score (0-100)
+    return examScore + assessmentScore;
   };
 
   const handleRemarkChange = (field: string, value: string | number) => {
@@ -144,8 +138,9 @@ export default function TeacherRemarks() {
                     <AlertDescription className="text-blue-800 ml-2">
                       <strong>Grading Breakdown:</strong>
                       <div className="mt-2 text-xs space-y-1">
-                        <p>• <strong>Basic 7-9:</strong> End-of-Term Exams = 70%, Class Assessment = 30%</p>
-                        <p>• <strong>Basic 1-6:</strong> End-of-Term Exams = 50%, Class Assessment = 50%</p>
+                        <p>• <strong>End-of-Term Exams:</strong> 70 points (0-70 scale)</p>
+                        <p>• <strong>Class Assessment:</strong> 30 points (0-30 scale)</p>
+                        <p>• <strong>Total Grade:</strong> 100 points (Exam + Assessment)</p>
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -187,43 +182,43 @@ export default function TeacherRemarks() {
                           <span className="font-semibold">{activeStudent?.name}</span> - {activeStudent?.grade}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Grading Type: {classType === "senior" ? "70% Exam / 30% Assessment" : "50% Exam / 50% Assessment"}
+                          Score Breakdown: Exam (70 pts) + Assessment (30 pts) = Total (100 pts)
                         </p>
                       </div>
 
                       {/* Exam and Assessment Scores */}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="examScore">End-of-Term Exam Score (0-100)</Label>
+                          <Label htmlFor="examScore">End-of-Term Exam Score (0-70)</Label>
                           <Input
                             id="examScore"
                             type="number"
                             min="0"
-                            max="100"
-                            placeholder="Enter exam score"
+                            max="70"
+                            placeholder="Enter exam score (out of 70)"
                             value={currentRemark?.examScore || ""}
                             onChange={(e) => handleRemarkChange("examScore", e.target.value)}
                           />
                           {currentRemark?.examScore !== undefined && (
                             <p className="text-xs text-muted-foreground">
-                              Contribution: {(currentRemark.examScore * (classType === "senior" ? 0.7 : 0.5)).toFixed(1)} points
+                              Points: {currentRemark.examScore} / 70
                             </p>
                           )}
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="assessmentScore">Class Assessment Score (0-100)</Label>
+                          <Label htmlFor="assessmentScore">Class Assessment Score (0-30)</Label>
                           <Input
                             id="assessmentScore"
                             type="number"
                             min="0"
-                            max="100"
-                            placeholder="Enter assessment score"
+                            max="30"
+                            placeholder="Enter assessment score (out of 30)"
                             value={currentRemark?.assessmentScore || ""}
                             onChange={(e) => handleRemarkChange("assessmentScore", e.target.value)}
                           />
                           {currentRemark?.assessmentScore !== undefined && (
                             <p className="text-xs text-muted-foreground">
-                              Contribution: {(currentRemark.assessmentScore * (classType === "senior" ? 0.3 : 0.5)).toFixed(1)} points
+                              Points: {currentRemark.assessmentScore} / 30
                             </p>
                           )}
                         </div>
@@ -232,18 +227,25 @@ export default function TeacherRemarks() {
                       {/* Final Grade Display */}
                       {currentRemark?.examScore !== undefined && currentRemark?.assessmentScore !== undefined && (
                         <div className="bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-lg p-4">
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                            <div>
+                          <div className="grid grid-cols-4 gap-3 text-center">
+                            <div className="border-r border-primary/20">
+                              <p className="text-xs text-muted-foreground">Exam</p>
+                              <p className="text-lg font-bold text-primary">{currentRemark.examScore}/70</p>
+                            </div>
+                            <div className="border-r border-primary/20">
+                              <p className="text-xs text-muted-foreground">Assessment</p>
+                              <p className="text-lg font-bold text-primary">{currentRemark.assessmentScore}/30</p>
+                            </div>
+                            <div className="border-r border-primary/20">
                               <p className="text-xs text-muted-foreground">Final Score</p>
-                              <p className="text-2xl font-bold text-primary">{finalScore.toFixed(1)}</p>
+                              <p className="text-lg font-bold text-secondary">{finalScore.toFixed(0)}/100</p>
                             </div>
                             <div>
                               <p className="text-xs text-muted-foreground">Grade</p>
-                              <p className="text-2xl font-bold text-secondary">{gradeInfo.grade}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground">Description</p>
-                              <p className="text-sm font-semibold text-foreground">{gradeInfo.description}</p>
+                              <div>
+                                <p className="text-lg font-bold text-primary">{gradeInfo.grade}</p>
+                                <p className="text-xs font-semibold text-foreground">{gradeInfo.description}</p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -430,26 +432,23 @@ export default function TeacherRemarks() {
                       {/* Grades Summary */}
                       <div className="border-2 border-blue-600 rounded-lg p-4 bg-blue-50">
                         <h3 className="font-bold text-blue-900 mb-3">OVERALL ACADEMIC PERFORMANCE</h3>
-                        <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="grid grid-cols-4 gap-3 text-center">
                           <div className="border-r border-blue-300">
                             <p className="text-xs text-blue-700">End-of-Term Exam</p>
-                            <p className="text-xl font-bold text-blue-900">{currentRemark.examScore}</p>
-                            <p className="text-xs text-blue-600">
-                              ({classType === "senior" ? "70%" : "50%"}) = {(currentRemark.examScore * (classType === "senior" ? 0.7 : 0.5)).toFixed(1)}
-                            </p>
+                            <p className="text-xl font-bold text-blue-900">{currentRemark.examScore}/70</p>
                           </div>
                           <div className="border-r border-blue-300">
                             <p className="text-xs text-blue-700">Class Assessment</p>
-                            <p className="text-xl font-bold text-blue-900">{currentRemark.assessmentScore}</p>
-                            <p className="text-xs text-blue-600">
-                              ({classType === "senior" ? "30%" : "50%"}) = {(currentRemark.assessmentScore * (classType === "senior" ? 0.3 : 0.5)).toFixed(1)}
-                            </p>
+                            <p className="text-xl font-bold text-blue-900">{currentRemark.assessmentScore}/30</p>
+                          </div>
+                          <div className="border-r border-blue-300">
+                            <p className="text-xs text-blue-700">Total Score</p>
+                            <p className="text-xl font-bold text-blue-900">{finalScore.toFixed(0)}/100</p>
                           </div>
                           <div>
-                            <p className="text-xs text-blue-700">Final Grade</p>
+                            <p className="text-xs text-blue-700">Grade</p>
                             <p className="text-2xl font-bold text-blue-900">{gradeInfo.grade}</p>
                             <p className="text-xs font-semibold text-blue-900">{gradeInfo.description}</p>
-                            <p className="text-lg font-bold text-primary mt-1">{finalScore.toFixed(1)}</p>
                           </div>
                         </div>
                       </div>

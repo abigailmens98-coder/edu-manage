@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import Login from "@/pages/login";
 import TeacherDashboard from "@/pages/teacher-dashboard";
+import TeacherProfile from "@/pages/teacher-profile";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
@@ -22,7 +23,12 @@ function AppRoutes() {
   }
 
   if (role === "teacher") {
-    return <TeacherDashboard />;
+    return (
+      <Switch>
+        <Route path="/profile" component={TeacherProfile} />
+        <Route component={TeacherDashboard} />
+      </Switch>
+    );
   }
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Settings, Save, CheckCircle, Calendar, Clock, BarChart3 } from "lucide-react";
-import { ACADEMIC_YEARS, ACADEMIC_TERMS, GES_GRADING_SCALE, BASIC_1_6_GRADING_SCALE } from "@/lib/mock-data";
+import { ACADEMIC_TERMS, GES_GRADING_SCALE, BASIC_1_6_GRADING_SCALE } from "@/lib/mock-data";
+import { getStoredYears, updateYears } from "@/lib/storage";
 
 interface AcademicYear {
   id: string;
@@ -17,24 +18,20 @@ interface AcademicYear {
   totalDays: number;
 }
 
-interface GradingConfig {
-  classLevel: string;
-  minScore: number;
-  maxScore: number;
-  grade: string;
-  remarks: string;
-}
-
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState("academic");
   const [submitted, setSubmitted] = useState(false);
-  
-  // Academic Years
-  const [years, setYears] = useState<AcademicYear[]>([
-    { id: "AY2024", year: "2023/2024", status: "Completed", totalDays: 180 },
-    { id: "AY2025", year: "2024/2025", status: "Active", totalDays: 190 },
-    { id: "AY2026", year: "2025/2026", status: "Inactive", totalDays: 0 },
-  ]);
+  const [years, setYears] = useState<AcademicYear[]>([]);
+
+  useEffect(() => {
+    setYears(getStoredYears());
+  }, []);
+
+  useEffect(() => {
+    if (years.length > 0) {
+      updateYears(years);
+    }
+  }, [years]);
   
   const [newYear, setNewYear] = useState({ year: "", totalDays: "" });
   

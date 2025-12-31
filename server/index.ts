@@ -15,26 +15,32 @@ declare module "http" {
   }
 }
 
-// Configure session store
-const PgSession = connectPgSimple(session);
+// Configure session store - use PostgreSQL if available, fallback to memory store
+let sessionConfig: any = {
+  secret: process.env.SESSION_SECRET || "university-basic-school-secret-key",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+  },
+};
 
-app.use(
-  session({
-    store: new PgSession({
-      pool: pool,
-      tableName: 'session',
-      createTableIfMissing: true,
-    }),
-    secret: process.env.SESSION_SECRET || "university-basic-school-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: process.env.NODE_ENV === "production",
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
-    },
-  })
-);
+if (pool) {
+  const PgSession = connectPgSimple(session);
+  sessionConfig.store = new PgSession({
+    pool: pool,
+    tableName: 'session',
+    createTableIfMissing: true,
+  });
+  console.log('✅ Using PostgreSQL session store');
+} else {
+  console.warn('⚠️  Using memory session store - sessions will not persist across restarts');
+  console.warn('⚠️  Configure DATABASE_URL for production deployments');
+}
+
+app.use(session(sessionConfig));
 
 app.use(
   express.json({

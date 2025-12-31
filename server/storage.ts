@@ -20,35 +20,37 @@ import type {
 } from "@shared/schema";
 
 // Create database pool with error handling
-let pool: pg.Pool;
-let db: any;
+let pool: pg.Pool | null = null;
+let db: any = null;
 
-try {
-  if (!process.env.DATABASE_URL) {
-    throw new Error("DATABASE_URL environment variable is not set");
+const isDatabaseAvailable = !!process.env.DATABASE_URL;
+
+if (isDatabaseAvailable) {
+  try {
+    pool = new pg.Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    });
+
+    db = drizzle(pool, { schema });
+    
+    // Test connection
+    pool.query('SELECT NOW()', (err) => {
+      if (err) {
+        console.error('❌ Database connection error:', err.message);
+      } else {
+        console.log('✅ Database connected successfully');
+      }
+    });
+  } catch (error) {
+    console.error('❌ Failed to initialize database:', error);
   }
-  
-  pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-  });
-
-  db = drizzle(pool, { schema });
-  
-  // Test connection
-  pool.query('SELECT NOW()', (err) => {
-    if (err) {
-      console.error('Database connection error:', err.message);
-    } else {
-      console.log('✅ Database connected successfully');
-    }
-  });
-} catch (error) {
-  console.error('Failed to initialize database:', error);
-  throw error;
+} else {
+  console.warn('⚠️  DATABASE_URL not set - database features will be unavailable');
+  console.warn('⚠️  Please configure a production PostgreSQL database for deployment');
 }
 
-export { pool };
+export { pool, isDatabaseAvailable };
 
 export interface IStorage {
   // User operations

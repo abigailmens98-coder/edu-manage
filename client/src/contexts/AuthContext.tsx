@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext } from "react";
-import { MOCK_TEACHERS } from "@/lib/mock-data";
+import React, { createContext, useState, useContext, useEffect } from "react";
+import { authApi } from "@/lib/api";
 
 export type UserRole = "admin" | "teacher" | null;
 
@@ -7,10 +7,11 @@ interface AuthContextType {
   role: UserRole;
   username: string | null;
   userId: string | null;
-  login: (identifier: string, password: string) => boolean;
-  logout: () => void;
+  teacherInfo: any | null;
+  login: (identifier: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
-  resetPassword: (identifier: string, secretWord: string) => string | null;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,57 +20,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [teacherInfo, setTeacherInfo] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (identifier: string, password: string) => {
-    // Admin login
-    if ((identifier === "admin" || identifier === "admin@academia.edu") && password === "admin123") {
-      setRole("admin");
-      setUsername("Administrator");
-      setUserId("ADMIN");
+  useEffect(() => {
+    // Check if already authenticated
+    const checkAuth = async () => {
+      try {
+        const { user } = await authApi.me();
+        setRole(user.role as UserRole);
+        setUsername(user.username);
+        setUserId(user.id);
+      } catch (error) {
+        // Not authenticated
+        setRole(null);
+        setUsername(null);
+        setUserId(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  const login = async (identifier: string, password: string): Promise<boolean> => {
+    try {
+      const { user, teacher } = await authApi.login(identifier, password);
+      setRole(user.role as UserRole);
+      setUsername(user.username);
+      setUserId(user.id);
+      if (teacher) {
+        setTeacherInfo(teacher);
+      }
       return true;
+    } catch (error) {
+      console.error("Login error:", error);
+      return false;
     }
-    
-    // Teacher login with username or email
-    const teacher = MOCK_TEACHERS.find(
-      t => (t.username === identifier || t.email === identifier) && t.password === password
-    );
-    
-    if (teacher) {
-      setRole("teacher");
-      setUsername(teacher.name);
-      setUserId(teacher.id);
-      return true;
-    }
-    
-    return false;
   };
 
-  const resetPassword = (identifier: string, secretWord: string): string | null => {
-    // Admin password reset
-    if ((identifier === "admin" || identifier === "admin@academia.edu") && secretWord === "governance") {
-      return "admin123";
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setRole(null);
+      setUsername(null);
+      setUserId(null);
+      setTeacherInfo(null);
     }
-    
-    // Teacher password reset
-    const teacher = MOCK_TEACHERS.find(
-      t => (t.username === identifier || t.email === identifier) && t.secretWord === secretWord
-    );
-    
-    if (teacher) {
-      return teacher.password;
-    }
-    
-    return null;
   };
 
-  const logout = () => {
-    setRole(null);
-    setUsername(null);
-    setUserId(null);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <AuthContext.Provider value={{ role, username, userId, login, logout, isAuthenticated: role !== null, resetPassword }}>
+    <AuthContext.Provider value={{ role, username, userId, teacherInfo, login, logout, isAuthenticated: role !== null, loading }}>
       {children}
     </AuthContext.Provider>
   );

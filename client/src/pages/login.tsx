@@ -20,7 +20,7 @@ export default function Login() {
   const [resetSecret, setResetSecret] = useState("");
   const [resetMessage, setResetMessage] = useState("");
   const [resetError, setResetError] = useState("");
-  const { login, resetPassword } = useAuth();
+  const { login } = useAuth();
   const [, setLocation] = useLocation();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -28,12 +28,12 @@ export default function Login() {
     setError("");
     setIsLoading(true);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    if (login(identifier, password)) {
+    const success = await login(identifier, password);
+    
+    if (success) {
       setLocation("/");
     } else {
-      setError("Invalid username/email or password. Check demo credentials below.");
+      setError("Invalid username or password. Check demo credentials below.");
     }
     setIsLoading(false);
   };
@@ -42,19 +42,8 @@ export default function Login() {
     e.preventDefault();
     setResetError("");
     setResetMessage("");
-
-    const newPassword = resetPassword(resetIdentifier, resetSecret);
-    if (newPassword) {
-      setResetMessage(`✓ Password reset successful! Your password is: ${newPassword}`);
-      setTimeout(() => {
-        setShowReset(false);
-        setResetIdentifier("");
-        setResetSecret("");
-        setResetMessage("");
-      }, 3000);
-    } else {
-      setResetError("Invalid username/email or secret word. Please try again.");
-    }
+    // Password reset functionality can be added later
+    setResetError("Password reset is currently unavailable. Please contact administrator.");
   };
 
   return (

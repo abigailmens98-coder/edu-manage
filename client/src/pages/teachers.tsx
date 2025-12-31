@@ -19,6 +19,7 @@ interface Teacher {
   password: string;
   secretWord: string;
   classes: number;
+  assignedClass?: string; // e.g. "Basic 1"
 }
 
 export default function Teachers() {
@@ -36,9 +37,12 @@ export default function Teachers() {
       updateTeachers(teachers);
     }
   }, [teachers]);
+  
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null);
-  const [newTeacher, setNewTeacher] = useState({ name: "", subject: "", email: "", username: "", password: "", secretWord: "" });
+  const [newTeacher, setNewTeacher] = useState<Partial<Teacher>>({ 
+    name: "", subject: "", email: "", username: "", password: "", secretWord: "", assignedClass: "" 
+  });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -51,11 +55,17 @@ export default function Teachers() {
     if (newTeacher.name && newTeacher.email && newTeacher.username && newTeacher.password && newTeacher.secretWord) {
       const teacher: Teacher = {
         id: `T${String(teachers.length + 1).padStart(3, "0")}`,
-        ...newTeacher,
-        classes: 0
+        name: newTeacher.name!,
+        subject: newTeacher.subject || "General",
+        email: newTeacher.email!,
+        username: newTeacher.username!,
+        password: newTeacher.password!,
+        secretWord: newTeacher.secretWord!,
+        classes: 0,
+        assignedClass: newTeacher.assignedClass
       };
       setTeachers([...teachers, teacher]);
-      setNewTeacher({ name: "", subject: "", email: "", username: "", password: "", secretWord: "" });
+      setNewTeacher({ name: "", subject: "", email: "", username: "", password: "", secretWord: "", assignedClass: "" });
       setShowAddDialog(false);
       setSuccessMessage("Teacher added successfully!");
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -71,18 +81,26 @@ export default function Teachers() {
 
   const handleEditTeacher = (teacher: Teacher) => {
     setEditingTeacher(teacher);
-    setNewTeacher({ name: teacher.name, subject: teacher.subject, email: teacher.email, username: teacher.username, password: teacher.password, secretWord: teacher.secretWord });
+    setNewTeacher({ 
+      name: teacher.name, 
+      subject: teacher.subject, 
+      email: teacher.email, 
+      username: teacher.username, 
+      password: teacher.password, 
+      secretWord: teacher.secretWord,
+      assignedClass: teacher.assignedClass || ""
+    });
   };
 
   const handleSaveEdit = () => {
     if (editingTeacher && newTeacher.name && newTeacher.email) {
       setTeachers(teachers.map(t => 
         t.id === editingTeacher.id 
-          ? { ...t, ...newTeacher }
+          ? { ...t, ...newTeacher } as Teacher
           : t
       ));
       setEditingTeacher(null);
-      setNewTeacher({ name: "", subject: "", email: "", username: "", password: "", secretWord: "" });
+      setNewTeacher({ name: "", subject: "", email: "", username: "", password: "", secretWord: "", assignedClass: "" });
       setSuccessMessage("Teacher profile updated!");
       setTimeout(() => setSuccessMessage(""), 3000);
     }
@@ -180,6 +198,15 @@ export default function Teachers() {
                 value={newTeacher.secretWord}
                 onChange={(e) => setNewTeacher({...newTeacher, secretWord: e.target.value})}
                 data-testid="input-teacher-secret"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Assigned Class (e.g. Basic 1)</Label>
+              <Input 
+                placeholder="Primary Class Assignment" 
+                value={newTeacher.assignedClass}
+                onChange={(e) => setNewTeacher({...newTeacher, assignedClass: e.target.value})}
+                data-testid="input-teacher-class"
               />
             </div>
           </div>

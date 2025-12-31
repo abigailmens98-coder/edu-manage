@@ -13,6 +13,8 @@ import ManageSubjects from "@/pages/manage-subjects";
 import Terms from "@/pages/terms";
 import Reports from "@/pages/reports";
 import TeacherRemarks from "@/pages/teacher-remarks";
+import ScoreEntry from "@/pages/score-entry";
+import Broadsheet from "@/pages/broadsheet";
 import AdminSettings from "@/pages/admin-settings";
 import NotFound from "@/pages/not-found";
 
@@ -43,6 +45,8 @@ function AppRoutes() {
         <Route path="/terms" component={Terms} />
         <Route path="/reports" component={Reports} />
         <Route path="/remarks" component={TeacherRemarks} />
+        <Route path="/scores" component={ScoreEntry} />
+        <Route path="/broadsheet" component={Broadsheet} />
         <Route path="/settings" component={AdminSettings} />
         <Route component={NotFound} />
       </Switch>

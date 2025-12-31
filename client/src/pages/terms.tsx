@@ -9,8 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { getStoredTerms, updateTerms } from "@/lib/storage";
 import { Calendar, Plus, Edit2 } from "lucide-react";
 
+interface Term {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+}
+
 export default function TermsManagement() {
-  const [terms, setTerms] = useState([]);
+  const [terms, setTerms] = useState<Term[]>([]);
 
   useEffect(() => {
     setTerms(getStoredTerms());

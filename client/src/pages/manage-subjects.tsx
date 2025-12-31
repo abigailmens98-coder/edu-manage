@@ -9,8 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { getStoredSubjects, updateSubjects } from "@/lib/storage";
 import { Plus, Edit2, Trash2, BookOpen } from "lucide-react";
 
+interface Subject {
+  id: string;
+  name: string;
+  code: string;
+  teacher: string;
+  students: number;
+  classLevels?: string[];
+}
+
 export default function ManageSubjects() {
-  const [subjects, setSubjects] = useState([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
 
   useEffect(() => {
     setSubjects(getStoredSubjects());
@@ -21,6 +30,7 @@ export default function ManageSubjects() {
       updateSubjects(subjects);
     }
   }, [subjects]);
+
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectCode, setNewSubjectCode] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -29,7 +39,7 @@ export default function ManageSubjects() {
 
   const handleAddSubject = () => {
     if (newSubjectName.trim() && newSubjectCode.trim()) {
-      const newSubject = {
+      const newSubject: Subject = {
         id: `SUB${Date.now()}`,
         name: newSubjectName,
         code: newSubjectCode,
@@ -56,8 +66,8 @@ export default function ManageSubjects() {
       setSubjects(
         subjects.map(s =>
           s.id === editingId
-            ? { ...s, name: editName, code: editCode }
-            : s
+          ? { ...s, name: editName, code: editCode }
+          : s
         )
       );
       setEditingId(null);

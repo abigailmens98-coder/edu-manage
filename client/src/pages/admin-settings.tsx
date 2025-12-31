@@ -102,7 +102,7 @@ export default function AdminSettings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="days">Total School Days</Label>
+                    <Label htmlFor="days">Total School Days (Attendance Out Of)</Label>
                     <Input
                       id="days"
                       type="number"

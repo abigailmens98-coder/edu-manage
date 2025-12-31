@@ -13,13 +13,19 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Seed database on first run
+  // Seed database on first run with error handling
   if (!isSeeded) {
-    const user = await storage.getUserByUsername("admin");
-    if (!user) {
-      await seedDatabase();
+    try {
+      const user = await storage.getUserByUsername("admin");
+      if (!user) {
+        await seedDatabase();
+      }
+      isSeeded = true;
+    } catch (error) {
+      console.error('Failed to seed database:', error);
+      // Continue without seeding - app will still work but admin won't exist
+      isSeeded = true;
     }
-    isSeeded = true;
   }
 
   // Authentication routes

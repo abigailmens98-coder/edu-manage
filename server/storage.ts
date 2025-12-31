@@ -19,11 +19,36 @@ import type {
   InsertScore,
 } from "@shared/schema";
 
-const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL!,
-});
+// Create database pool with error handling
+let pool: pg.Pool;
+let db: any;
 
-const db = drizzle(pool, { schema });
+try {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL environment variable is not set");
+  }
+  
+  pool = new pg.Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+
+  db = drizzle(pool, { schema });
+  
+  // Test connection
+  pool.query('SELECT NOW()', (err) => {
+    if (err) {
+      console.error('Database connection error:', err.message);
+    } else {
+      console.log('✅ Database connected successfully');
+    }
+  });
+} catch (error) {
+  console.error('Failed to initialize database:', error);
+  throw error;
+}
+
+export { pool };
 
 export interface IStorage {
   // User operations

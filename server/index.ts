@@ -3,6 +3,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+import { pool } from "./storage";
 
 const app = express();
 const httpServer = createServer(app);
@@ -13,9 +15,16 @@ declare module "http" {
   }
 }
 
-// Session middleware
+// Configure session store
+const PgSession = connectPgSimple(session);
+
 app.use(
   session({
+    store: new PgSession({
+      pool: pool,
+      tableName: 'session',
+      createTableIfMissing: true,
+    }),
     secret: process.env.SESSION_SECRET || "university-basic-school-secret-key",
     resave: false,
     saveUninitialized: false,

@@ -39,13 +39,19 @@ export const MOCK_SUBJECTS = [
   { id: "SUB016", name: "Social Studies", code: "SOC101", teacher: "Unassigned", students: 0, classLevels: ["Basic 7", "Basic 8", "Basic 9"] },
 ];
 
+export const ACADEMIC_YEARS = [
+  { id: "AY2024", year: "2023/2024", status: "Completed" },
+  { id: "AY2025", year: "2024/2025", status: "Active" },
+  { id: "AY2026", year: "2025/2026", status: "Inactive" },
+];
+
 export const ACADEMIC_TERMS = [
   { id: "TERM1", name: "Term 1", description: "First academic term", status: "Active" },
   { id: "TERM2", name: "Term 2", description: "Second academic term", status: "Inactive" },
   { id: "TERM3", name: "Term 3", description: "Third academic term", status: "Inactive" },
 ];
 
-// GES Ghana Grading Scale
+// GES Ghana Grading Scale - Basic 7-9
 export const GES_GRADING_SCALE = [
   { range: [80, 100], grade: "A+", description: "Excellent" },
   { range: [75, 79], grade: "A", description: "Very Good" },
@@ -59,7 +65,18 @@ export const GES_GRADING_SCALE = [
   { range: [0, 39], grade: "F", description: "Fail" },
 ];
 
-export function getGESGrade(score: number): { grade: string; description: string } {
-  const entry = GES_GRADING_SCALE.find(g => score >= g.range[0] && score <= g.range[1]);
+// Grading Scale - Basic 1-6
+export const BASIC_1_6_GRADING_SCALE = [
+  { range: [80, 100], grade: "A", description: "Advance" },
+  { range: [75, 79], grade: "P", description: "Proficient" },
+  { range: [70, 74], grade: "AP", description: "Approaching Proficient" },
+  { range: [65, 69], grade: "D", description: "Developing" },
+  { range: [0, 64], grade: "B", description: "Beginning" },
+];
+
+export function getGESGrade(score: number, classLevel?: string): { grade: string; description: string } {
+  const basicNum = classLevel ? parseInt(classLevel.replace(/[^0-9]/g, "")) : 0;
+  const scale = basicNum >= 1 && basicNum <= 6 ? BASIC_1_6_GRADING_SCALE : GES_GRADING_SCALE;
+  const entry = scale.find(g => score >= g.range[0] && score <= g.range[1]);
   return entry ? { grade: entry.grade, description: entry.description } : { grade: "F", description: "Fail" };
 }

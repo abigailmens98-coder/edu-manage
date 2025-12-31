@@ -19,11 +19,7 @@ interface Subject {
 }
 
 export default function ManageSubjects() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-
-  useEffect(() => {
-    setSubjects(getStoredSubjects());
-  }, []);
+  const [subjects, setSubjects] = useState<Subject[]>(() => getStoredSubjects());
 
   useEffect(() => {
     if (subjects.length > 0) {

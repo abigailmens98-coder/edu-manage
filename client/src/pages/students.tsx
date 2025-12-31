@@ -22,12 +22,7 @@ interface Student {
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [students, setStudents] = useState<Student[]>([]);
-
-  // Load from storage on mount
-  useEffect(() => {
-    setStudents(getStoredStudents());
-  }, []);
+  const [students, setStudents] = useState<Student[]>(() => getStoredStudents());
 
   // Save to storage whenever students change
   useEffect(() => {

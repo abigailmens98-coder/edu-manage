@@ -20,19 +20,21 @@ export default function Broadsheet() {
 
   const classStudents = students.filter(s => s.grade === selectedClass);
 
-  // Mock score generator for demonstration since we don't have a real score database yet
-  const getMockScore = (studentId: string, subjectId: string) => {
-    // Generate a deterministic random score based on IDs
-    const seed = studentId.charCodeAt(3) + subjectId.charCodeAt(3);
-    return 40 + (seed % 60); 
+  // Get score from student object (persisted in LocalStorage)
+  const getScore = (student: any, subjectId: string) => {
+    const scoreData = student.scores?.[subjectId];
+    if (scoreData) {
+      return scoreData.class + scoreData.exam;
+    }
+    return 0; // Return 0 if no score entered
   };
 
-  const calculateTotal = (studentId: string) => {
-    return subjects.reduce((sum, sub) => sum + getMockScore(studentId, sub.id), 0);
+  const calculateTotal = (student: any) => {
+    return subjects.reduce((sum, sub) => sum + getScore(student, sub.id), 0);
   };
 
   // Sort students by position (total score)
-  const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b.id) - calculateTotal(a.id));
+  const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b) - calculateTotal(a));
 
   const downloadPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
@@ -51,8 +53,8 @@ export default function Broadsheet() {
       index + 1,
       student.id,
       student.name,
-      ...subjects.map(s => getMockScore(student.id, s.id)),
-      calculateTotal(student.id)
+      ...subjects.map(s => getScore(student, s.id) || "-"), // Show "-" if 0
+      calculateTotal(student)
     ]);
 
     autoTable(doc, {
@@ -132,11 +134,11 @@ export default function Broadsheet() {
                       </TableCell>
                       {subjects.map(s => (
                         <TableCell key={s.id} className="text-center">
-                          {getMockScore(student.id, s.id)}
+                          {getScore(student, s.id) || "-"}
                         </TableCell>
                       ))}
                       <TableCell className="text-right font-bold bg-muted/20">
-                        {calculateTotal(student.id)}
+                        {calculateTotal(student)}
                       </TableCell>
                     </TableRow>
                   ))}

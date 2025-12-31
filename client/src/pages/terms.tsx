@@ -17,11 +17,7 @@ interface Term {
 }
 
 export default function TermsManagement() {
-  const [terms, setTerms] = useState<Term[]>([]);
-
-  useEffect(() => {
-    setTerms(getStoredTerms());
-  }, []);
+  const [terms, setTerms] = useState<Term[]>(() => getStoredTerms());
 
   useEffect(() => {
     if (terms.length > 0) {

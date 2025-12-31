@@ -34,14 +34,20 @@ export default function ScoreEntry() {
     if (selectedClass && selectedSubject) {
       const initialScores: Record<string, { class: string, exam: string }> = {};
       classStudents.forEach(student => {
-        // In a real app, we'd fetch existing scores here. 
-        // For now, we'll just leave them blank or mock them if stored in student object
-        // Let's assume student object might have a 'scores' property in future
-        initialScores[student.id] = { class: "", exam: "" };
+        // Load existing scores if available
+        const studentScores = student.scores?.[selectedSubject];
+        if (studentScores) {
+          initialScores[student.id] = { 
+            class: studentScores.class.toString(), 
+            exam: studentScores.exam.toString() 
+          };
+        } else {
+          initialScores[student.id] = { class: "", exam: "" };
+        }
       });
       setScores(initialScores);
     }
-  }, [selectedClass, selectedSubject]);
+  }, [selectedClass, selectedSubject, students]); // Add students to dependency to reload if students update
 
   const handleScoreChange = (studentId: string, type: 'class' | 'exam', value: string) => {
     setScores(prev => ({
@@ -54,19 +60,34 @@ export default function ScoreEntry() {
   };
 
   const handleSave = () => {
-    // Here we would save to the students storage
-    // For this mockup, we'll just simulate a save
+    // Update students with new scores
+    const updatedStudents = students.map(student => {
+      // Only update students in the current class view
+      if (student.grade === selectedClass) {
+        const studentScore = scores[student.id];
+        // Create or update the scores object
+        const currentScores = student.scores || {};
+        
+        // Only save if we have valid numbers
+        if (studentScore && (studentScore.class || studentScore.exam)) {
+           const newScores = {
+             ...currentScores,
+             [selectedSubject]: {
+               class: parseFloat(studentScore.class || "0"),
+               exam: parseFloat(studentScore.exam || "0")
+             }
+           };
+           return { ...student, scores: newScores };
+        }
+      }
+      return student;
+    });
+
+    setStudents(updatedStudents); // Update local state
+    updateStudents(updatedStudents); // Save to persistent storage
+    
     setSuccessMessage("Scores saved successfully!");
     setTimeout(() => setSuccessMessage(""), 3000);
-    
-    // In a real implementation:
-    // const updatedStudents = students.map(s => {
-    //   if (scores[s.id]) {
-    //     return { ...s, scores: { ...s.scores, [selectedSubject]: scores[s.id] } };
-    //   }
-    //   return s;
-    // });
-    // updateStudents(updatedStudents);
   };
 
   // Grading Logic Helper

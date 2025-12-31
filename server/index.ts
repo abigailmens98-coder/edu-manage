@@ -21,14 +21,16 @@ declare module "http" {
 }
 
 // Configure session store - use PostgreSQL if available, fallback to memory store
+const isProduction = process.env.NODE_ENV === "production";
 let sessionConfig: any = {
   secret: process.env.SESSION_SECRET || "university-basic-school-secret-key",
   resave: false,
   saveUninitialized: false,
+  proxy: isProduction, // Trust the reverse proxy
   cookie: {
-    secure: process.env.NODE_ENV === "production",
+    secure: "auto", // Auto-detect based on connection
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
+    sameSite: "lax",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
   },
 };

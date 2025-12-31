@@ -15,11 +15,11 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Seed database on first run
   if (!isSeeded) {
-    const users = await storage.getUser("admin");
-    if (!users) {
+    const user = await storage.getUserByUsername("admin");
+    if (!user) {
       await seedDatabase();
-      isSeeded = true;
     }
+    isSeeded = true;
   }
 
   // Authentication routes

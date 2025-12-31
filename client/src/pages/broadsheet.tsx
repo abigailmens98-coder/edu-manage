@@ -1,49 +1,97 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getStoredStudents, getStoredSubjects } from "@/lib/storage";
-import { FileDown, Printer } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { FileDown } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { studentsApi, subjectsApi, academicTermsApi, scoresApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Broadsheet() {
   const [students, setStudents] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [terms, setTerms] = useState<any[]>([]);
+  const [scores, setScores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedClass, setSelectedClass] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
+  const { toast } = useToast();
 
   useEffect(() => {
-    setStudents(getStoredStudents());
-    setSubjects(getStoredSubjects());
+    fetchData();
   }, []);
+
+  const fetchData = async () => {
+    try {
+      const [studentsData, subjectsData, termsData] = await Promise.all([
+        studentsApi.getAll(),
+        subjectsApi.getAll(),
+        academicTermsApi.getAll(),
+      ]);
+      setStudents(studentsData);
+      setSubjects(subjectsData);
+      setTerms(termsData);
+      
+      // Auto-select first active term
+      const activeTerm = termsData.find(t => t.status === "Active");
+      if (activeTerm) {
+        setSelectedTerm(activeTerm.id);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedTerm) {
+      loadScores();
+    }
+  }, [selectedTerm]);
+
+  const loadScores = async () => {
+    try {
+      const scoresData = await scoresApi.getByTerm(selectedTerm);
+      setScores(scoresData);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load scores",
+        variant: "destructive",
+      });
+    }
+  };
 
   const classStudents = students.filter(s => s.grade === selectedClass);
 
-  // Get score from student object (persisted in LocalStorage)
-  const getScore = (student: any, subjectId: string) => {
-    const scoreData = student.scores?.[subjectId];
-    if (scoreData) {
-      return scoreData.class + scoreData.exam;
-    }
-    return 0; // Return 0 if no score entered
+  const getScore = (studentId: string, subjectId: string) => {
+    const score = scores.find(s => s.studentId === studentId && s.subjectId === subjectId);
+    return score ? score.totalScore : 0;
   };
 
-  const calculateTotal = (student: any) => {
-    return subjects.reduce((sum, sub) => sum + getScore(student, sub.id), 0);
+  const calculateTotal = (studentId: string) => {
+    return subjects.reduce((sum, sub) => sum + getScore(studentId, sub.id), 0);
   };
 
-  // Sort students by position (total score)
-  const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b) - calculateTotal(a));
+  const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b.id) - calculateTotal(a.id));
 
   const downloadPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
+    const termName = terms.find(t => t.id === selectedTerm)?.name || "Term 1";
     
     doc.setFontSize(18);
     doc.text("UNIVERSITY BASIC SCHOOL - TARKWA", 14, 15);
     doc.setFontSize(12);
     doc.text(`Broadsheet - ${selectedClass}`, 14, 22);
-    doc.text(`Academic Year: 2024/2025 - Term 1`, 14, 28);
+    doc.text(`Academic Year: 2024/2025 - ${termName}`, 14, 28);
 
     const tableHead = [
       ["Pos", "Student ID", "Name", ...subjects.map(s => s.code), "Total"]
@@ -51,10 +99,10 @@ export default function Broadsheet() {
 
     const tableBody = rankedStudents.map((student, index) => [
       index + 1,
-      student.id,
+      student.studentId,
       student.name,
-      ...subjects.map(s => getScore(student, s.id) || "-"), // Show "-" if 0
-      calculateTotal(student)
+      ...subjects.map(s => getScore(student.id, s.id) || "-"),
+      calculateTotal(student.id)
     ]);
 
     autoTable(doc, {
@@ -63,11 +111,19 @@ export default function Broadsheet() {
       startY: 35,
       theme: 'grid',
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [41, 128, 185] }, // Blue header
+      headStyles: { fillColor: [41, 128, 185] },
     });
 
-    doc.save(`Broadsheet_${selectedClass}.pdf`);
+    doc.save(`Broadsheet_${selectedClass}_${termName}.pdf`);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -78,14 +134,30 @@ export default function Broadsheet() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Select Class</CardTitle>
+          <CardTitle>Select Term & Class</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 items-end">
             <div className="space-y-2 w-full md:w-1/3">
+              <Label>Academic Term</Label>
+              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                <SelectTrigger data-testid="select-broadsheet-term">
+                  <SelectValue placeholder="Select Term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {terms.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name} {t.status === "Active" && "(Active)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 w-full md:w-1/3">
+              <Label>Class</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Class to View" />
+                <SelectTrigger data-testid="select-broadsheet-class">
+                  <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="KG 1">KG 1</SelectItem>
@@ -102,14 +174,19 @@ export default function Broadsheet() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={downloadPDF} disabled={!selectedClass} className="gap-2">
+            <Button 
+              onClick={downloadPDF} 
+              disabled={!selectedClass || !selectedTerm} 
+              className="gap-2"
+              data-testid="button-download-pdf"
+            >
               <FileDown className="h-4 w-4" /> Download PDF
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {selectedClass && (
+      {selectedClass && selectedTerm && (
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -119,26 +196,30 @@ export default function Broadsheet() {
                     <TableHead className="w-[50px]">Pos</TableHead>
                     <TableHead className="w-[200px]">Student</TableHead>
                     {subjects.map(s => (
-                      <TableHead key={s.id} className="text-center min-w-[80px] text-xs">{s.code}</TableHead>
+                      <TableHead key={s.id} className="text-center min-w-[80px] text-xs">
+                        {s.code}
+                      </TableHead>
                     ))}
                     <TableHead className="text-right font-bold">Total</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rankedStudents.map((student, index) => (
-                    <TableRow key={student.id}>
-                      <TableCell className="font-bold text-primary">{index + 1}</TableCell>
+                    <TableRow key={student.id} data-testid={`row-broadsheet-${student.id}`}>
+                      <TableCell className="font-bold text-primary" data-testid={`text-position-${student.id}`}>
+                        {index + 1}
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">{student.name}</div>
-                        <div className="text-xs text-muted-foreground">{student.id}</div>
+                        <div className="text-xs text-muted-foreground">{student.studentId}</div>
                       </TableCell>
                       {subjects.map(s => (
-                        <TableCell key={s.id} className="text-center">
-                          {getScore(student, s.id) || "-"}
+                        <TableCell key={s.id} className="text-center" data-testid={`text-score-${student.id}-${s.id}`}>
+                          {getScore(student.id, s.id) || "-"}
                         </TableCell>
                       ))}
-                      <TableCell className="text-right font-bold bg-muted/20">
-                        {calculateTotal(student)}
+                      <TableCell className="text-right font-bold bg-muted/20" data-testid={`text-total-${student.id}`}>
+                        {calculateTotal(student.id)}
                       </TableCell>
                     </TableRow>
                   ))}

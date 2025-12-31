@@ -21,11 +21,7 @@ interface AcademicYear {
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState("academic");
   const [submitted, setSubmitted] = useState(false);
-  const [years, setYears] = useState<AcademicYear[]>([]);
-
-  useEffect(() => {
-    setYears(getStoredYears());
-  }, []);
+  const [years, setYears] = useState<AcademicYear[]>(() => getStoredYears());
 
   useEffect(() => {
     if (years.length > 0) {

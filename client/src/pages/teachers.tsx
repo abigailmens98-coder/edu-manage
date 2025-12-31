@@ -24,12 +24,7 @@ interface Teacher {
 
 export default function Teachers() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-
-  // Load from storage on mount
-  useEffect(() => {
-    setTeachers(getStoredTeachers());
-  }, []);
+  const [teachers, setTeachers] = useState<Teacher[]>(() => getStoredTeachers());
 
   // Save to storage whenever teachers change
   useEffect(() => {

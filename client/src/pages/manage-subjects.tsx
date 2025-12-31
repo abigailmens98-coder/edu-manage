@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,11 +6,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { MOCK_SUBJECTS } from "@/lib/mock-data";
+import { getStoredSubjects, updateSubjects } from "@/lib/storage";
 import { Plus, Edit2, Trash2, BookOpen } from "lucide-react";
 
 export default function ManageSubjects() {
-  const [subjects, setSubjects] = useState(MOCK_SUBJECTS);
+  const [subjects, setSubjects] = useState([]);
+
+  useEffect(() => {
+    setSubjects(getStoredSubjects());
+  }, []);
+
+  useEffect(() => {
+    if (subjects.length > 0) {
+      updateSubjects(subjects);
+    }
+  }, [subjects]);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newSubjectCode, setNewSubjectCode] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);

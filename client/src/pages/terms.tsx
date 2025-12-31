@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -6,11 +6,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ACADEMIC_TERMS } from "@/lib/mock-data";
+import { getStoredTerms, updateTerms } from "@/lib/storage";
 import { Calendar, Plus, Edit2 } from "lucide-react";
 
 export default function TermsManagement() {
-  const [terms, setTerms] = useState(ACADEMIC_TERMS);
+  const [terms, setTerms] = useState([]);
+
+  useEffect(() => {
+    setTerms(getStoredTerms());
+  }, []);
+
+  useEffect(() => {
+    if (terms.length > 0) {
+      updateTerms(terms);
+    }
+  }, [terms]);
   const [newTermName, setNewTermName] = useState("");
   const [newTermDesc, setNewTermDesc] = useState("");
   const [newTermStatus, setNewTermStatus] = useState("Inactive");

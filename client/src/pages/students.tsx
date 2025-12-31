@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { MOCK_STUDENTS } from "@/lib/mock-data";
+import { getStoredStudents, updateStudents } from "@/lib/storage";
 import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -22,7 +22,19 @@ interface Student {
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [students, setStudents] = useState<Student[]>(MOCK_STUDENTS);
+  const [students, setStudents] = useState<Student[]>([]);
+
+  // Load from storage on mount
+  useEffect(() => {
+    setStudents(getStoredStudents());
+  }, []);
+
+  // Save to storage whenever students change
+  useEffect(() => {
+    if (students.length > 0) {
+      updateStudents(students);
+    }
+  }, [students]);
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
   const [csvLoading, setCsvLoading] = useState(false);

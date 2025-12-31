@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, LogOut, CheckCircle, AlertCircle } from "lucide-react";
+import { BookOpen, LogOut, CheckCircle, AlertCircle, User, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { MOCK_SUBJECTS, MOCK_STUDENTS, getGESGrade, ACADEMIC_TERMS } from "@/lib/mock-data";
 
@@ -51,6 +51,10 @@ export default function TeacherDashboard() {
     setLocation("/login");
   };
 
+  const handleProfileClick = () => {
+    setLocation("/profile");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -64,10 +68,16 @@ export default function TeacherDashboard() {
             <p className="font-semibold text-foreground">{username}</p>
           </div>
         </div>
-        <Button variant="outline" className="gap-2" onClick={handleLogout}>
-          <LogOut className="h-4 w-4" />
-          Logout
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" className="gap-2" onClick={handleProfileClick}>
+            <User className="h-4 w-4" />
+            Profile
+          </Button>
+          <Button variant="outline" className="gap-2" onClick={handleLogout}>
+            <LogOut className="h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </header>
 
       <main className="p-6">

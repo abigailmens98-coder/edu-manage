@@ -9,6 +9,11 @@ import { pool } from "./storage";
 const app = express();
 const httpServer = createServer(app);
 
+// Trust proxy for production (behind load balancer)
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
@@ -23,6 +28,7 @@ let sessionConfig: any = {
   cookie: {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
     maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
   },
 };

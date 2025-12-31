@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, isDatabaseAvailable } from "./storage";
 import bcrypt from "bcrypt";
 import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema } from "@shared/schema";
 import { seedDatabase } from "./seed";
@@ -13,8 +13,17 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // Health check endpoint
+  app.get("/api/health", (req, res) => {
+    res.json({ 
+      status: "ok",
+      database: isDatabaseAvailable ? "connected" : "not configured",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Seed database on first run with error handling
-  if (!isSeeded) {
+  if (!isSeeded && isDatabaseAvailable) {
     try {
       const user = await storage.getUserByUsername("admin");
       if (!user) {
@@ -22,10 +31,13 @@ export async function registerRoutes(
       }
       isSeeded = true;
     } catch (error) {
-      console.error('Failed to seed database:', error);
+      console.error('❌ Failed to seed database:', error);
       // Continue without seeding - app will still work but admin won't exist
       isSeeded = true;
     }
+  } else if (!isDatabaseAvailable) {
+    console.warn('⚠️  Database not available - skipping seed');
+    isSeeded = true;
   }
 
   // Authentication routes

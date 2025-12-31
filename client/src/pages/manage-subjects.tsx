@@ -1,80 +1,97 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { getStoredSubjects, updateSubjects } from "@/lib/storage";
-import { Plus, Edit2, Trash2, BookOpen } from "lucide-react";
+import { Plus, Edit2, Trash2 } from "lucide-react";
+import { subjectsApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface Subject {
   id: string;
+  subjectId: string;
   name: string;
   code: string;
-  teacher: string;
-  students: number;
   classLevels?: string[];
 }
 
 export default function ManageSubjects() {
-  const [subjects, setSubjects] = useState<Subject[]>(() => getStoredSubjects());
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [formData, setFormData] = useState({ name: "", code: "" });
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (subjects.length > 0) {
-      updateSubjects(subjects);
-    }
-  }, [subjects]);
+    fetchSubjects();
+  }, []);
 
-  const [newSubjectName, setNewSubjectName] = useState("");
-  const [newSubjectCode, setNewSubjectCode] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editCode, setEditCode] = useState("");
-
-  const handleAddSubject = () => {
-    if (newSubjectName.trim() && newSubjectCode.trim()) {
-      const newSubject: Subject = {
-        id: `SUB${Date.now()}`,
-        name: newSubjectName,
-        code: newSubjectCode,
-        teacher: "Unassigned",
-        students: 0,
-      };
-      setSubjects([...subjects, newSubject]);
-      setNewSubjectName("");
-      setNewSubjectCode("");
+  const fetchSubjects = async () => {
+    try {
+      const data = await subjectsApi.getAll();
+      setSubjects(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch subjects",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleEditSubject = (id: string) => {
-    const subject = subjects.find(s => s.id === id);
-    if (subject) {
-      setEditingId(id);
-      setEditName(subject.name);
-      setEditCode(subject.code);
+  const handleAddSubject = async () => {
+    try {
+      const subjectId = `SUB${String(subjects.length + 1).padStart(3, "0")}`;
+      await subjectsApi.create({
+        subjectId,
+        name: formData.name,
+        code: formData.code,
+        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
+      toast({
+        title: "Success",
+        description: "Subject added successfully",
+      });
+      setShowAddDialog(false);
+      setFormData({ name: "", code: "" });
+      fetchSubjects();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add subject",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleSaveEdit = () => {
-    if (editingId && editName.trim() && editCode.trim()) {
-      setSubjects(
-        subjects.map(s =>
-          s.id === editingId
-          ? { ...s, name: editName, code: editCode }
-          : s
-        )
-      );
-      setEditingId(null);
-      setEditName("");
-      setEditCode("");
+  const handleDeleteSubject = async (id: string) => {
+    try {
+      await subjectsApi.delete(id);
+      toast({
+        title: "Success",
+        description: "Subject deleted successfully",
+      });
+      fetchSubjects();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete subject",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleDeleteSubject = (id: string) => {
-    setSubjects(subjects.filter(s => s.id !== id));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -83,41 +100,46 @@ export default function ManageSubjects() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Manage Subjects</h1>
           <p className="text-muted-foreground mt-1">Add, edit, or remove subjects from the curriculum.</p>
         </div>
-        <Dialog>
+        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
           <DialogTrigger asChild>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
+            <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-add-subject">
               <Plus className="h-4 w-4" /> Add Subject
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Add New Subject</DialogTitle>
-              <DialogDescription>
-                Create a new subject for the curriculum.
-              </DialogDescription>
+              <DialogDescription>Create a new subject for the curriculum.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="subjectName">Subject Name</Label>
                 <Input
                   id="subjectName"
-                  placeholder="e.g., Advanced Physics"
-                  value={newSubjectName}
-                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  placeholder="e.g., English Language"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  data-testid="input-subject-name"
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="subjectCode">Subject Code</Label>
                 <Input
                   id="subjectCode"
-                  placeholder="e.g., PHY301"
-                  value={newSubjectCode}
-                  onChange={(e) => setNewSubjectCode(e.target.value)}
+                  placeholder="e.g., ENG101"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  data-testid="input-subject-code"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" onClick={handleAddSubject}>
+              <Button 
+                type="submit" 
+                onClick={handleAddSubject}
+                disabled={!formData.name || !formData.code}
+                data-testid="button-submit-subject"
+              >
                 Add Subject
               </Button>
             </DialogFooter>
@@ -136,73 +158,25 @@ export default function ManageSubjects() {
               <TableRow>
                 <TableHead className="w-[120px]">Code</TableHead>
                 <TableHead>Subject Name</TableHead>
-                <TableHead>Teacher</TableHead>
-                <TableHead className="text-right">Students</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {subjects.map((subject) => (
-                <TableRow key={subject.id}>
-                  <TableCell className="font-mono font-bold text-primary">{subject.code}</TableCell>
-                  <TableCell className="font-medium">{subject.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">
-                      {subject.teacher === "Unassigned" ? "Not Assigned" : subject.teacher}
-                    </Badge>
+                <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`}>
+                  <TableCell className="font-mono font-bold text-primary" data-testid={`text-subject-code-${subject.id}`}>
+                    {subject.code}
                   </TableCell>
-                  <TableCell className="text-right">{subject.students}</TableCell>
-                  <TableCell className="text-right flex gap-2 justify-end">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEditSubject(subject.id)}
-                          className="gap-1"
-                        >
-                          <Edit2 className="h-3 w-3" />
-                          Edit
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle>Edit Subject</DialogTitle>
-                          <DialogDescription>
-                            Update subject details.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="editName">Subject Name</Label>
-                            <Input
-                              id="editName"
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="editCode">Subject Code</Label>
-                            <Input
-                              id="editCode"
-                              value={editCode}
-                              onChange={(e) => setEditCode(e.target.value)}
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button type="submit" onClick={handleSaveEdit}>
-                            Save Changes
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-
+                  <TableCell className="font-medium" data-testid={`text-subject-name-${subject.id}`}>
+                    {subject.name}
+                  </TableCell>
+                  <TableCell className="text-right">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteSubject(subject.id)}
-                      className="gap-1 text-destructive hover:text-destructive"
+                      className="gap-1 text-destructive"
+                      data-testid={`button-delete-subject-${subject.id}`}
                     >
                       <Trash2 className="h-3 w-3" />
                       Delete
@@ -212,21 +186,6 @@ export default function ManageSubjects() {
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-blue-50 border-blue-200">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-blue-600" />
-            Subject Management Info
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-slate-700 space-y-2">
-          <p>• Click <strong>Edit</strong> to modify subject name or code</p>
-          <p>• Click <strong>Delete</strong> to remove a subject from the curriculum</p>
-          <p>• Subjects can be assigned to teachers in the Academics section</p>
-          <p>• Total students enrolled updates automatically when enrollment changes</p>
         </CardContent>
       </Card>
     </div>

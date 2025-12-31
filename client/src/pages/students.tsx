@@ -1,51 +1,130 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { getStoredStudents, updateStudents } from "@/lib/storage";
-import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, Trash2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { studentsApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 interface Student {
   id: string;
+  studentId: string;
   name: string;
   grade: string;
   email: string;
   status: string;
-  attendance: string;
+  attendance: number;
 }
+
+const GRADES = [
+  "KG 1", "KG 2", 
+  "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6",
+  "Basic 7", "Basic 8", "Basic 9"
+];
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [students, setStudents] = useState<Student[]>(() => getStoredStudents());
-
-  // Save to storage whenever students change
-  useEffect(() => {
-    if (students.length > 0) {
-      updateStudents(students);
-    }
-  }, [students]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
-  const [csvLoading, setCsvLoading] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState("");
+  const { toast } = useToast();
 
-  const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    grade: "",
+    email: "",
+    attendance: 0,
+  });
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const data = await studentsApi.getAll();
+      setStudents(data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch students",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStudent = async () => {
+    try {
+      // Generate student ID
+      const studentId = `S${String(students.length + 1).padStart(3, "0")}`;
+      
+      await studentsApi.create({
+        studentId,
+        name: formData.name,
+        grade: formData.grade,
+        email: formData.email || `${formData.name.toLowerCase().replace(/\s+/g, ".")}@student.academia.edu`,
+        status: "Active",
+        attendance: formData.attendance,
+      });
+
+      toast({
+        title: "Success",
+        description: "Student added successfully",
+      });
+
+      setShowAddDialog(false);
+      setFormData({ name: "", grade: "", email: "", attendance: 0 });
+      fetchStudents();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add student",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteStudent = async (id: string) => {
+    try {
+      await studentsApi.delete(id);
+      toast({
+        title: "Success",
+        description: "Student deleted successfully",
+      });
+      setDeleteConfirm(null);
+      fetchStudents();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete student",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setCsvError("");
     setCsvSuccess("");
-    setCsvLoading(true);
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
         const lines = text.split("\n").map(line => line.trim()).filter(line => line);
@@ -63,7 +142,7 @@ export default function Students() {
           throw new Error("CSV must contain FIRST NAME, OTHER NAME, and GRADE/LEVEL columns");
         }
 
-        const newStudents: Student[] = [];
+        let importCount = 0;
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(",").map(c => c.trim());
           if (cols.length >= Math.max(firstNameIdx, otherNameIdx, gradeIdx) + 1) {
@@ -72,39 +151,70 @@ export default function Students() {
             const grade = cols[gradeIdx] || "";
 
             if (firstName && otherName && grade) {
-              const studentId = `S${String(students.length + newStudents.length + 1).padStart(3, "0")}`;
-              newStudents.push({
-                id: studentId,
-                name: `${firstName} ${otherName}`,
+              const studentId = `S${String(students.length + importCount + 1).padStart(3, "0")}`;
+              const name = `${firstName} ${otherName}`;
+              
+              await studentsApi.create({
+                studentId,
+                name,
                 grade: grade.replace(/^Basic\s*/i, "Basic "),
                 email: `${firstName.toLowerCase()}.${otherName.toLowerCase()}@student.academia.edu`,
                 status: "Active",
-                attendance: "85%"
+                attendance: 0,
               });
+              
+              importCount++;
             }
           }
         }
 
-        if (newStudents.length === 0) {
+        if (importCount === 0) {
           throw new Error("No valid student records found in CSV");
         }
 
-        setStudents([...students, ...newStudents]);
-        setCsvSuccess(`Successfully imported ${newStudents.length} student(s) into the system`);
+        setCsvSuccess(`Successfully imported ${importCount} student(s)`);
+        fetchStudents();
       } catch (err) {
         setCsvError(err instanceof Error ? err.message : "Failed to parse CSV file");
       } finally {
-        setCsvLoading(false);
         event.target.value = "";
       }
     };
     reader.readAsText(file);
   };
 
+  const exportToCSV = () => {
+    const headers = ["Student ID", "Name", "Grade", "Email", "Status", "Attendance"];
+    const rows = students.map(s => [
+      s.studentId,
+      s.name,
+      s.grade,
+      s.email,
+      s.status,
+      s.attendance.toString(),
+    ]);
+
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `students_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+  };
+
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    student.id.toLowerCase().includes(searchTerm.toLowerCase())
+    student.studentId.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -114,13 +224,13 @@ export default function Students() {
           <p className="text-muted-foreground mt-1">Onboard and manage student profiles.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={exportToCSV} data-testid="button-export-csv">
             <FileDown className="h-4 w-4" /> Export CSV
           </Button>
           
-          <Dialog>
+          <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
             <DialogTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2" data-testid="button-import-csv">
                 <Upload className="h-4 w-4" /> Import CSV
               </Button>
             </DialogTrigger>
@@ -149,9 +259,9 @@ export default function Students() {
                     type="file"
                     accept=".csv"
                     onChange={handleCSVImport}
-                    disabled={csvLoading}
                     className="hidden"
                     id="csv-import"
+                    data-testid="input-csv-file"
                   />
                   <Label htmlFor="csv-import" className="cursor-pointer block">
                     <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
@@ -166,15 +276,12 @@ export default function Students() {
                   <code className="block font-mono text-blue-800">Jane,Smith,Basic 9</code>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => {}}>Close</Button>
-              </DialogFooter>
             </DialogContent>
           </Dialog>
 
-          <Dialog>
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
-              <Button className="gap-2 shadow-lg shadow-primary/20">
+              <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-add-student">
                 <Plus className="h-4 w-4" /> Onboard Student
               </Button>
             </DialogTrigger>
@@ -188,30 +295,57 @@ export default function Students() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">Full Name</Label>
-                  <Input id="name" placeholder="John Doe" className="col-span-3" />
+                  <Input 
+                    id="name" 
+                    placeholder="John Doe" 
+                    className="col-span-3"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    data-testid="input-student-name"
+                  />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="grade" className="text-right">Grade</Label>
-                  <Input id="grade" placeholder="10th" className="col-span-3" />
+                  <Select 
+                    value={formData.grade} 
+                    onValueChange={(value) => setFormData({ ...formData, grade: value })}
+                  >
+                    <SelectTrigger className="col-span-3" data-testid="select-student-grade">
+                      <SelectValue placeholder="Select grade" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GRADES.map(grade => (
+                        <SelectItem key={grade} value={grade}>{grade}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="email" className="text-right">Email</Label>
-                  <Input id="email" placeholder="john@example.com" className="col-span-3" />
+                  <Input 
+                    id="email" 
+                    placeholder="john@student.academia.edu" 
+                    className="col-span-3"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    data-testid="input-student-email"
+                  />
                 </div>
               </div>
               <DialogFooter>
-                <Button type="submit">Onboard Student</Button>
+                <Button 
+                  type="submit" 
+                  onClick={handleAddStudent}
+                  disabled={!formData.name || !formData.grade}
+                  data-testid="button-submit-student"
+                >
+                  Onboard Student
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </div>
-
-      {successMessage && (
-        <Alert className="bg-green-50 border-green-200">
-          <AlertDescription className="text-green-800">{successMessage}</AlertDescription>
-        </Alert>
-      )}
 
       <Card>
         <CardHeader className="pb-3">
@@ -224,6 +358,7 @@ export default function Students() {
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                data-testid="input-search-students"
               />
             </div>
           </div>
@@ -243,20 +378,18 @@ export default function Students() {
             </TableHeader>
             <TableBody>
               {filteredStudents.map((student) => (
-                <TableRow key={student.id}>
-                  <TableCell className="font-medium">{student.id}</TableCell>
-                  <TableCell>{student.name}</TableCell>
-                  <TableCell>{student.grade}</TableCell>
-                  <TableCell>{student.email}</TableCell>
+                <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
+                  <TableCell className="font-medium" data-testid={`text-student-id-${student.id}`}>{student.studentId}</TableCell>
+                  <TableCell data-testid={`text-student-name-${student.id}`}>{student.name}</TableCell>
+                  <TableCell data-testid={`text-student-grade-${student.id}`}>{student.grade}</TableCell>
+                  <TableCell data-testid={`text-student-email-${student.id}`}>{student.email}</TableCell>
                   <TableCell>
-                    <Badge variant={student.status === "Active" ? "default" : "secondary"}>
+                    <Badge variant={student.status === "Active" ? "default" : "secondary"} data-testid={`badge-student-status-${student.id}`}>
                       {student.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                     <span className={parseInt(student.attendance) < 80 ? "text-destructive font-bold" : "text-green-600 font-bold"}>
-                       {student.attendance}
-                     </span>
+                  <TableCell data-testid={`text-student-attendance-${student.id}`}>
+                    {student.attendance} days
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
@@ -267,8 +400,6 @@ export default function Students() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
-                        <DropdownMenuItem>Edit Details</DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => setDeleteConfirm(student.id)}
                           className="text-destructive"
@@ -293,12 +424,12 @@ export default function Students() {
             <DialogHeader>
               <DialogTitle className="text-red-600">Delete Student</DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete this student from the system? This action cannot be undone.
+                Are you sure you want to delete this student? This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <div className="bg-red-50 border border-red-200 rounded-lg p-3">
               <p className="text-sm text-red-900">
-                <strong>{students.find(s => s.id === deleteConfirm)?.name}</strong> will be permanently removed from the system.
+                <strong>{students.find(s => s.id === deleteConfirm)?.name}</strong> will be permanently removed.
               </p>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
@@ -311,12 +442,7 @@ export default function Students() {
               </Button>
               <Button 
                 variant="destructive"
-                onClick={() => {
-                  setStudents(students.filter(s => s.id !== deleteConfirm));
-                  setDeleteConfirm(null);
-                  setSuccessMessage("Student deleted from system");
-                  setTimeout(() => setSuccessMessage(""), 3000);
-                }}
+                onClick={() => handleDeleteStudent(deleteConfirm)}
                 data-testid="button-confirm-delete-student"
               >
                 Delete Student

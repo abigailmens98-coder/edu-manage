@@ -115,6 +115,10 @@ export interface IStorage {
   createTeacherAssignment(assignment: InsertTeacherAssignment): Promise<TeacherAssignment>;
   deleteTeacherAssignment(id: string): Promise<boolean>;
   deleteTeacherAssignmentsByTeacher(teacherId: string): Promise<boolean>;
+
+  // Admin operations
+  cleanupDemoData(): Promise<{ teachersDeleted: number; studentsDeleted: number; usersDeleted: number }>;
+  deleteUserByUsername(username: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -372,6 +376,52 @@ export class DatabaseStorage implements IStorage {
   async deleteTeacherAssignmentsByTeacher(teacherId: string): Promise<boolean> {
     await db.delete(schema.teacherAssignments).where(eq(schema.teacherAssignments.teacherId, teacherId));
     return true;
+  }
+
+  // Admin operations
+  async deleteUserByUsername(username: string): Promise<boolean> {
+    await db.delete(schema.users).where(eq(schema.users.username, username));
+    return true;
+  }
+
+  async cleanupDemoData(): Promise<{ teachersDeleted: number; studentsDeleted: number; usersDeleted: number }> {
+    let teachersDeleted = 0;
+    let studentsDeleted = 0;
+    let usersDeleted = 0;
+
+    // Known demo usernames
+    const demoUsernames = ["teacher_001", "teacher_002"];
+    const demoStudentIds = ["S001", "S002", "S003"];
+
+    // Delete demo teachers and their users
+    for (const username of demoUsernames) {
+      const user = await this.getUserByUsername(username);
+      if (user) {
+        // Find and delete the teacher record
+        const teachers = await this.getTeachers();
+        const teacher = teachers.find(t => t.userId === user.id);
+        if (teacher) {
+          // Delete assignments first
+          await this.deleteTeacherAssignmentsByTeacher(teacher.id);
+          await this.deleteTeacher(teacher.id);
+          teachersDeleted++;
+        }
+        // Delete the user account
+        await this.deleteUserByUsername(username);
+        usersDeleted++;
+      }
+    }
+
+    // Delete demo students
+    const students = await this.getStudents();
+    for (const student of students) {
+      if (demoStudentIds.includes(student.studentId)) {
+        await this.deleteStudent(student.id);
+        studentsDeleted++;
+      }
+    }
+
+    return { teachersDeleted, studentsDeleted, usersDeleted };
   }
 }
 

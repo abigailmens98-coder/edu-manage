@@ -1,14 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Users, GraduationCap, BookOpen, TrendingUp, Calendar, Loader2, Target, BarChart3, Trophy, Settings2, ChevronUp, ChevronDown, Percent } from "lucide-react";
+import { Users, GraduationCap, BookOpen, TrendingUp, Calendar, Loader2, Target, BarChart3, Trophy, Settings2, ChevronUp, ChevronDown, Percent, Trash2 } from "lucide-react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Cell, Tooltip } from "recharts";
 import { studentsApi, teachersApi, subjectsApi, academicYearsApi, academicTermsApi } from "@/lib/api";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface DashboardStats {
   overview: {
@@ -51,6 +52,10 @@ const defaultWidgets: WidgetConfig[] = [
 export default function Dashboard() {
   const [widgets, setWidgets] = useState<WidgetConfig[]>(defaultWidgets);
   const [showSettings, setShowSettings] = useState(false);
+  const [showCleanupDialog, setShowCleanupDialog] = useState(false);
+  const [cleaningUp, setCleaningUp] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -64,6 +69,41 @@ export default function Dashboard() {
       }
     }
   }, []);
+
+  const handleCleanupDemoData = async () => {
+    setCleaningUp(true);
+    try {
+      const response = await fetch('/api/admin/cleanup-demo-data', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const result = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Cleaned up ${result.teachersDeleted} demo teachers, ${result.studentsDeleted} demo students.`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/students'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/teachers'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to cleanup demo data",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to cleanup demo data",
+        variant: "destructive",
+      });
+    } finally {
+      setCleaningUp(false);
+      setShowCleanupDialog(false);
+    }
+  };
 
   const { data: students = [], isLoading: studentsLoading } = useQuery({
     queryKey: ['/api/students'],
@@ -193,10 +233,16 @@ export default function Dashboard() {
             )}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} data-testid="button-customize-dashboard">
-          <Settings2 className="h-4 w-4 mr-2" />
-          Customize
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowCleanupDialog(true)} data-testid="button-cleanup-demo">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Clear Demo Data
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(true)} data-testid="button-customize-dashboard">
+            <Settings2 className="h-4 w-4 mr-2" />
+            Customize
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -465,6 +511,34 @@ export default function Dashboard() {
           </Card>
         )}
       </div>
+
+      <Dialog open={showCleanupDialog} onOpenChange={setShowCleanupDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clear Demo Data</DialogTitle>
+            <DialogDescription>
+              This will remove all demo teachers and students that were created automatically. Your real data will not be affected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground">
+              The following demo data will be removed:
+            </p>
+            <ul className="list-disc list-inside mt-2 text-sm text-muted-foreground">
+              <li>Demo teacher accounts (teacher_001, teacher_002)</li>
+              <li>Demo teacher profiles (Dr. Sarah Conner, Prof. Alan Grant)</li>
+              <li>Demo students (Alice Johnson, Bob Smith, Charlie Brown)</li>
+            </ul>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCleanupDialog(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleCleanupDemoData} disabled={cleaningUp}>
+              {cleaningUp ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Clear Demo Data
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent className="max-w-md">

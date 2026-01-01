@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, MoreHorizontal, Trash2, BookOpen, X, Loader2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Trash2, BookOpen, X, Loader2, Upload, FileDown, AlertCircle, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { teachersApi, subjectsApi, teacherAssignmentsApi } from "@/lib/api";
@@ -20,6 +21,7 @@ interface Teacher {
   subject: string;
   email: string;
   assignedClass?: string;
+  username?: string;
 }
 
 interface Subject {
@@ -58,6 +60,9 @@ export default function Teachers() {
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [csvError, setCsvError] = useState("");
+  const [csvSuccess, setCsvSuccess] = useState("");
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -224,6 +229,127 @@ export default function Teachers() {
     return subject?.classLevels || GRADES;
   };
 
+  const exportToCSV = () => {
+    const headers = ["NAME", "EMAIL", "USERNAME", "ASSIGNED_CLASS"];
+    const rows = teachers.map(t => [t.name, t.email || "", t.username || "", t.assignedClass || ""]);
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `teachers_export_${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+  };
+
+  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCsvError("");
+    setCsvSuccess("");
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split("\n").filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setCsvError("CSV file must have a header row and at least one data row");
+          return;
+        }
+
+        const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
+        const nameIdx = headers.findIndex(h => h === "NAME" || h === "FULL NAME" || h === "TEACHER NAME");
+        const emailIdx = headers.findIndex(h => h === "EMAIL");
+        const usernameIdx = headers.findIndex(h => h === "USERNAME");
+        const passwordIdx = headers.findIndex(h => h === "PASSWORD");
+        const secretIdx = headers.findIndex(h => h === "SECRET" || h === "SECRET_WORD" || h === "SECRET WORD");
+        const classIdx = headers.findIndex(h => h === "CLASS" || h === "ASSIGNED_CLASS" || h === "ASSIGNED CLASS");
+
+        if (nameIdx === -1) {
+          setCsvError("CSV must have a NAME column");
+          return;
+        }
+        if (usernameIdx === -1) {
+          setCsvError("CSV must have a USERNAME column");
+          return;
+        }
+        if (passwordIdx === -1) {
+          setCsvError("CSV must have a PASSWORD column");
+          return;
+        }
+
+        // Collect existing names and usernames for duplicate detection
+        const existingNames = teachers.map(t => t.name.toLowerCase().replace(/\s+/g, ""));
+        const existingUsernames = teachers.map(t => (t.username || "").toLowerCase());
+        const newTeachers: Array<{name: string, email: string, username: string, password: string, secretWord: string}> = [];
+        let duplicates = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(",").map(v => v.trim());
+          const name = values[nameIdx]?.trim();
+          const username = values[usernameIdx]?.trim();
+          const password = values[passwordIdx]?.trim();
+
+          if (!name || !username || !password) continue;
+
+          const normalizedName = name.toLowerCase().replace(/\s+/g, "");
+          const normalizedUsername = username.toLowerCase();
+
+          // Check for duplicate names (compare normalized names consistently)
+          const nameExists = existingNames.includes(normalizedName) || 
+                            newTeachers.some(nt => nt.name.toLowerCase().replace(/\s+/g, "") === normalizedName);
+          
+          // Check for duplicate usernames
+          const usernameExists = existingUsernames.includes(normalizedUsername) || 
+                                newTeachers.some(t => t.username.toLowerCase() === normalizedUsername);
+
+          if (nameExists || usernameExists) {
+            duplicates++;
+            continue;
+          }
+
+          newTeachers.push({
+            name,
+            email: emailIdx >= 0 ? values[emailIdx]?.trim() || "" : "",
+            username,
+            password,
+            secretWord: secretIdx >= 0 ? values[secretIdx]?.trim() || "" : "",
+          });
+        }
+
+        if (newTeachers.length === 0) {
+          setCsvError(duplicates > 0 ? `All ${duplicates} teachers already exist in the system` : "No valid teachers found in CSV");
+          return;
+        }
+
+        let imported = 0;
+        for (const teacher of newTeachers) {
+          try {
+            await teachersApi.create({
+              name: teacher.name,
+              email: teacher.email,
+              username: teacher.username,
+              password: teacher.password,
+              secretWord: teacher.secretWord,
+            });
+            imported++;
+          } catch (err) {
+            console.error("Failed to import teacher:", teacher.name, err);
+          }
+        }
+
+        setCsvSuccess(`Successfully imported ${imported} teacher(s)${duplicates > 0 ? ` (${duplicates} duplicates skipped)` : ""}`);
+        fetchData();
+      } catch (err) {
+        setCsvError("Failed to parse CSV file");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -239,12 +365,60 @@ export default function Teachers() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Teacher Management</h1>
           <p className="text-muted-foreground mt-1">Create, manage, and assign subjects and classes to teachers.</p>
         </div>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-add-teacher">
-              <Plus className="h-4 w-4" /> Add Teacher
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={exportToCSV} data-testid="button-export-teachers-csv">
+            <FileDown className="h-4 w-4" /> Export CSV
+          </Button>
+          
+          <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setCsvError(""); setCsvSuccess(""); } }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2" data-testid="button-import-teachers-csv">
+                <Upload className="h-4 w-4" /> Import CSV
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Import Teachers from CSV</DialogTitle>
+                <DialogDescription>
+                  Upload a CSV file with columns: NAME, USERNAME, PASSWORD (required), and EMAIL, SECRET_WORD (optional).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {csvError && (
+                  <Alert variant="destructive" className="bg-red-50 border-red-200">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-800 ml-2">{csvError}</AlertDescription>
+                  </Alert>
+                )}
+                {csvSuccess && (
+                  <Alert className="bg-green-50 border-green-200">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-800 ml-2">{csvSuccess}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleCSVImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    style={{ position: 'absolute', top: 0, left: 0 }}
+                    data-testid="input-import-teachers-csv"
+                  />
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Click to upload CSV</p>
+                  <p className="text-xs text-muted-foreground mt-1">Required: NAME, USERNAME, PASSWORD</p>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          
+          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-add-teacher">
+                <Plus className="h-4 w-4" /> Add Teacher
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Teacher</DialogTitle>
@@ -423,6 +597,7 @@ export default function Teachers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <Card>

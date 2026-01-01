@@ -163,7 +163,17 @@ export async function registerRoutes(
   app.get("/api/teachers", async (req, res) => {
     try {
       const teachers = await storage.getTeachers();
-      res.json(teachers);
+      // Enrich teachers with usernames from users table
+      const teachersWithUsernames = await Promise.all(
+        teachers.map(async (teacher) => {
+          const user = await storage.getUser(teacher.userId);
+          return {
+            ...teacher,
+            username: user?.username || "",
+          };
+        })
+      );
+      res.json(teachersWithUsernames);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch teachers" });
     }

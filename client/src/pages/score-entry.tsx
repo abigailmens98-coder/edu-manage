@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
-import { Save } from "lucide-react";
+import { Save, Upload, FileDown, AlertCircle, CheckCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { studentsApi, subjectsApi, academicTermsApi, scoresApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,6 +21,9 @@ export default function ScoreEntry() {
   const [selectedSubject, setSelectedSubject] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const [scores, setScores] = useState<Record<string, { class: string, exam: string, id?: string }>>({});
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [csvError, setCsvError] = useState("");
+  const [csvSuccess, setCsvSuccess] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -167,6 +172,131 @@ export default function ScoreEntry() {
   const isBasic1to6 = selectedClass.includes("Basic 1") || selectedClass.includes("Basic 2") || selectedClass.includes("Basic 3") || 
                       selectedClass.includes("Basic 4") || selectedClass.includes("Basic 5") || selectedClass.includes("Basic 6");
 
+  const exportScoresToCSV = () => {
+    if (!selectedClass || !selectedSubject || !selectedTerm) {
+      toast({
+        title: "Error",
+        description: "Please select class, subject, and term first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const subjectName = subjects.find(s => s.id === selectedSubject)?.name || "";
+    const termName = terms.find(t => t.id === selectedTerm)?.name || "";
+    
+    const headers = ["STUDENT_ID", "STUDENT_NAME", "CLASS_SCORE", "EXAM_SCORE"];
+    const rows = classStudents.map(s => {
+      const studentScore = scores[s.id] || { class: "", exam: "" };
+      return [s.studentId, s.name, studentScore.class || "0", studentScore.exam || "0"];
+    });
+    
+    const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `scores_${selectedClass}_${subjectName}_${termName}_${new Date().toISOString().split("T")[0]}.csv`.replace(/\s+/g, "_");
+    a.click();
+  };
+
+  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedClass || !selectedSubject || !selectedTerm) {
+      setCsvError("Please select class, subject, and term before importing");
+      return;
+    }
+
+    setCsvError("");
+    setCsvSuccess("");
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split("\n").filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setCsvError("CSV file must have a header row and at least one data row");
+          return;
+        }
+
+        const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
+        const studentIdIdx = headers.findIndex(h => h === "STUDENT_ID" || h === "STUDENTID" || h === "ID");
+        const studentNameIdx = headers.findIndex(h => h === "STUDENT_NAME" || h === "NAME" || h === "STUDENTNAME");
+        const classScoreIdx = headers.findIndex(h => h === "CLASS_SCORE" || h === "CLASSSCORE" || h === "CLASS");
+        const examScoreIdx = headers.findIndex(h => h === "EXAM_SCORE" || h === "EXAMSCORE" || h === "EXAM");
+
+        if (studentIdIdx === -1 && studentNameIdx === -1) {
+          setCsvError("CSV must have STUDENT_ID or STUDENT_NAME column");
+          return;
+        }
+        if (classScoreIdx === -1 && examScoreIdx === -1) {
+          setCsvError("CSV must have CLASS_SCORE or EXAM_SCORE column");
+          return;
+        }
+
+        let updated = 0;
+        let created = 0;
+        let errors = 0;
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(",").map(v => v.trim());
+          
+          // Find the student by ID or name
+          let student: any = null;
+          if (studentIdIdx >= 0 && values[studentIdIdx]) {
+            student = classStudents.find(s => s.studentId === values[studentIdIdx]);
+          }
+          if (!student && studentNameIdx >= 0 && values[studentNameIdx]) {
+            const searchName = values[studentNameIdx].toLowerCase();
+            student = classStudents.find(s => s.name.toLowerCase().includes(searchName) || searchName.includes(s.name.toLowerCase()));
+          }
+          
+          if (!student) {
+            errors++;
+            continue;
+          }
+
+          const classScore = classScoreIdx >= 0 ? parseInt(values[classScoreIdx] || "0") : 0;
+          const examScore = examScoreIdx >= 0 ? parseInt(values[examScoreIdx] || "0") : 0;
+
+          try {
+            const existingScore = scores[student.id];
+            const scoreData = {
+              studentId: student.id,
+              subjectId: selectedSubject,
+              termId: selectedTerm,
+              classScore,
+              examScore,
+              totalScore: classScore + examScore,
+            };
+
+            if (existingScore?.id) {
+              await scoresApi.update(existingScore.id, scoreData);
+              updated++;
+            } else {
+              await scoresApi.create(scoreData);
+              created++;
+            }
+          } catch (err) {
+            console.error("Failed to import score for:", student.name, err);
+            errors++;
+          }
+        }
+
+        setCsvSuccess(`Imported: ${created} new, ${updated} updated${errors > 0 ? `, ${errors} errors` : ""}`);
+        loadScores();
+      } catch (err) {
+        setCsvError("Failed to parse CSV file");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -239,16 +369,67 @@ export default function ScoreEntry() {
 
       {selectedClass && selectedSubject && selectedTerm && (
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-4">
             <div>
               <CardTitle>{selectedClass} - Score Entry</CardTitle>
               <CardDescription>
                 {isBasic1to6 ? "Basic 1-6 (50% Class + 50% Exam)" : "Basic 7-9 (30% Class + 70% Exam)"}
               </CardDescription>
             </div>
-            <Button onClick={handleSave} className="gap-2" data-testid="button-save-scores">
-              <Save className="h-4 w-4" /> Save Scores
-            </Button>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" onClick={exportScoresToCSV} className="gap-2" data-testid="button-export-scores-csv">
+                <FileDown className="h-4 w-4" /> Export CSV
+              </Button>
+              
+              <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setCsvError(""); setCsvSuccess(""); } }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="gap-2" data-testid="button-import-scores-csv">
+                    <Upload className="h-4 w-4" /> Import CSV
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Import Scores from CSV</DialogTitle>
+                    <DialogDescription>
+                      Upload a CSV with STUDENT_ID or STUDENT_NAME, plus CLASS_SCORE and/or EXAM_SCORE columns.
+                      Scores will be imported for the currently selected class, subject, and term.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    {csvError && (
+                      <Alert variant="destructive" className="bg-red-50 border-red-200">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <AlertDescription className="text-red-800 ml-2">{csvError}</AlertDescription>
+                      </Alert>
+                    )}
+                    {csvSuccess && (
+                      <Alert className="bg-green-50 border-green-200">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-800 ml-2">{csvSuccess}</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer relative">
+                      <input
+                        type="file"
+                        accept=".csv"
+                        onChange={handleCSVImport}
+                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                        data-testid="input-import-scores-csv"
+                      />
+                      <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm font-medium">Click to upload CSV</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Importing for: {selectedClass} - {subjects.find(s => s.id === selectedSubject)?.name}
+                      </p>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Button onClick={handleSave} className="gap-2" data-testid="button-save-scores">
+                <Save className="h-4 w-4" /> Save Scores
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <Table>

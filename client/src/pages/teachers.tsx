@@ -152,10 +152,34 @@ export default function Teachers() {
   };
 
   const handleAddTeacher = async () => {
-    if (!formData.name || !formData.username || !formData.password) {
+    if (!formData.name) {
       toast({
-        title: "Error",
-        description: "Please fill in required fields",
+        title: "Missing Name",
+        description: "Please enter the teacher's full name",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!formData.username) {
+      toast({
+        title: "Missing Username",
+        description: "Please enter a username for login",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!formData.password) {
+      toast({
+        title: "Missing Password",
+        description: "Please enter a password for the teacher",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (formData.password.length < 4) {
+      toast({
+        title: "Weak Password",
+        description: "Password must be at least 4 characters",
         variant: "destructive",
       });
       return;
@@ -188,10 +212,20 @@ export default function Teachers() {
       setIsClassTeacher(false);
       setClassTeacherClass("");
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
+      let errorMessage = "Failed to add teacher";
+      if (error?.message) {
+        if (error.message.includes("username") || error.message.includes("duplicate")) {
+          errorMessage = "This username is already taken. Please choose a different username.";
+        } else if (error.message.includes("email")) {
+          errorMessage = "This email is already in use.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
       toast({
-        title: "Error",
-        description: "Failed to add teacher",
+        title: "Error Adding Teacher",
+        description: errorMessage,
         variant: "destructive",
       });
     }

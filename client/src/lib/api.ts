@@ -272,3 +272,41 @@ export const scoresApi = {
     return handleResponse<{ message: string }>(response);
   },
 };
+
+// Teacher Assignments API
+export const teacherAssignmentsApi = {
+  getAll: async () => {
+    const response = await fetch('/api/teacher-assignments');
+    return handleResponse<any[]>(response);
+  },
+
+  getByTeacher: async (teacherId: string) => {
+    const response = await fetch(`/api/teacher-assignments?teacherId=${teacherId}`);
+    return handleResponse<any[]>(response);
+  },
+
+  create: async (assignment: any) => {
+    const response = await fetch('/api/teacher-assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(assignment),
+    });
+    return handleResponse<any>(response);
+  },
+
+  bulkCreate: async (teacherId: string, assignments: any[]) => {
+    const response = await fetch('/api/teacher-assignments/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teacherId, assignments }),
+    });
+    return handleResponse<any[]>(response);
+  },
+
+  delete: async (id: string) => {
+    const response = await fetch(`/api/teacher-assignments/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ message: string }>(response);
+  },
+};

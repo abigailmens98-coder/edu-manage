@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, isDatabaseAvailable } from "./storage";
 import bcrypt from "bcrypt";
-import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema } from "@shared/schema";
+import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema, insertTeacherAssignmentSchema } from "@shared/schema";
 import { seedDatabase } from "./seed";
 import "./types"; // Import session type declarations
 
@@ -221,6 +221,67 @@ export async function registerRoutes(
       res.json({ message: "Teacher deleted" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete teacher" });
+    }
+  });
+
+  // Teacher Assignments API
+  app.get("/api/teacher-assignments", async (req, res) => {
+    try {
+      const { teacherId } = req.query;
+      if (teacherId) {
+        const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId as string);
+        res.json(assignments);
+      } else {
+        const assignments = await storage.getTeacherAssignments();
+        res.json(assignments);
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch teacher assignments" });
+    }
+  });
+
+  app.post("/api/teacher-assignments", async (req, res) => {
+    try {
+      const validated = insertTeacherAssignmentSchema.parse(req.body);
+      const assignment = await storage.createTeacherAssignment(validated);
+      res.status(201).json(assignment);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid assignment data" });
+    }
+  });
+
+  app.post("/api/teacher-assignments/bulk", async (req, res) => {
+    try {
+      const { teacherId, assignments } = req.body;
+      
+      // Delete existing assignments for this teacher
+      await storage.deleteTeacherAssignmentsByTeacher(teacherId);
+      
+      // Create new assignments
+      const created = [];
+      for (const assignment of assignments) {
+        const newAssignment = await storage.createTeacherAssignment({
+          teacherId,
+          subjectId: assignment.subjectId,
+          classLevel: assignment.classLevel,
+          isClassTeacher: assignment.isClassTeacher || false,
+        });
+        created.push(newAssignment);
+      }
+      
+      res.status(201).json(created);
+    } catch (error) {
+      console.error("Bulk assignment error:", error);
+      res.status(400).json({ error: "Failed to create assignments" });
+    }
+  });
+
+  app.delete("/api/teacher-assignments/:id", async (req, res) => {
+    try {
+      await storage.deleteTeacherAssignment(req.params.id);
+      res.json({ message: "Assignment deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete assignment" });
     }
   });
 

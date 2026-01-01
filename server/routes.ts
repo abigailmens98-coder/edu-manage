@@ -126,6 +126,24 @@ export async function registerRoutes(
     }
   });
 
+  // Admin cleanup endpoint - removes demo data
+  app.post("/api/admin/cleanup-demo-data", async (req, res) => {
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const result = await storage.cleanupDemoData();
+      res.json({ 
+        message: "Demo data cleaned up successfully",
+        ...result
+      });
+    } catch (error) {
+      console.error("Cleanup error:", error);
+      res.status(500).json({ error: "Failed to cleanup demo data" });
+    }
+  });
+
   // Students API
   app.get("/api/students", async (req, res) => {
     try {

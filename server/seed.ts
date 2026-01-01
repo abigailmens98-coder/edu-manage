@@ -3,144 +3,127 @@ import bcrypt from "bcrypt";
 
 export async function seedDatabase() {
   try {
-    console.log("🌱 Seeding database...");
+    console.log("🌱 Setting up database...");
 
-    // Create admin user
-    const adminPassword = await bcrypt.hash("admin123", 10);
-    await storage.createUser({
-      username: "admin",
-      password: adminPassword,
-      role: "admin",
-      secretWord: "governance",
-    });
-    console.log("✅ Admin user created (username: admin, password: admin123)");
+    // Only create admin user - no demo data
+    const existingAdmin = await storage.getUserByUsername("admin");
+    if (!existingAdmin) {
+      const adminPassword = await bcrypt.hash("admin123", 10);
+      await storage.createUser({
+        username: "admin",
+        password: adminPassword,
+        role: "admin",
+        secretWord: "governance",
+      });
+      console.log("✅ Admin user created (username: admin, password: admin123)");
+    } else {
+      console.log("✅ Admin user already exists");
+    }
 
-    // Create demo teacher users
-    const teacherPassword = await bcrypt.hash("teacher123", 10);
-    
-    const teacher1User = await storage.createUser({
-      username: "teacher_001",
-      password: teacherPassword,
-      role: "teacher",
-      secretWord: "ghana",
-    });
+    // Create default subjects if none exist
+    const subjects = await storage.getSubjects();
+    if (subjects.length === 0) {
+      await storage.createSubject({
+        subjectId: "SUB001",
+        name: "English Language",
+        code: "ENG101",
+        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    const teacher2User = await storage.createUser({
-      username: "teacher_002",
-      password: teacherPassword,
-      role: "teacher",
-      secretWord: "excellence",
-    });
+      await storage.createSubject({
+        subjectId: "SUB002",
+        name: "Mathematics",
+        code: "MAT101",
+        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    // Create teacher records
-    await storage.createTeacher({
-      userId: teacher1User.id,
-      teacherId: "T001",
-      name: "Dr. Sarah Conner",
-      subject: "Physics",
-      email: "sarah@academia.edu",
-      assignedClass: "Basic 9",
-    });
+      await storage.createSubject({
+        subjectId: "SUB003",
+        name: "Science",
+        code: "SCI101",
+        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    await storage.createTeacher({
-      userId: teacher2User.id,
-      teacherId: "T002",
-      name: "Prof. Alan Grant",
-      subject: "Biology",
-      email: "alan@academia.edu",
-      assignedClass: "Basic 7",
-    });
+      await storage.createSubject({
+        subjectId: "SUB004",
+        name: "Social Studies",
+        code: "SOC101",
+        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    console.log("✅ Demo teachers created");
+      await storage.createSubject({
+        subjectId: "SUB005",
+        name: "French",
+        code: "FRE101",
+        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    // Create demo students
-    await storage.createStudent({
-      studentId: "S001",
-      name: "Alice Johnson",
-      grade: "Basic 9",
-      email: "alice@student.academia.edu",
-      status: "Active",
-      attendance: 175,
-    });
+      await storage.createSubject({
+        subjectId: "SUB006",
+        name: "Religious and Moral Education",
+        code: "RME101",
+        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    await storage.createStudent({
-      studentId: "S002",
-      name: "Bob Smith",
-      grade: "Basic 8",
-      email: "bob@student.academia.edu",
-      status: "Active",
-      attendance: 168,
-    });
+      await storage.createSubject({
+        subjectId: "SUB007",
+        name: "Creative Arts",
+        code: "CRA101",
+        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    await storage.createStudent({
-      studentId: "S003",
-      name: "Charlie Brown",
-      grade: "Basic 7",
-      email: "charlie@student.academia.edu",
-      status: "Active",
-      attendance: 155,
-    });
+      await storage.createSubject({
+        subjectId: "SUB008",
+        name: "Ghanaian Language (Twi)",
+        code: "TWI101",
+        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    console.log("✅ Demo students created");
+      await storage.createSubject({
+        subjectId: "SUB009",
+        name: "Information and Communication Technology",
+        code: "ICT101",
+        classLevels: ["Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
+      });
 
-    // Create demo subjects
-    await storage.createSubject({
-      subjectId: "SUB001",
-      name: "English Language",
-      code: "ENG101",
-      classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-    });
+      console.log("✅ Default subjects created");
+    }
 
-    await storage.createSubject({
-      subjectId: "SUB002",
-      name: "Mathematics",
-      code: "MAT101",
-      classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-    });
+    // Create default academic year if none exists
+    const years = await storage.getAcademicYears();
+    if (years.length === 0) {
+      const academicYear = await storage.createAcademicYear({
+        year: "2024/2025",
+        status: "Active",
+        totalDays: 190,
+      });
 
-    await storage.createSubject({
-      subjectId: "SUB003",
-      name: "Science",
-      code: "SCI101",
-      classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-    });
+      await storage.createAcademicTerm({
+        name: "Term 1",
+        description: "First academic term",
+        status: "Active",
+        academicYearId: academicYear.id,
+      });
 
-    console.log("✅ Demo subjects created");
+      await storage.createAcademicTerm({
+        name: "Term 2",
+        description: "Second academic term",
+        status: "Inactive",
+        academicYearId: academicYear.id,
+      });
 
-    // Create academic year
-    const academicYear = await storage.createAcademicYear({
-      year: "2024/2025",
-      status: "Active",
-      totalDays: 190,
-    });
+      await storage.createAcademicTerm({
+        name: "Term 3",
+        description: "Third academic term",
+        status: "Inactive",
+        academicYearId: academicYear.id,
+      });
 
-    console.log("✅ Academic year created");
+      console.log("✅ Academic year and terms created");
+    }
 
-    // Create terms
-    await storage.createAcademicTerm({
-      name: "Term 1",
-      description: "First academic term",
-      status: "Active",
-      academicYearId: academicYear.id,
-    });
-
-    await storage.createAcademicTerm({
-      name: "Term 2",
-      description: "Second academic term",
-      status: "Inactive",
-      academicYearId: academicYear.id,
-    });
-
-    await storage.createAcademicTerm({
-      name: "Term 3",
-      description: "Third academic term",
-      status: "Inactive",
-      academicYearId: academicYear.id,
-    });
-
-    console.log("✅ Academic terms created");
-    console.log("🎉 Database seeding completed!");
+    console.log("🎉 Database setup completed!");
   } catch (error) {
-    console.error("❌ Error seeding database:", error);
+    console.error("❌ Error setting up database:", error);
   }
 }

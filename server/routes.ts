@@ -275,6 +275,15 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/academic-years/active", async (req, res) => {
+    try {
+      const year = await storage.getActiveAcademicYear();
+      res.json(year || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch active academic year" });
+    }
+  });
+
   app.post("/api/academic-years", async (req, res) => {
     try {
       const validated = insertAcademicYearSchema.parse(req.body);
@@ -297,13 +306,49 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/academic-years/:id/set-active", async (req, res) => {
+    try {
+      const year = await storage.setActiveAcademicYear(req.params.id);
+      if (!year) {
+        return res.status(404).json({ error: "Academic year not found" });
+      }
+      res.json(year);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to set active academic year" });
+    }
+  });
+
+  app.delete("/api/academic-years/:id", async (req, res) => {
+    try {
+      await storage.deleteAcademicYear(req.params.id);
+      res.json({ message: "Academic year deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete academic year" });
+    }
+  });
+
   // Academic Terms API
   app.get("/api/academic-terms", async (req, res) => {
     try {
-      const terms = await storage.getAcademicTerms();
+      const { yearId } = req.query;
+      let terms;
+      if (yearId) {
+        terms = await storage.getAcademicTermsByYear(yearId as string);
+      } else {
+        terms = await storage.getAcademicTerms();
+      }
       res.json(terms);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch academic terms" });
+    }
+  });
+
+  app.get("/api/academic-terms/active", async (req, res) => {
+    try {
+      const term = await storage.getActiveAcademicTerm();
+      res.json(term || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch active academic term" });
     }
   });
 
@@ -314,6 +359,39 @@ export async function registerRoutes(
       res.status(201).json(term);
     } catch (error) {
       res.status(400).json({ error: "Invalid academic term data" });
+    }
+  });
+
+  app.patch("/api/academic-terms/:id", async (req, res) => {
+    try {
+      const term = await storage.updateAcademicTerm(req.params.id, req.body);
+      if (!term) {
+        return res.status(404).json({ error: "Academic term not found" });
+      }
+      res.json(term);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to update academic term" });
+    }
+  });
+
+  app.post("/api/academic-terms/:id/set-active", async (req, res) => {
+    try {
+      const term = await storage.setActiveAcademicTerm(req.params.id);
+      if (!term) {
+        return res.status(404).json({ error: "Academic term not found" });
+      }
+      res.json(term);
+    } catch (error) {
+      res.status(400).json({ error: "Failed to set active academic term" });
+    }
+  });
+
+  app.delete("/api/academic-terms/:id", async (req, res) => {
+    try {
+      await storage.deleteAcademicTerm(req.params.id);
+      res.json({ message: "Academic term deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete academic term" });
     }
   });
 

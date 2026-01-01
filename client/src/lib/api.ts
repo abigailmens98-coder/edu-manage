@@ -36,7 +36,7 @@ export const authApi = {
     const response = await fetch('/api/auth/me', {
       credentials: 'include',
     });
-    return handleResponse<{ user: { id: string; username: string; role: string } }>(response);
+    return handleResponse<{ user: { id: string; username: string; role: string }; teacher?: any }>(response);
   },
 };
 

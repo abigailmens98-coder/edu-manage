@@ -27,15 +27,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Check if already authenticated
     const checkAuth = async () => {
       try {
-        const { user } = await authApi.me();
+        const { user, teacher } = await authApi.me();
         setRole(user.role as UserRole);
         setUsername(user.username);
         setUserId(user.id);
+        if (teacher) {
+          setTeacherInfo(teacher);
+        }
       } catch (error) {
         // Not authenticated
         setRole(null);
         setUsername(null);
         setUserId(null);
+        setTeacherInfo(null);
       } finally {
         setLoading(false);
       }

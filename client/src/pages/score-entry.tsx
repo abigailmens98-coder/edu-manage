@@ -6,11 +6,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
-import { Save, Upload, FileDown, AlertCircle, CheckCircle } from "lucide-react";
+import { Save, Upload, FileDown, AlertCircle, CheckCircle, Lock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { studentsApi, subjectsApi, academicTermsApi, scoresApi } from "@/lib/api";
+import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface TeacherAssignment {
+  id: string;
+  teacherId: string;
+  subjectId: string;
+  classLevel: string;
+  isClassTeacher: boolean;
+}
 
 export default function ScoreEntry() {
   const [students, setStudents] = useState<any[]>([]);
@@ -24,7 +33,12 @@ export default function ScoreEntry() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
+  const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
+  const [currentTeacherId, setCurrentTeacherId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { role, userId, teacherInfo } = useAuth();
+
+  const isTeacher = role === "teacher";
 
   useEffect(() => {
     fetchData();
@@ -41,10 +55,19 @@ export default function ScoreEntry() {
       setSubjects(subjectsData);
       setTerms(termsData);
       
-      // Auto-select first active term
       const activeTerm = termsData.find(t => t.status === "Active");
       if (activeTerm) {
         setSelectedTerm(activeTerm.id);
+      }
+
+      if (isTeacher && userId) {
+        const teachers = await teachersApi.getAll();
+        const teacher = teachers.find(t => t.userId === userId);
+        if (teacher) {
+          setCurrentTeacherId(teacher.id);
+          const assignments = await teacherAssignmentsApi.getByTeacher(teacher.id);
+          setTeacherAssignments(assignments);
+        }
       }
     } catch (error) {
       toast({
@@ -57,18 +80,33 @@ export default function ScoreEntry() {
     }
   };
 
-  // Get unique classes from students
-  const uniqueClasses = Array.from(new Set(students.map(s => s.grade))).sort((a, b) => {
-    // Sort KG first, then Basic levels
-    const getOrder = (grade: string) => {
-      if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
-      if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
-      return 100;
-    };
-    return getOrder(a) - getOrder(b);
-  });
+  const getAvailableClasses = () => {
+    if (isTeacher && teacherAssignments.length > 0) {
+      const assignedClasses = Array.from(new Set(teacherAssignments.map(a => a.classLevel)));
+      return assignedClasses.filter(cls => students.some(s => s.grade === cls));
+    }
+    return Array.from(new Set(students.map(s => s.grade))).sort((a, b) => {
+      const getOrder = (grade: string) => {
+        if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
+        if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
+        return 100;
+      };
+      return getOrder(a) - getOrder(b);
+    });
+  };
 
-  // Filter students by selected class (exact match or starts with for sub-classes like 5A, 5B)
+  const getAvailableSubjects = () => {
+    if (isTeacher && teacherAssignments.length > 0 && selectedClass) {
+      const assignedSubjectIds = teacherAssignments
+        .filter(a => a.classLevel === selectedClass)
+        .map(a => a.subjectId);
+      return subjects.filter(s => assignedSubjectIds.includes(s.id));
+    }
+    return subjects;
+  };
+
+  const availableClasses = getAvailableClasses();
+  const availableSubjects = getAvailableSubjects();
   const classStudents = students.filter(s => s.grade === selectedClass);
 
   useEffect(() => {
@@ -76,6 +114,10 @@ export default function ScoreEntry() {
       loadScores();
     }
   }, [selectedClass, selectedSubject, selectedTerm]);
+
+  useEffect(() => {
+    setSelectedSubject("");
+  }, [selectedClass]);
 
   const loadScores = async () => {
     try {
@@ -136,10 +178,8 @@ export default function ScoreEntry() {
         };
 
         if (studentScore.id) {
-          // Update existing score
           await scoresApi.update(studentScore.id, scoreData);
         } else {
-          // Create new score
           await scoresApi.create(scoreData);
         }
       });
@@ -151,7 +191,6 @@ export default function ScoreEntry() {
         description: "Scores saved successfully!",
       });
       
-      // Reload scores to get updated IDs
       await loadScores();
     } catch (error) {
       toast({
@@ -245,7 +284,6 @@ export default function ScoreEntry() {
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(",").map(v => v.trim());
           
-          // Find the student by ID or name
           let student: any = null;
           if (studentIdIdx >= 0 && values[studentIdIdx]) {
             student = classStudents.find(s => s.studentId === values[studentIdIdx]);
@@ -305,12 +343,47 @@ export default function ScoreEntry() {
     );
   }
 
+  if (isTeacher && teacherAssignments.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Score Entry</h1>
+          <p className="text-muted-foreground mt-1">Enter class and exam scores for students.</p>
+        </div>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Lock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <p className="text-lg font-medium text-muted-foreground">No Class Assignments</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              You have not been assigned to any classes yet. Please contact your administrator to get assigned to classes and subjects.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">Score Entry</h1>
-        <p className="text-muted-foreground mt-1">Enter class and exam scores for all students in a subject.</p>
+        <p className="text-muted-foreground mt-1">
+          {isTeacher 
+            ? "Enter scores for your assigned classes and subjects."
+            : "Enter class and exam scores for all students in a subject."
+          }
+        </p>
       </div>
+
+      {isTeacher && (
+        <Alert className="bg-blue-50 border-blue-200">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 ml-2">
+            You can only enter scores for the classes and subjects assigned to you. 
+            Showing {availableClasses.length} class(es) and {availableSubjects.length} subject(s) based on your assignments.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card>
         <CardHeader>
@@ -333,34 +406,42 @@ export default function ScoreEntry() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Class</Label>
+            <Label>Class {isTeacher && "(Assigned)"}</Label>
             <Select value={selectedClass} onValueChange={setSelectedClass}>
               <SelectTrigger data-testid="select-class">
                 <SelectValue placeholder="Select Class" />
               </SelectTrigger>
               <SelectContent>
-                {uniqueClasses.length > 0 ? (
-                  uniqueClasses.map(cls => (
+                {availableClasses.length > 0 ? (
+                  availableClasses.map(cls => (
                     <SelectItem key={cls} value={cls}>
                       {cls} ({students.filter(s => s.grade === cls).length} students)
                     </SelectItem>
                   ))
                 ) : (
-                  <SelectItem value="" disabled>No classes with students</SelectItem>
+                  <SelectItem value="" disabled>No classes available</SelectItem>
                 )}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Subject</Label>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+            <Label>Subject {isTeacher && "(Assigned)"}</Label>
+            <Select 
+              value={selectedSubject} 
+              onValueChange={setSelectedSubject}
+              disabled={!selectedClass}
+            >
               <SelectTrigger data-testid="select-subject">
-                <SelectValue placeholder="Select Subject" />
+                <SelectValue placeholder={selectedClass ? "Select Subject" : "Select class first"} />
               </SelectTrigger>
               <SelectContent>
-                {subjects.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
+                {availableSubjects.length > 0 ? (
+                  availableSubjects.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="" disabled>No subjects available for this class</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

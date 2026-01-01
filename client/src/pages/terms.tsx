@@ -4,53 +4,139 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { getStoredTerms, updateTerms } from "@/lib/storage";
-import { Calendar, Plus, Edit2 } from "lucide-react";
+import { Calendar, Plus, Edit2, Trash2, CheckCircle, Settings, Loader2 } from "lucide-react";
+import { academicYearsApi, academicTermsApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
+import { Link } from "wouter";
+
+interface AcademicYear {
+  id: string;
+  year: string;
+  status: string;
+  totalDays: number;
+}
 
 interface Term {
   id: string;
   name: string;
   description: string;
   status: string;
+  academicYearId: string;
+  totalAttendanceDays: number;
 }
 
 export default function TermsManagement() {
-  const [terms, setTerms] = useState<Term[]>(() => getStoredTerms());
+  const [years, setYears] = useState<AcademicYear[]>([]);
+  const [terms, setTerms] = useState<Term[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingTerm, setEditingTerm] = useState<Term | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editAttendanceDays, setEditAttendanceDays] = useState("");
+  const [deleteTermId, setDeleteTermId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (terms.length > 0) {
-      updateTerms(terms);
-    }
-  }, [terms]);
-  const [newTermName, setNewTermName] = useState("");
-  const [newTermDesc, setNewTermDesc] = useState("");
-  const [newTermStatus, setNewTermStatus] = useState("Inactive");
+    fetchData();
+  }, []);
 
-  const handleAddTerm = () => {
-    if (newTermName.trim()) {
-      const newTerm = {
-        id: `TERM${Date.now()}`,
-        name: newTermName,
-        description: newTermDesc,
-        status: newTermStatus,
-      };
-      setTerms([...terms, newTerm]);
-      setNewTermName("");
-      setNewTermDesc("");
-      setNewTermStatus("Inactive");
+  const fetchData = async () => {
+    try {
+      const [yearsData, termsData] = await Promise.all([
+        academicYearsApi.getAll(),
+        academicTermsApi.getAll(),
+      ]);
+      setYears(yearsData);
+      setTerms(termsData);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch terms data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleToggleStatus = (termId: string) => {
-    setTerms(
-      terms.map(t => ({
-        ...t,
-        status: t.id === termId ? (t.status === "Active" ? "Inactive" : "Active") : t.status,
-      }))
+  const handleSetActiveTerm = async (id: string) => {
+    try {
+      await academicTermsApi.setActive(id);
+      toast({
+        title: "Success",
+        description: "Term set as active",
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to set active term",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditTerm = (term: Term) => {
+    setEditingTerm(term);
+    setEditName(term.name);
+    setEditDescription(term.description);
+    setEditAttendanceDays(String(term.totalAttendanceDays || 60));
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingTerm) return;
+    try {
+      await academicTermsApi.update(editingTerm.id, {
+        name: editName,
+        description: editDescription,
+        totalAttendanceDays: parseInt(editAttendanceDays),
+      });
+      toast({
+        title: "Success",
+        description: "Term updated successfully",
+      });
+      setEditingTerm(null);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update term",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteTerm = async (id: string) => {
+    try {
+      await academicTermsApi.delete(id);
+      toast({
+        title: "Success",
+        description: "Term deleted successfully",
+      });
+      setDeleteTermId(null);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete term",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getActiveYear = () => years.find(y => y.status === "Active");
+  const getTermsForYear = (yearId: string) => terms.filter(t => t.academicYearId === yearId);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
     );
-  };
+  }
+
+  const activeYear = getActiveYear();
 
   return (
     <div className="space-y-6">
@@ -59,95 +145,172 @@ export default function TermsManagement() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Academic Terms Management</h1>
           <p className="text-muted-foreground mt-1">Configure and manage academic terms for the school year.</p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="gap-2 shadow-lg shadow-primary/20">
-              <Plus className="h-4 w-4" /> Add Term
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Academic Term</DialogTitle>
-              <DialogDescription>
-                Add a new term to the academic calendar.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="termName">Term Name</Label>
-                <Input
-                  id="termName"
-                  placeholder="e.g., Term 1, Term 2, Term 3"
-                  value={newTermName}
-                  onChange={(e) => setNewTermName(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="termDesc">Description</Label>
-                <Input
-                  id="termDesc"
-                  placeholder="e.g., First academic term"
-                  value={newTermDesc}
-                  onChange={(e) => setNewTermDesc(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="termStatus">Initial Status</Label>
-                <Select value={newTermStatus} onValueChange={setNewTermStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleAddTerm}>
-                Create Term
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Link href="/settings">
+          <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-go-settings">
+            <Settings className="h-4 w-4" /> Manage in Settings
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {terms.map((term) => (
-          <Card key={term.id} className="hover-elevate transition-all border-l-4 border-l-primary">
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
+      {activeYear && (
+        <Card className="bg-green-50 border-green-200">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <span className="font-medium text-green-800">Active Academic Year:</span>
+              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                {activeYear.year}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {years.length === 0 ? (
+        <Card className="text-center py-12">
+          <CardContent>
+            <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Academic Years Yet</h3>
+            <p className="text-muted-foreground mb-4">Create an academic year in Settings to get started.</p>
+            <Link href="/settings">
+              <Button data-testid="button-create-year">Go to Settings</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : (
+        years.map(year => (
+          <Card key={year.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    {term.name}
+                    <Calendar className="h-5 w-5 text-primary" />
+                    {year.year}
                   </CardTitle>
-                  <CardDescription className="mt-1">{term.description}</CardDescription>
+                  <CardDescription>{year.totalDays} school days</CardDescription>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pb-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Status:</span>
-                <Badge
-                  variant={term.status === "Active" ? "default" : "secondary"}
-                  className="cursor-pointer"
-                  onClick={() => handleToggleStatus(term.id)}
-                >
-                  {term.status}
+                <Badge variant={year.status === "Active" ? "default" : "secondary"}>
+                  {year.status}
                 </Badge>
               </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                {getTermsForYear(year.id).map((term) => (
+                  <Card key={term.id} className="hover-elevate transition-all border-l-4 border-l-primary" data-testid={`card-term-${term.id}`}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-base">{term.name}</CardTitle>
+                          <CardDescription className="text-xs mt-1">{term.description}</CardDescription>
+                        </div>
+                        <Badge
+                          variant={term.status === "Active" ? "default" : "secondary"}
+                          className="cursor-pointer"
+                          onClick={() => term.status !== "Active" && handleSetActiveTerm(term.id)}
+                          data-testid={`badge-term-status-${term.id}`}
+                        >
+                          {term.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                      <div className="text-sm text-muted-foreground">
+                        <strong>{term.totalAttendanceDays || 60}</strong> attendance days
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-0 gap-2">
+                      <Dialog open={editingTerm?.id === term.id} onOpenChange={(open) => !open && setEditingTerm(null)}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="outline" 
+                            className="flex-1 gap-2" 
+                            size="sm"
+                            onClick={() => handleEditTerm(term)}
+                            data-testid={`button-edit-term-${term.id}`}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                            Edit
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Term</DialogTitle>
+                            <DialogDescription>Update term details below.</DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="editName">Term Name</Label>
+                              <Input
+                                id="editName"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                data-testid="input-edit-term-name"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="editDesc">Description</Label>
+                              <Input
+                                id="editDesc"
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                data-testid="input-edit-term-desc"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="editDays">Attendance Days</Label>
+                              <Input
+                                id="editDays"
+                                type="number"
+                                value={editAttendanceDays}
+                                onChange={(e) => setEditAttendanceDays(e.target.value)}
+                                data-testid="input-edit-term-days"
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setEditingTerm(null)}>Cancel</Button>
+                            <Button onClick={handleSaveEdit} data-testid="button-save-term">Save Changes</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                      <Dialog open={deleteTermId === term.id} onOpenChange={(open) => !open && setDeleteTermId(null)}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => setDeleteTermId(term.id)}
+                            data-testid={`button-delete-term-${term.id}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Delete Term</DialogTitle>
+                            <DialogDescription>
+                              Are you sure you want to delete {term.name}? This will also delete all scores for this term.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter>
+                            <Button variant="outline" onClick={() => setDeleteTermId(null)}>Cancel</Button>
+                            <Button variant="destructive" onClick={() => handleDeleteTerm(term.id)}>Delete</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </CardFooter>
+                  </Card>
+                ))}
+                {getTermsForYear(year.id).length === 0 && (
+                  <div className="col-span-3 text-center py-8 text-muted-foreground">
+                    No terms for this academic year. Add terms in Settings.
+                  </div>
+                )}
+              </div>
             </CardContent>
-            <CardFooter className="pt-0">
-              <Button variant="outline" className="w-full gap-2" size="sm">
-                <Edit2 className="h-3 w-3" />
-                Edit Term
-              </Button>
-            </CardFooter>
           </Card>
-        ))}
-      </div>
+        ))
+      )}
 
       <Card className="bg-primary/5 border-primary/20">
         <CardHeader>

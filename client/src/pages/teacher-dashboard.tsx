@@ -7,10 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BookOpen, LogOut, User, CheckCircle, Loader2, Users, UserCheck } from "lucide-react";
+import { BookOpen, LogOut, User, CheckCircle, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
-import { subjectsApi, academicTermsApi, teacherAssignmentsApi, teachersApi } from "@/lib/api";
+import { subjectsApi, academicTermsApi, teacherAssignmentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
 
@@ -59,12 +58,10 @@ export default function TeacherDashboard() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [terms, setTerms] = useState<Term[]>([]);
-  const [activeTerm, setActiveTerm] = useState<Term | null>(null);
   
   const [selectedClass, setSelectedClass] = useState("");
+  const [selectedTerm, setSelectedTerm] = useState("");
   const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState("");
-  const [entryMode, setEntryMode] = useState<"batch" | "single">("batch");
   const [scores, setScores] = useState<Record<string, ScoreData>>({});
   
   const saveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -83,8 +80,11 @@ export default function TeacherDashboard() {
       setSubjects(subjectsData);
       setTerms(termsData);
       
+      // Auto-select active term
       const active = termsData.find((t: Term) => t.status === "Active");
-      setActiveTerm(active || null);
+      if (active) {
+        setSelectedTerm(active.id);
+      }
       
       if (teacherId) {
         const assignmentsData = await teacherAssignmentsApi.getByTeacher(teacherId);
@@ -109,7 +109,6 @@ export default function TeacherDashboard() {
     .filter(Boolean) as Subject[];
 
   const classStudents = students.filter(s => s.grade === selectedClass);
-  const singleStudent = classStudents.find(s => s.id === selectedStudent);
 
   useEffect(() => {
     if (selectedClass && teacherId) {
@@ -118,10 +117,10 @@ export default function TeacherDashboard() {
   }, [selectedClass, teacherId]);
 
   useEffect(() => {
-    if (selectedClass && selectedSubject && activeTerm && teacherId) {
+    if (selectedClass && selectedSubject && selectedTerm && teacherId) {
       loadExistingScores();
     }
-  }, [selectedClass, selectedSubject, activeTerm, teacherId]);
+  }, [selectedClass, selectedSubject, selectedTerm, teacherId]);
 
   const loadStudentsForClass = async () => {
     if (!teacherId) return;
@@ -137,11 +136,11 @@ export default function TeacherDashboard() {
   };
 
   const loadExistingScores = async () => {
-    if (!activeTerm || !teacherId) return;
+    if (!selectedTerm || !teacherId) return;
     
     try {
       const response = await fetch(
-        `/api/teachers/${teacherId}/scores?termId=${activeTerm.id}&classLevel=${encodeURIComponent(selectedClass)}&subjectId=${selectedSubject}`
+        `/api/teachers/${teacherId}/scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}&subjectId=${selectedSubject}`
       );
       if (!response.ok) return;
       
@@ -170,7 +169,7 @@ export default function TeacherDashboard() {
   };
 
   const autoSaveScore = useCallback(async (studentId: string, scoreData: ScoreData) => {
-    if (!activeTerm || !selectedSubject || !teacherId) return;
+    if (!selectedTerm || !selectedSubject || !teacherId) return;
     
     const classScore = parseInt(scoreData.classScore || "0");
     const examScore = parseInt(scoreData.examScore || "0");
@@ -186,7 +185,7 @@ export default function TeacherDashboard() {
         body: JSON.stringify({
           studentId,
           subjectId: selectedSubject,
-          termId: activeTerm.id,
+          termId: selectedTerm,
           classScore,
           examScore,
         }),
@@ -198,11 +197,6 @@ export default function TeacherDashboard() {
           ...prev,
           [studentId]: { ...prev[studentId], id: result.id }
         }));
-        toast({
-          title: "Saved",
-          description: "Score saved automatically",
-          duration: 1500,
-        });
       }
     } catch (error) {
       toast({
@@ -213,7 +207,7 @@ export default function TeacherDashboard() {
     } finally {
       setSaving(null);
     }
-  }, [activeTerm, selectedSubject, teacherId, toast]);
+  }, [selectedTerm, selectedSubject, teacherId, toast]);
 
   const handleScoreChange = (studentId: string, type: 'classScore' | 'examScore', value: string) => {
     const numValue = parseInt(value) || 0;
@@ -258,55 +252,8 @@ export default function TeacherDashboard() {
     );
   }
 
-  const renderScoreRow = (student: Student) => {
-    const studentScore = scores[student.id] || { classScore: "", examScore: "" };
-    const classScore = parseInt(studentScore.classScore || "0");
-    const examScore = parseInt(studentScore.examScore || "0");
-    const total = classScore + examScore;
-    const grade = total > 0 ? getGrade(total) : "-";
-    
-    return (
-      <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
-        <TableCell className="font-mono text-sm">{student.studentId}</TableCell>
-        <TableCell className="font-medium">{student.name}</TableCell>
-        <TableCell>
-          <Input
-            type="number"
-            min="0"
-            max="40"
-            placeholder="0"
-            value={studentScore.classScore}
-            onChange={(e) => handleScoreChange(student.id, 'classScore', e.target.value)}
-            className="h-9 text-center w-20"
-            data-testid={`input-class-score-${student.id}`}
-          />
-        </TableCell>
-        <TableCell>
-          <Input
-            type="number"
-            min="0"
-            max="60"
-            placeholder="0"
-            value={studentScore.examScore}
-            onChange={(e) => handleScoreChange(student.id, 'examScore', e.target.value)}
-            className="h-9 text-center w-20"
-            data-testid={`input-exam-score-${student.id}`}
-          />
-        </TableCell>
-        <TableCell className="text-center font-semibold">{total > 0 ? total : "-"}</TableCell>
-        <TableCell className="text-center">
-          <Badge variant={grade === "-" ? "outline" : "secondary"}>{grade}</Badge>
-        </TableCell>
-        <TableCell>
-          {saving === student.id ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          ) : studentScore.id ? (
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          ) : null}
-        </TableCell>
-      </TableRow>
-    );
-  };
+  const currentTerm = terms.find(t => t.id === selectedTerm);
+  const currentSubject = subjects.find(s => s.id === selectedSubject);
 
   return (
     <div className="min-h-screen bg-background">
@@ -335,39 +282,26 @@ export default function TeacherDashboard() {
       <main className="p-6">
         <div className="max-w-6xl mx-auto space-y-6">
           <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">Terminal Report - Exam & Assessment Grades</h1>
-            <p className="text-muted-foreground mt-1">Enter exam scores and class assessment marks to generate final grades</p>
+            <h1 className="text-3xl font-serif font-bold text-foreground">Score Entry</h1>
+            <p className="text-muted-foreground mt-1">Enter class scores and exam scores for students</p>
           </div>
-
-          {activeTerm && (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-sm py-1 px-3">
-                Current Term: {activeTerm.name}
-              </Badge>
-              <span className="text-sm text-muted-foreground">(Set by administrator)</span>
-            </div>
-          )}
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Select Class & Subject
-              </CardTitle>
-              <CardDescription>Choose from your assigned classes and subjects</CardDescription>
+              <CardTitle>Select Class, Term & Subject</CardTitle>
+              <CardDescription>Choose from your assigned classes to enter scores</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label>Select Class</Label>
+                  <Label>Class</Label>
                   <Select value={selectedClass} onValueChange={(val) => { 
                     setSelectedClass(val); 
-                    setSelectedSubject(""); 
-                    setSelectedStudent("");
+                    setSelectedSubject("");
                     setScores({});
                   }}>
                     <SelectTrigger data-testid="select-class">
-                      <SelectValue placeholder="Choose your assigned class" />
+                      <SelectValue placeholder="Select class" />
                     </SelectTrigger>
                     <SelectContent>
                       {uniqueClasses.map(cls => (
@@ -377,7 +311,22 @@ export default function TeacherDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Select Subject</Label>
+                  <Label>Term</Label>
+                  <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                    <SelectTrigger data-testid="select-term">
+                      <SelectValue placeholder="Select term" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {terms.map(term => (
+                        <SelectItem key={term.id} value={term.id}>
+                          {term.name} {term.status === "Active" && "(Active)"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Subject</Label>
                   <Select 
                     value={selectedSubject} 
                     onValueChange={(val) => {
@@ -387,149 +336,104 @@ export default function TeacherDashboard() {
                     disabled={!selectedClass}
                   >
                     <SelectTrigger data-testid="select-subject">
-                      <SelectValue placeholder={selectedClass ? "Choose subject" : "Select a class first"} />
+                      <SelectValue placeholder={selectedClass ? "Select subject" : "Select class first"} />
                     </SelectTrigger>
                     <SelectContent>
                       {subjectsForSelectedClass.map(sub => (
-                        <SelectItem key={sub.id} value={sub.id}>{sub.name} ({sub.code})</SelectItem>
+                        <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-
-              {selectedClass && selectedSubject && (
-                <div className="pt-4 border-t">
-                  <Label className="mb-2 block">Entry Mode</Label>
-                  <Tabs value={entryMode} onValueChange={(v) => setEntryMode(v as "batch" | "single")}>
-                    <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-                      <TabsTrigger value="batch" className="gap-2">
-                        <Users className="h-4 w-4" />
-                        All Students (Batch)
-                      </TabsTrigger>
-                      <TabsTrigger value="single" className="gap-2">
-                        <UserCheck className="h-4 w-4" />
-                        Single Student
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
-              )}
             </CardContent>
           </Card>
 
-          {selectedClass && selectedSubject && entryMode === "single" && (
+          {selectedClass && selectedTerm && selectedSubject && (
             <Card>
-              <CardHeader>
-                <CardTitle>Select Student</CardTitle>
-                <CardDescription>Choose a student to enter their scores individually</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                  <SelectTrigger data-testid="select-student">
-                    <SelectValue placeholder="Choose a student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {classStudents.map(student => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.studentId} - {student.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {singleStudent && (
-                  <div className="mt-6 p-4 border rounded-lg bg-muted/30">
-                    <h3 className="font-semibold mb-4">{singleStudent.name} ({singleStudent.studentId})</h3>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Class Score (max 40)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="40"
-                          placeholder="0"
-                          value={scores[singleStudent.id]?.classScore || ""}
-                          onChange={(e) => handleScoreChange(singleStudent.id, 'classScore', e.target.value)}
-                          className="text-lg h-12"
-                          data-testid="input-single-class-score"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Exam Score (max 60)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="60"
-                          placeholder="0"
-                          value={scores[singleStudent.id]?.examScore || ""}
-                          onChange={(e) => handleScoreChange(singleStudent.id, 'examScore', e.target.value)}
-                          className="text-lg h-12"
-                          data-testid="input-single-exam-score"
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-4">
-                      <div className="text-lg">
-                        Total: <span className="font-bold">
-                          {(parseInt(scores[singleStudent.id]?.classScore || "0") + parseInt(scores[singleStudent.id]?.examScore || "0")) || "-"}
-                        </span>
-                      </div>
-                      <div className="text-lg">
-                        Grade: <Badge variant="secondary" className="text-lg px-3">
-                          {getGrade(parseInt(scores[singleStudent.id]?.classScore || "0") + parseInt(scores[singleStudent.id]?.examScore || "0"))}
-                        </Badge>
-                      </div>
-                      {saving === singleStudent.id && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Saving...
-                        </div>
-                      )}
-                      {scores[singleStudent.id]?.id && saving !== singleStudent.id && (
-                        <div className="flex items-center gap-2 text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          Saved
-                        </div>
-                      )}
-                    </div>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>{selectedClass} - {currentSubject?.name}</CardTitle>
+                    <CardDescription>{currentTerm?.name}</CardDescription>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {selectedClass && selectedSubject && entryMode === "batch" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  Students in {selectedClass} - {subjects.find(s => s.id === selectedSubject)?.name}
-                </CardTitle>
-                <CardDescription>
-                  Enter Class Score (CA) and Exam Score for each student. Scores are saved automatically.
-                </CardDescription>
+                  <Badge variant="secondary" className="text-sm">
+                    {classStudents.length} Students
+                  </Badge>
+                </div>
               </CardHeader>
               <CardContent>
                 {classStudents.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
+                  <div className="text-center py-12 text-muted-foreground">
                     No students found in {selectedClass}
                   </div>
                 ) : (
-                  <div className="rounded-md border">
+                  <div className="border rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[100px]">ID</TableHead>
-                          <TableHead>Student Name</TableHead>
-                          <TableHead className="w-[100px] text-center">Class (40)</TableHead>
-                          <TableHead className="w-[100px] text-center">Exam (60)</TableHead>
-                          <TableHead className="w-[80px] text-center">Total</TableHead>
-                          <TableHead className="w-[80px] text-center">Grade</TableHead>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-[80px] font-semibold">Number</TableHead>
+                          <TableHead className="font-semibold">Name</TableHead>
+                          <TableHead className="w-[140px] text-center font-semibold">Class Score</TableHead>
+                          <TableHead className="w-[140px] text-center font-semibold">Exam</TableHead>
+                          <TableHead className="w-[100px] text-center font-semibold">Total %</TableHead>
                           <TableHead className="w-[50px]"></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {classStudents.map(renderScoreRow)}
+                        {classStudents.map((student, index) => {
+                          const studentScore = scores[student.id] || { classScore: "", examScore: "" };
+                          const classScore = parseInt(studentScore.classScore || "0");
+                          const examScore = parseInt(studentScore.examScore || "0");
+                          const total = classScore + examScore;
+                          
+                          return (
+                            <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
+                              <TableCell className="font-medium text-muted-foreground">
+                                {index + 1}
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {student.name}
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="40"
+                                  placeholder=""
+                                  value={studentScore.classScore}
+                                  onChange={(e) => handleScoreChange(student.id, 'classScore', e.target.value)}
+                                  className="h-10 text-center border-gray-300"
+                                  data-testid={`input-class-score-${student.id}`}
+                                />
+                              </TableCell>
+                              <TableCell className="p-2">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="60"
+                                  placeholder=""
+                                  value={studentScore.examScore}
+                                  onChange={(e) => handleScoreChange(student.id, 'examScore', e.target.value)}
+                                  className="h-10 text-center border-gray-300"
+                                  data-testid={`input-exam-score-${student.id}`}
+                                />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <span className="font-semibold text-lg">
+                                  {total > 0 ? total : ""}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {saving === student.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                                ) : studentScore.id ? (
+                                  <CheckCircle className="h-4 w-4 text-green-500" />
+                                ) : null}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -538,33 +442,11 @@ export default function TeacherDashboard() {
             </Card>
           )}
 
-          {assignments.length > 0 && !selectedClass && (
-            <Card>
-              <CardHeader>
-                <CardTitle>My Assignments</CardTitle>
-                <CardDescription>Subjects and classes assigned to you by the administrator</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {assignments.map(a => {
-                    const subject = subjects.find(s => s.id === a.subjectId);
-                    return (
-                      <Badge key={a.id} variant="outline" className="py-1.5 px-3">
-                        {subject?.name || "Unknown"} - {a.classLevel}
-                        {a.isClassTeacher && <span className="ml-1 text-blue-600">(Class Teacher)</span>}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {assignments.length === 0 && (
             <Card>
-              <CardContent className="py-8 text-center text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium">No assignments yet</p>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="text-lg font-medium">No classes assigned</p>
                 <p className="text-sm">Please contact your administrator to assign classes and subjects to you.</p>
               </CardContent>
             </Card>

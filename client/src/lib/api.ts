@@ -146,6 +146,11 @@ export const academicYearsApi = {
     return handleResponse<any[]>(response);
   },
 
+  getActive: async () => {
+    const response = await fetch('/api/academic-years/active');
+    return handleResponse<any>(response);
+  },
+
   create: async (year: any) => {
     const response = await fetch('/api/academic-years', {
       method: 'POST',
@@ -163,13 +168,33 @@ export const academicYearsApi = {
     });
     return handleResponse<any>(response);
   },
+
+  setActive: async (id: string) => {
+    const response = await fetch(`/api/academic-years/${id}/set-active`, {
+      method: 'POST',
+    });
+    return handleResponse<any>(response);
+  },
+
+  delete: async (id: string) => {
+    const response = await fetch(`/api/academic-years/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ message: string }>(response);
+  },
 };
 
 // Academic Terms API
 export const academicTermsApi = {
-  getAll: async () => {
-    const response = await fetch('/api/academic-terms');
+  getAll: async (yearId?: string) => {
+    const url = yearId ? `/api/academic-terms?yearId=${yearId}` : '/api/academic-terms';
+    const response = await fetch(url);
     return handleResponse<any[]>(response);
+  },
+
+  getActive: async () => {
+    const response = await fetch('/api/academic-terms/active');
+    return handleResponse<any>(response);
   },
 
   create: async (term: any) => {
@@ -179,6 +204,29 @@ export const academicTermsApi = {
       body: JSON.stringify(term),
     });
     return handleResponse<any>(response);
+  },
+
+  update: async (id: string, term: any) => {
+    const response = await fetch(`/api/academic-terms/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(term),
+    });
+    return handleResponse<any>(response);
+  },
+
+  setActive: async (id: string) => {
+    const response = await fetch(`/api/academic-terms/${id}/set-active`, {
+      method: 'POST',
+    });
+    return handleResponse<any>(response);
+  },
+
+  delete: async (id: string) => {
+    const response = await fetch(`/api/academic-terms/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ message: string }>(response);
   },
 };
 

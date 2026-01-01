@@ -10,6 +10,7 @@ import { Save, Upload, FileDown, AlertCircle, CheckCircle, Lock } from "lucide-r
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi } from "@/lib/api";
+import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -149,12 +150,24 @@ export default function ScoreEntry() {
     }
   };
 
+  const getMaxScore = (type: 'class' | 'exam') => {
+    const basicNum = parseInt(selectedClass.replace(/[^0-9]/g, "") || "0");
+    const is1to6 = basicNum >= 1 && basicNum <= 6;
+    if (type === 'class') return is1to6 ? 50 : 30;
+    return is1to6 ? 50 : 70;
+  };
+
   const handleScoreChange = (studentId: string, type: 'class' | 'exam', value: string) => {
+    let numValue = parseInt(value) || 0;
+    if (numValue < 0) numValue = 0;
+    const maxVal = getMaxScore(type);
+    if (numValue > maxVal) numValue = maxVal;
+    
     setScores(prev => ({
       ...prev,
       [studentId]: {
         ...prev[studentId],
-        [type]: value
+        [type]: numValue > 0 ? numValue.toString() : value === "" ? "" : "0"
       }
     }));
   };
@@ -208,8 +221,34 @@ export default function ScoreEntry() {
     return entry ? entry.grade : "F";
   };
 
-  const isBasic1to6 = selectedClass.includes("Basic 1") || selectedClass.includes("Basic 2") || selectedClass.includes("Basic 3") || 
-                      selectedClass.includes("Basic 4") || selectedClass.includes("Basic 5") || selectedClass.includes("Basic 6");
+  const isBasic1to6 = (() => {
+    const basicNum = parseInt(selectedClass.replace(/[^0-9]/g, "") || "0");
+    return basicNum >= 1 && basicNum <= 6;
+  })();
+
+  const getClassStats = () => {
+    const studentsWithScores = classStudents.filter(s => {
+      const score = scores[s.id];
+      return score && (parseInt(score.class || "0") > 0 || parseInt(score.exam || "0") > 0);
+    });
+    
+    if (studentsWithScores.length === 0) {
+      return { average: 0, passed: 0, failed: 0, total: classStudents.length };
+    }
+    
+    const totals = studentsWithScores.map(s => {
+      const score = scores[s.id];
+      return parseInt(score?.class || "0") + parseInt(score?.exam || "0");
+    });
+    
+    const average = totals.reduce((a, b) => a + b, 0) / totals.length;
+    const passed = totals.filter(t => t >= 50).length;
+    const failed = totals.filter(t => t < 50).length;
+    
+    return { average: Math.round(average * 10) / 10, passed, failed, total: classStudents.length, entered: studentsWithScores.length };
+  };
+
+  const classStats = getClassStats();
 
   const exportScoresToCSV = () => {
     if (!selectedClass || !selectedSubject || !selectedTerm) {
@@ -335,6 +374,112 @@ export default function ScoreEntry() {
     event.target.value = "";
   };
 
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!selectedClass || !selectedSubject || !selectedTerm) {
+      setCsvError("Please select class, subject, and term before importing");
+      return;
+    }
+
+    setCsvError("");
+    setCsvSuccess("");
+
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    
+    if (!isExcel) {
+      handleCSVImport(event);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
+        
+        if (jsonData.length < 2) {
+          setCsvError("Excel file must have a header row and at least one data row");
+          return;
+        }
+
+        const headers = jsonData[0].map((h: string) => String(h).trim().toUpperCase());
+        const studentIdIdx = headers.findIndex(h => h === "STUDENT_ID" || h === "STUDENTID" || h === "ID");
+        const studentNameIdx = headers.findIndex(h => h === "STUDENT_NAME" || h === "NAME" || h === "STUDENTNAME");
+        const classScoreIdx = headers.findIndex(h => h === "CLASS_SCORE" || h === "CLASSSCORE" || h === "CLASS");
+        const examScoreIdx = headers.findIndex(h => h === "EXAM_SCORE" || h === "EXAMSCORE" || h === "EXAM");
+
+        if (studentIdIdx === -1 && studentNameIdx === -1) {
+          setCsvError("Excel must have STUDENT_ID or STUDENT_NAME column");
+          return;
+        }
+        if (classScoreIdx === -1 && examScoreIdx === -1) {
+          setCsvError("Excel must have CLASS_SCORE or EXAM_SCORE column");
+          return;
+        }
+
+        let updated = 0;
+        let created = 0;
+        let errors = 0;
+
+        for (let i = 1; i < jsonData.length; i++) {
+          const values = jsonData[i].map(v => String(v || "").trim());
+          
+          let student: any = null;
+          if (studentIdIdx >= 0 && values[studentIdIdx]) {
+            student = classStudents.find(s => s.studentId === values[studentIdIdx]);
+          }
+          if (!student && studentNameIdx >= 0 && values[studentNameIdx]) {
+            const searchName = values[studentNameIdx].toLowerCase();
+            student = classStudents.find(s => s.name.toLowerCase().includes(searchName) || searchName.includes(s.name.toLowerCase()));
+          }
+          
+          if (!student) {
+            errors++;
+            continue;
+          }
+
+          const classScore = Math.min(classScoreIdx >= 0 ? parseInt(values[classScoreIdx] || "0") : 0, getMaxScore('class'));
+          const examScore = Math.min(examScoreIdx >= 0 ? parseInt(values[examScoreIdx] || "0") : 0, getMaxScore('exam'));
+
+          try {
+            const existingScore = scores[student.id];
+            const scoreData = {
+              studentId: student.id,
+              subjectId: selectedSubject,
+              termId: selectedTerm,
+              classScore: Math.max(0, classScore),
+              examScore: Math.max(0, examScore),
+              totalScore: Math.max(0, classScore) + Math.max(0, examScore),
+            };
+
+            if (existingScore?.id) {
+              await scoresApi.update(existingScore.id, scoreData);
+              updated++;
+            } else {
+              await scoresApi.create(scoreData);
+              created++;
+            }
+          } catch (err) {
+            console.error("Failed to import score for:", student.name, err);
+            errors++;
+          }
+        }
+
+        setCsvSuccess(`Imported: ${created} new, ${updated} updated${errors > 0 ? `, ${errors} errors` : ""}`);
+        loadScores();
+      } catch (err) {
+        setCsvError("Failed to parse Excel file");
+      }
+    };
+    reader.readAsBinaryString(file);
+    event.target.value = "";
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -456,6 +601,22 @@ export default function ScoreEntry() {
               <CardDescription>
                 {isBasic1to6 ? "Basic 1-6 (50% Class + 50% Exam)" : "Basic 7-9 (30% Class + 70% Exam)"}
               </CardDescription>
+              {classStats.entered !== undefined && classStats.entered > 0 && (
+                <div className="flex gap-4 mt-3 text-sm">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
+                    Avg: {classStats.average}%
+                  </span>
+                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                    Pass: {classStats.passed}
+                  </span>
+                  <span className="px-2 py-1 bg-red-100 text-red-800 rounded">
+                    Fail: {classStats.failed}
+                  </span>
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded">
+                    Entered: {classStats.entered}/{classStats.total}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 flex-wrap">
               <Button variant="outline" onClick={exportScoresToCSV} className="gap-2" data-testid="button-export-scores-csv">
@@ -464,15 +625,15 @@ export default function ScoreEntry() {
               
               <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setCsvError(""); setCsvSuccess(""); } }}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="gap-2" data-testid="button-import-scores-csv">
-                    <Upload className="h-4 w-4" /> Import CSV
+                  <Button variant="outline" className="gap-2" data-testid="button-import-scores">
+                    <Upload className="h-4 w-4" /> Import
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[500px]">
                   <DialogHeader>
-                    <DialogTitle>Import Scores from CSV</DialogTitle>
+                    <DialogTitle>Import Scores from CSV or Excel</DialogTitle>
                     <DialogDescription>
-                      Upload a CSV with STUDENT_ID or STUDENT_NAME, plus CLASS_SCORE and/or EXAM_SCORE columns.
+                      Upload a CSV or Excel file with STUDENT_ID or STUDENT_NAME, plus CLASS_SCORE and/or EXAM_SCORE columns.
                       Scores will be imported for the currently selected class, subject, and term.
                     </DialogDescription>
                   </DialogHeader>
@@ -492,13 +653,13 @@ export default function ScoreEntry() {
                     <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer relative">
                       <input
                         type="file"
-                        accept=".csv"
-                        onChange={handleCSVImport}
+                        accept=".csv,.xlsx,.xls"
+                        onChange={handleFileImport}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                        data-testid="input-import-scores-csv"
+                        data-testid="input-import-scores"
                       />
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-sm font-medium">Click to upload CSV</p>
+                      <p className="text-sm font-medium">Click to upload CSV or Excel file</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         Importing for: {selectedClass} - {subjects.find(s => s.id === selectedSubject)?.name}
                       </p>
@@ -539,7 +700,8 @@ export default function ScoreEntry() {
                         <Input 
                           type="number" 
                           className="w-24" 
-                          max={isBasic1to6 ? 50 : 30}
+                          min={0}
+                          max={getMaxScore('class')}
                           value={scores[student.id]?.class || ""}
                           onChange={(e) => handleScoreChange(student.id, 'class', e.target.value)}
                           data-testid={`input-class-score-${student.id}`}
@@ -549,7 +711,8 @@ export default function ScoreEntry() {
                         <Input 
                           type="number" 
                           className="w-24" 
-                          max={isBasic1to6 ? 50 : 70}
+                          min={0}
+                          max={getMaxScore('exam')}
                           value={scores[student.id]?.exam || ""}
                           onChange={(e) => handleScoreChange(student.id, 'exam', e.target.value)}
                           data-testid={`input-exam-score-${student.id}`}

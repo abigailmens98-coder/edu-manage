@@ -5,10 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Printer, ArrowLeft, Users, GraduationCap, ArrowUpDown, FileDown, User } from "lucide-react";
+import { Printer, ArrowLeft, Users, GraduationCap, FileDown, User, FileSpreadsheet } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,6 +21,18 @@ const GRADES = [
   "KG 1", "KG 2", 
   "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6",
   "Basic 7", "Basic 8", "Basic 9"
+];
+
+const NUMERIC_GRADE_SCALE = [
+  { min: 80, max: 100, grade: 1, remark: "Excellent" },
+  { min: 70, max: 79, grade: 2, remark: "Very Good" },
+  { min: 60, max: 69, grade: 3, remark: "Good" },
+  { min: 50, max: 59, grade: 4, remark: "Credit" },
+  { min: 40, max: 49, grade: 5, remark: "Pass" },
+  { min: 30, max: 39, grade: 6, remark: "Weak Pass" },
+  { min: 20, max: 29, grade: 7, remark: "Weak" },
+  { min: 10, max: 19, grade: 8, remark: "Very Weak" },
+  { min: 0, max: 9, grade: 9, remark: "Fail" },
 ];
 
 interface TeacherAssignment {
@@ -40,14 +53,15 @@ export default function Reports() {
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
-  const [sortByRank, setSortByRank] = useState(false);
   const [showStudentReport, setShowStudentReport] = useState<any | null>(null);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
+  const [teacherId, setTeacherId] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { role, userId } = useAuth();
   
   const isTeacher = role === "teacher";
+  const isAdmin = role === "admin";
 
   useEffect(() => {
     fetchData();
@@ -66,15 +80,16 @@ export default function Reports() {
       setAcademicYears(yearsData);
       setTerms(termsData);
       
-      const activeYear = yearsData.find(y => y.status === "Active");
+      const activeYear = yearsData.find((y: any) => y.status === "Active");
       if (activeYear) {
         setSelectedYear(activeYear.id);
       }
       
       if (isTeacher && userId) {
         const teachers = await teachersApi.getAll();
-        const teacher = teachers.find(t => t.userId === userId);
+        const teacher = teachers.find((t: any) => t.userId === userId);
         if (teacher) {
+          setTeacherId(teacher.id);
           const assignments = await teacherAssignmentsApi.getByTeacher(teacher.id);
           setTeacherAssignments(assignments);
         }
@@ -109,6 +124,18 @@ export default function Reports() {
     }
   };
 
+  const getNumericGrade = (score: number): number => {
+    if (score === 0) return 0;
+    const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
+    return entry ? entry.grade : 9;
+  };
+
+  const getGradeRemark = (score: number): string => {
+    if (score === 0) return "-";
+    const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
+    return entry ? entry.remark : "Fail";
+  };
+
   const getClassCounts = () => {
     const counts: Record<string, number> = {};
     students.forEach(s => {
@@ -124,6 +151,16 @@ export default function Reports() {
       return Array.from(new Set(teacherAssignments.map(a => a.classLevel)));
     }
     return null;
+  };
+
+  const getTeacherSubjectsForClass = (classLevel: string) => {
+    if (isTeacher && teacherAssignments.length > 0) {
+      const assignedSubjectIds = teacherAssignments
+        .filter(a => a.classLevel === classLevel)
+        .map(a => a.subjectId);
+      return subjects.filter(s => assignedSubjectIds.includes(s.id));
+    }
+    return subjects;
   };
 
   const teacherClasses = getTeacherAssignedClasses();
@@ -149,14 +186,49 @@ export default function Reports() {
 
   const yearTerms = terms.filter(t => t.academicYearId === selectedYear);
   const classStudents = selectedClass ? students.filter(s => s.grade === selectedClass) : [];
+  
+  const getSubjectsForClass = (classLevel: string) => {
+    const filtered = subjects.filter(s => 
+      s.classLevels && s.classLevels.includes(classLevel)
+    );
+    return filtered.length > 0 ? filtered : subjects;
+  };
+
+  const classSubjects = selectedClass ? getSubjectsForClass(selectedClass) : subjects;
+  
+  const displaySubjects = selectedClass 
+    ? (isTeacher ? getTeacherSubjectsForClass(selectedClass) : classSubjects)
+    : subjects;
+
+  const allSubjects = classSubjects;
 
   const getScore = (studentId: string, subjectId: string) => {
     const score = scores.find(s => s.studentId === studentId && s.subjectId === subjectId);
     return score ? score.totalScore : 0;
   };
 
-  const calculateTotal = (studentId: string) => {
-    return subjects.reduce((sum, sub) => sum + getScore(studentId, sub.id), 0);
+  const getScoreDetails = (studentId: string, subjectId: string) => {
+    const score = scores.find(s => s.studentId === studentId && s.subjectId === subjectId);
+    return score ? { classScore: score.classScore || 0, examScore: score.examScore || 0, total: score.totalScore || 0 } : { classScore: 0, examScore: 0, total: 0 };
+  };
+
+  const calculateTotal = (studentId: string, subjectsToUse: any[] = subjects) => {
+    return subjectsToUse.reduce((sum, sub) => sum + getScore(studentId, sub.id), 0);
+  };
+
+  const calculateAverage = (studentId: string, subjectsToUse: any[] = subjects) => {
+    if (subjectsToUse.length === 0) return 0;
+    const total = subjectsToUse.reduce((sum, s) => sum + getScore(studentId, s.id), 0);
+    return parseFloat((total / subjectsToUse.length).toFixed(1));
+  };
+
+  const getStudentPassFail = (studentId: string, subjectsToUse: any[] = subjects) => {
+    const avg = calculateAverage(studentId, subjectsToUse);
+    return avg >= 50 ? "Pass" : "Fail";
+  };
+
+  const hasAnyScores = (studentId: string, subjectsToUse: any[] = subjects) => {
+    return subjectsToUse.some(s => getScore(studentId, s.id) > 0);
   };
 
   const getGrade = (total: number, classLevel: string) => {
@@ -166,54 +238,220 @@ export default function Reports() {
     return entry ? entry.grade : "F";
   };
 
-  const studentsRankedByScore = [...classStudents].sort((a, b) => calculateTotal(b.id) - calculateTotal(a.id));
+  const getStudentsRankedByAverage = () => {
+    return [...classStudents]
+      .filter(s => hasAnyScores(s.id, allSubjects))
+      .sort((a, b) => calculateAverage(b.id, allSubjects) - calculateAverage(a.id, allSubjects));
+  };
 
-  const displayStudents = sortByRank ? studentsRankedByScore : classStudents;
+  const studentsRankedByAverage = getStudentsRankedByAverage();
 
   const getStudentPosition = (studentId: string) => {
-    const index = studentsRankedByScore.findIndex(s => s.id === studentId);
-    return index + 1;
+    const ranked = getStudentsRankedByAverage();
+    const index = ranked.findIndex(s => s.id === studentId);
+    return index >= 0 ? index + 1 : null;
+  };
+
+  const getPositionSuffix = (pos: number | null) => {
+    if (!pos) return "-";
+    const j = pos % 10;
+    const k = pos % 100;
+    if (j === 1 && k !== 11) return pos + "st";
+    if (j === 2 && k !== 12) return pos + "nd";
+    if (j === 3 && k !== 13) return pos + "rd";
+    return pos + "th";
   };
 
   const hasScoresEntered = (studentId: string) => {
-    return scores.some(s => s.studentId === studentId);
+    return hasAnyScores(studentId, allSubjects);
   };
 
-  const studentsWithScores = displayStudents.filter(s => hasScoresEntered(s.id));
-
-  const printBroadsheet = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
+  const exportBroadsheetPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
-    const termName = terms.find(t => t.id === selectedTerm)?.name || "";
+    const termData = terms.find(t => t.id === selectedTerm);
+    const termName = termData?.name || "";
+    const termNumber = termData?.termNumber || "";
+    const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     
-    doc.setFontSize(16);
-    doc.text("UNIVERSITY BASIC SCHOOL - TARKWA", 14, 15);
-    doc.setFontSize(12);
-    doc.text(`Class Broadsheet - ${selectedClass}`, 14, 22);
-    doc.text(`Academic Year: ${yearName} - ${termName}`, 14, 28);
+    doc.setFillColor(0, 100, 0);
+    doc.rect(0, 0, 297, 8, "F");
+    
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 100, 0);
+    doc.text("UNIVERSITY BASIC SCHOOL", 148.5, 18, { align: "center" });
+    
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${yearName} TERM ${termNumber}    BROADSHEET FOR    ${selectedClass?.toUpperCase()}`, 148.5, 26, { align: "center" });
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("SCORE AND POSITION OF STUDENTS", 148.5, 33, { align: "center" });
+    
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Number on Roll: ${classStudents.length}`, 14, 38);
+    doc.text(`Term: ${termNumber}`, 70, 38);
+    doc.text(today, 250, 38);
 
+    const subjectHeaders = displaySubjects.flatMap(s => [s.code || s.name.substring(0, 3).toUpperCase(), ""]);
     const tableHead = [
-      ["Pos", "Student ID", "Name", ...subjects.map(s => s.code), "Total"]
+      ["NAME OF STUDENTS", ...subjectHeaders, "TOT", "AVG", "POS"]
     ];
 
-    const tableBody = studentsRankedByScore.map((student, index) => [
-      index + 1,
-      student.studentId,
-      student.name,
-      ...subjects.map(s => getScore(student.id, s.id) || "-"),
-      calculateTotal(student.id)
-    ]);
+    const sortedStudents = [...classStudents].sort((a, b) => {
+      const avgA = calculateAverage(a.id, allSubjects);
+      const avgB = calculateAverage(b.id, allSubjects);
+      return avgB - avgA;
+    });
+
+    const tableBody = sortedStudents.map((student) => {
+      const total = calculateTotal(student.id, allSubjects);
+      const avg = calculateAverage(student.id, allSubjects);
+      const position = getStudentPosition(student.id);
+      const posText = getPositionSuffix(position);
+      
+      const subjectScores = displaySubjects.flatMap(s => {
+        const score = getScore(student.id, s.id);
+        const grade = score > 0 ? getNumericGrade(score) : "";
+        return [score || "", grade];
+      });
+      
+      return [
+        student.name.toUpperCase(),
+        ...subjectScores,
+        total || 0,
+        avg || 0,
+        posText
+      ];
+    });
+
+    const subjectColStyles: any = {};
+    displaySubjects.forEach((_, idx) => {
+      const scoreCol = 1 + (idx * 2);
+      const gradeCol = 2 + (idx * 2);
+      subjectColStyles[scoreCol] = { cellWidth: 8, halign: "center" };
+      subjectColStyles[gradeCol] = { cellWidth: 6, halign: "center", fillColor: [240, 240, 240] };
+    });
 
     autoTable(doc, {
       head: tableHead,
       body: tableBody,
-      startY: 35,
-      theme: 'grid',
-      styles: { fontSize: 7 },
-      headStyles: { fillColor: [41, 128, 185] },
+      startY: 42,
+      theme: "grid",
+      styles: { fontSize: 6, cellPadding: 1 },
+      headStyles: { 
+        fillColor: [200, 220, 200], 
+        textColor: [0, 0, 0], 
+        fontStyle: "bold",
+        halign: "center",
+        fontSize: 5
+      },
+      columnStyles: {
+        0: { cellWidth: 45 },
+        ...subjectColStyles,
+        [1 + displaySubjects.length * 2]: { cellWidth: 10, halign: "center", fontStyle: "bold" },
+        [2 + displaySubjects.length * 2]: { cellWidth: 10, halign: "center" },
+        [3 + displaySubjects.length * 2]: { cellWidth: 10, halign: "center" },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body") {
+          const colIdx = data.column.index;
+          if (colIdx > 0 && colIdx <= displaySubjects.length * 2) {
+            if (colIdx % 2 === 0) {
+              data.cell.styles.fillColor = [245, 245, 245];
+              data.cell.styles.fontSize = 5;
+            }
+          }
+          const cellValue = data.cell.raw;
+          if (cellValue === "Fail" || cellValue === 0) {
+            data.cell.styles.textColor = [200, 0, 0];
+          }
+        }
+      }
     });
 
-    doc.save(`Broadsheet_${selectedClass}_${termName}.pdf`);
+    doc.save(`Broadsheet_${selectedClass}_${termName.replace(/\s+/g, "_")}.pdf`);
+    
+    toast({
+      title: "Success",
+      description: "Broadsheet PDF exported successfully",
+    });
+  };
+
+  const exportBroadsheetExcel = () => {
+    const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
+    const termData = terms.find(t => t.id === selectedTerm);
+    const termName = termData?.name || "";
+    
+    const headers = [
+      "Position",
+      "Student Name",
+      "Student ID",
+      ...displaySubjects.flatMap(s => [`${s.name} Score`, `${s.name} Grade`]),
+      "Total",
+      "Average",
+      "Status"
+    ];
+
+    const sortedStudents = [...classStudents].sort((a, b) => {
+      return calculateAverage(b.id, allSubjects) - calculateAverage(a.id, allSubjects);
+    });
+
+    const data = sortedStudents.map((student) => {
+      const total = calculateTotal(student.id, allSubjects);
+      const avg = calculateAverage(student.id, allSubjects);
+      const position = getStudentPosition(student.id);
+      const status = getStudentPassFail(student.id, allSubjects);
+      
+      const subjectData = displaySubjects.flatMap(s => {
+        const score = getScore(student.id, s.id);
+        const grade = score > 0 ? getNumericGrade(score) : "-";
+        return [score || 0, grade];
+      });
+      
+      return [
+        getPositionSuffix(position),
+        student.name,
+        student.studentId,
+        ...subjectData,
+        total,
+        avg,
+        status
+      ];
+    });
+
+    const wsData = [
+      ["UNIVERSITY BASIC SCHOOL - TARKWA"],
+      [`${yearName} - ${termName} BROADSHEET FOR ${selectedClass}`],
+      [`Number on Roll: ${classStudents.length}`],
+      [],
+      headers,
+      ...data
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Broadsheet");
+    
+    ws["!cols"] = [
+      { wch: 8 },
+      { wch: 25 },
+      { wch: 12 },
+      ...displaySubjects.flatMap(() => [{ wch: 10 }, { wch: 8 }]),
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 8 }
+    ];
+
+    XLSX.writeFile(wb, `Broadsheet_${selectedClass}_${termName.replace(/\s+/g, "_")}.xlsx`);
+    
+    toast({
+      title: "Success",
+      description: "Broadsheet Excel exported successfully",
+    });
   };
 
   const printStudentReport = (student: any) => {
@@ -221,9 +459,9 @@ export default function Reports() {
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
     const termName = terms.find(t => t.id === selectedTerm)?.name || "";
     const position = getStudentPosition(student.id);
-    const total = calculateTotal(student.id);
-    const subjectsWithScores = subjects.filter(s => getScore(student.id, s.id) > 0);
-    const maxPossibleScore = subjectsWithScores.length * 100;
+    const total = calculateTotal(student.id, allSubjects);
+    const avg = calculateAverage(student.id, allSubjects);
+    const maxPossibleScore = allSubjects.length * 100;
     const percentage = maxPossibleScore > 0 ? Math.round((total / maxPossibleScore) * 100) : 0;
     
     doc.setDrawColor(41, 128, 185);
@@ -258,18 +496,18 @@ export default function Reports() {
     doc.text(`Student ID: ${student.studentId}`, 14, 85);
     doc.text(`Class: ${student.grade}`, 14, 92);
     
-    doc.text(`Position: ${position} of ${classStudents.length}`, 110, 78);
+    doc.text(`Position: ${getPositionSuffix(position)} of ${classStudents.length}`, 110, 78);
     doc.text(`Total Score: ${total}`, 110, 85);
-    doc.text(`Percentage: ${percentage}%`, 110, 92);
+    doc.text(`Average: ${avg}%`, 110, 92);
 
     const tableHead = [["Subject", "Class Score", "Exam Score", "Total", "Grade", "Remark"]];
-    const tableBody = subjects.map(s => {
+    const tableBody = allSubjects.map(s => {
       const scoreData = scores.find(sc => sc.studentId === student.id && sc.subjectId === s.id);
       const classScore = scoreData?.classScore || 0;
       const examScore = scoreData?.examScore || 0;
       const totalScore = classScore + examScore;
-      const grade = totalScore > 0 ? getGrade(totalScore, student.grade) : "-";
-      const remark = totalScore >= 80 ? "Excellent" : totalScore >= 70 ? "Very Good" : totalScore >= 60 ? "Good" : totalScore >= 50 ? "Pass" : totalScore > 0 ? "Fail" : "-";
+      const grade = totalScore > 0 ? getNumericGrade(totalScore) : "-";
+      const remark = getGradeRemark(totalScore);
       return [s.name, classScore || "-", examScore || "-", totalScore || "-", grade, remark];
     });
 
@@ -289,9 +527,9 @@ export default function Reports() {
     doc.text("Summary", 14, finalY + 12);
     doc.setFont("helvetica", "normal");
     doc.text(`Total Score: ${total} out of ${maxPossibleScore}`, 14, finalY + 20);
-    doc.text(`Percentage: ${percentage}%`, 14, finalY + 27);
-    doc.text(`Class Position: ${position} out of ${classStudents.length} students`, 14, finalY + 34);
-    doc.text(`Overall Performance: ${percentage >= 80 ? "Excellent" : percentage >= 70 ? "Very Good" : percentage >= 60 ? "Good" : percentage >= 50 ? "Pass" : "Needs Improvement"}`, 14, finalY + 41);
+    doc.text(`Average: ${avg}%`, 14, finalY + 27);
+    doc.text(`Class Position: ${getPositionSuffix(position)} out of ${classStudents.length} students`, 14, finalY + 34);
+    doc.text(`Overall Performance: ${getGradeRemark(avg)}`, 14, finalY + 41);
     
     doc.setFont("helvetica", "bold");
     doc.text("Class Teacher's Comments:", 14, finalY + 55);
@@ -333,7 +571,7 @@ export default function Reports() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Reports & Broadsheet</h1>
           <p className="text-muted-foreground mt-1">
             {isTeacher 
-              ? "View reports and broadsheets for your assigned classes."
+              ? "View reports and broadsheets for your assigned subjects."
               : "Select a class to view student reports and generate broadsheets."
             }
           </p>
@@ -343,8 +581,8 @@ export default function Reports() {
           <Alert className="bg-blue-50 border-blue-200">
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800 ml-2">
-              You can view reports for the classes you are assigned to teach. 
-              Showing {sortedClasses.length} class(es) based on your assignments.
+              You can view broadsheets for your assigned subjects only. 
+              {teacherAssignments.length > 0 && ` Showing ${sortedClasses.length} class(es) with ${new Set(teacherAssignments.map(a => a.subjectId)).size} subject(s).`}
             </AlertDescription>
           </Alert>
         )}
@@ -402,6 +640,9 @@ export default function Reports() {
           {sortedClasses.map((grade) => {
             const count = classCounts[grade] || 0;
             const isKG = grade.startsWith("KG");
+            const assignedSubjectsCount = isTeacher 
+              ? teacherAssignments.filter(a => a.classLevel === grade).length 
+              : subjects.length;
             
             return (
               <Card 
@@ -426,6 +667,11 @@ export default function Reports() {
                       {count === 1 ? 'student' : 'students'}
                     </span>
                   </div>
+                  {isTeacher && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {assignedSubjectsCount} subject(s) assigned
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -443,8 +689,17 @@ export default function Reports() {
     );
   }
 
-  const termName = terms.find(t => t.id === selectedTerm)?.name || "";
+  const termData = terms.find(t => t.id === selectedTerm);
+  const termName = termData?.name || "";
+  const termNumber = termData?.termNumber || "";
   const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
+  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+
+  const sortedStudentsByRank = [...classStudents].sort((a, b) => {
+    const avgA = calculateAverage(a.id, allSubjects);
+    const avgB = calculateAverage(b.id, allSubjects);
+    return avgB - avgA;
+  });
 
   return (
     <div className="space-y-6">
@@ -459,7 +714,7 @@ export default function Reports() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-serif font-bold text-foreground">{selectedClass} Reports</h1>
+            <h1 className="text-3xl font-serif font-bold text-foreground">{selectedClass} Broadsheet</h1>
             <p className="text-muted-foreground mt-1">{yearName} - {termName}</p>
           </div>
         </div>
@@ -467,123 +722,161 @@ export default function Reports() {
           <Button 
             variant="outline" 
             className="gap-2"
-            onClick={() => setSortByRank(!sortByRank)}
-            data-testid="button-toggle-rank"
+            onClick={exportBroadsheetPDF}
+            disabled={classStudents.length === 0}
+            data-testid="button-export-pdf"
           >
-            <ArrowUpDown className="h-4 w-4" /> 
-            {sortByRank ? "Show Original Order" : "Sort by Position"}
+            <FileDown className="h-4 w-4" /> Export PDF
           </Button>
           <Button 
+            variant="outline" 
             className="gap-2"
-            onClick={printBroadsheet}
-            disabled={studentsWithScores.length === 0}
-            data-testid="button-print-broadsheet"
+            onClick={exportBroadsheetExcel}
+            disabled={classStudents.length === 0}
+            data-testid="button-export-excel"
           >
-            <Printer className="h-4 w-4" /> Print Broadsheet
+            <FileSpreadsheet className="h-4 w-4" /> Export Excel
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center flex-wrap gap-4">
-            <div>
-              <CardTitle>Class Broadsheet</CardTitle>
-              <CardDescription>
-                {studentsWithScores.length} of {classStudents.length} students have scores entered
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-                <SelectTrigger className="w-40" data-testid="select-term-inline">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {yearTerms.map(t => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name} {t.status === "Active" && "(Active)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {isTeacher && (
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 ml-2">
+            Showing {displaySubjects.length} subject(s) assigned to you. Admins see all subjects.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="border-green-200">
+        <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
+          <div className="text-center">
+            <CardTitle className="text-lg font-bold">UNIVERSITY BASIC SCHOOL</CardTitle>
+            <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {selectedClass?.toUpperCase()}</p>
+            <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border-b text-sm">
+            <div className="flex gap-6">
+              <span><strong>Number on Roll:</strong> {classStudents.length}</span>
+              <span><strong>Term:</strong> {termNumber}</span>
+            </div>
+            <span className="text-gray-600">{today}</span>
+          </div>
+          
           <div className="overflow-x-auto" ref={printRef}>
             <Table>
-              <TableHeader className="bg-muted/50">
+              <TableHeader className="bg-green-50">
                 <TableRow>
-                  <TableHead className="w-[60px] sticky left-0 bg-muted/50">Pos</TableHead>
-                  <TableHead className="w-[200px] sticky left-[60px] bg-muted/50">Student</TableHead>
-                  {subjects.map(s => (
-                    <TableHead key={s.id} className="text-center min-w-[70px] text-xs">
-                      {s.code}
+                  <TableHead className="w-[200px] sticky left-0 bg-green-50 font-bold border-r">NAME OF STUDENTS</TableHead>
+                  {displaySubjects.map(s => (
+                    <TableHead key={s.id} colSpan={2} className="text-center min-w-[80px] border-x text-xs font-bold">
+                      {s.code || s.name.substring(0, 8)}
                     </TableHead>
                   ))}
-                  <TableHead className="text-center font-bold min-w-[80px]">Total</TableHead>
-                  <TableHead className="text-center w-[100px]">Actions</TableHead>
+                  <TableHead className="text-center font-bold min-w-[50px] border-x">TOT</TableHead>
+                  <TableHead className="text-center font-bold min-w-[50px] border-x">AVG</TableHead>
+                  <TableHead className="text-center font-bold min-w-[50px]">POS</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayStudents.map((student) => {
-                  const total = calculateTotal(student.id);
+                {sortedStudentsByRank.map((student) => {
+                  const total = calculateTotal(student.id, allSubjects);
+                  const avg = calculateAverage(student.id, allSubjects);
                   const position = getStudentPosition(student.id);
                   const hasScores = hasScoresEntered(student.id);
+                  const status = getStudentPassFail(student.id, allSubjects);
                   
                   return (
                     <TableRow 
                       key={student.id} 
-                      className={!hasScores ? "opacity-50" : ""}
+                      className={`${!hasScores ? "opacity-50" : ""} ${status === "Fail" && hasScores ? "bg-red-50" : ""} hover:bg-gray-50 cursor-pointer`}
+                      onClick={() => hasScores && setShowStudentReport(student)}
                       data-testid={`row-report-${student.id}`}
                     >
-                      <TableCell className="font-bold text-primary sticky left-0 bg-background" data-testid={`text-position-${student.id}`}>
-                        {hasScores ? position : "-"}
+                      <TableCell className="sticky left-0 bg-white font-medium border-r" data-testid={`text-name-${student.id}`}>
+                        {student.name.toUpperCase()}
                       </TableCell>
-                      <TableCell className="sticky left-[60px] bg-background">
-                        <div className="font-medium">{student.name}</div>
-                        <div className="text-xs text-muted-foreground">{student.studentId}</div>
-                      </TableCell>
-                      {subjects.map(s => {
+                      {displaySubjects.map(s => {
                         const score = getScore(student.id, s.id);
+                        const grade = score > 0 ? getNumericGrade(score) : "";
                         return (
-                          <TableCell 
-                            key={s.id} 
-                            className={`text-center ${score === 0 ? 'text-muted-foreground' : score < 50 ? 'text-red-600' : ''}`}
-                            data-testid={`text-score-${student.id}-${s.id}`}
-                          >
-                            {score || "-"}
-                          </TableCell>
+                          <>
+                            <TableCell 
+                              key={`${s.id}-score`}
+                              className={`text-center border-l ${score === 0 ? 'text-muted-foreground' : score < 50 ? 'text-red-600 font-semibold' : ''}`}
+                              data-testid={`text-score-${student.id}-${s.id}`}
+                            >
+                              {score || ""}
+                            </TableCell>
+                            <TableCell 
+                              key={`${s.id}-grade`}
+                              className={`text-center bg-gray-50 text-xs border-r ${score < 50 && score > 0 ? 'text-red-600' : ''}`}
+                              data-testid={`text-grade-${student.id}-${s.id}`}
+                            >
+                              {grade}
+                            </TableCell>
+                          </>
                         );
                       })}
-                      <TableCell className="text-center font-bold bg-muted/20" data-testid={`text-total-${student.id}`}>
-                        {total || "-"}
+                      <TableCell className="text-center font-bold border-x" data-testid={`text-total-${student.id}`}>
+                        {total || ""}
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1"
-                          onClick={() => setShowStudentReport(student)}
-                          disabled={!hasScores}
-                          data-testid={`button-view-report-${student.id}`}
-                        >
-                          <User className="h-3 w-3" />
-                          Report
-                        </Button>
+                      <TableCell className={`text-center border-x ${avg < 50 && avg > 0 ? 'text-red-600 font-semibold' : ''}`} data-testid={`text-avg-${student.id}`}>
+                        {avg > 0 ? avg : ""}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold" data-testid={`text-position-${student.id}`}>
+                        {getPositionSuffix(position)}
                       </TableCell>
                     </TableRow>
                   );
                 })}
-                {displayStudents.length === 0 && (
+                {classStudents.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={subjects.length + 4} className="text-center py-8">
-                      No students found in {selectedClass}
+                    <TableCell colSpan={displaySubjects.length * 2 + 4} className="text-center py-8 text-muted-foreground">
+                      No students enrolled in this class
                     </TableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
+          </div>
+          
+          <div className="p-4 bg-gray-50 border-t flex justify-between items-center flex-wrap gap-4">
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">{studentsRankedByAverage.length}</span> of {classStudents.length} students have scores entered
+            </div>
+            <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+              <SelectTrigger className="w-40" data-testid="select-term-inline">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {yearTerms.map(t => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name} {t.status === "Active" && "(Active)"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Grading Scale Reference</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 text-center text-sm">
+            {NUMERIC_GRADE_SCALE.map((g, idx) => (
+              <div key={idx} className={`p-2 rounded border ${g.grade >= 6 ? 'bg-red-50 border-red-200' : g.grade >= 4 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
+                <div className="font-bold text-lg">{g.grade}</div>
+                <div className="text-xs text-gray-600">{g.min}-{g.max}%</div>
+                <div className="text-xs font-medium">{g.remark}</div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -591,104 +884,82 @@ export default function Reports() {
       <Dialog open={!!showStudentReport} onOpenChange={() => setShowStudentReport(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Student Report Card Preview</DialogTitle>
+            <DialogTitle className="text-center">
+              <div className="bg-gradient-to-r from-green-700 to-green-600 text-white p-4 -mx-6 -mt-6 rounded-t-lg">
+                <div className="text-lg font-bold">UNIVERSITY BASIC SCHOOL</div>
+                <div className="text-sm">TARKWA, WESTERN REGION, GHANA</div>
+                <div className="text-xs mt-1">Student Report Card</div>
+              </div>
+            </DialogTitle>
           </DialogHeader>
-          {showStudentReport && (() => {
-            const studentTotal = calculateTotal(showStudentReport.id);
-            const subjectsWithScoresCount = subjects.filter(s => getScore(showStudentReport.id, s.id) > 0).length;
-            const maxPossible = subjectsWithScoresCount * 100;
-            const studentPercentage = maxPossible > 0 ? Math.round((studentTotal / maxPossible) * 100) : 0;
-            
-            return (
-              <div className="space-y-6">
-                <div className="text-center border-b pb-4 bg-gradient-to-b from-blue-50 to-white -mx-6 -mt-4 px-6 pt-4">
-                  <h2 className="text-xl font-bold text-blue-800">UNIVERSITY BASIC SCHOOL</h2>
-                  <p className="text-sm text-blue-600">TARKWA, WESTERN REGION, GHANA</p>
-                  <p className="text-lg font-semibold mt-2">STUDENT REPORT CARD</p>
-                  <p className="text-sm text-muted-foreground">{termName} - Academic Year {yearName}</p>
+          
+          {showStudentReport && (
+            <div className="space-y-4 mt-4">
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <p><strong>Name:</strong> {showStudentReport.name}</p>
+                  <p><strong>Student ID:</strong> {showStudentReport.studentId}</p>
+                  <p><strong>Class:</strong> {showStudentReport.grade}</p>
                 </div>
-                
-                <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-lg">
-                  <div>
-                    <p><strong>Student Name:</strong> {showStudentReport.name}</p>
-                    <p><strong>Student ID:</strong> {showStudentReport.studentId}</p>
-                    <p><strong>Class:</strong> {showStudentReport.grade}</p>
-                  </div>
-                  <div className="text-right">
-                    <p><strong>Position:</strong> {getStudentPosition(showStudentReport.id)} of {classStudents.length}</p>
-                    <p><strong>Total Score:</strong> {studentTotal}</p>
-                    <p><strong>Percentage:</strong> {studentPercentage}%</p>
-                  </div>
-                </div>
-
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-blue-50">
-                      <TableHead>Subject</TableHead>
-                      <TableHead className="text-center">Class Score</TableHead>
-                      <TableHead className="text-center">Exam Score</TableHead>
-                      <TableHead className="text-center">Total</TableHead>
-                      <TableHead className="text-center">Grade</TableHead>
-                      <TableHead className="text-center">Remark</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {subjects.map(s => {
-                      const scoreData = scores.find(sc => sc.studentId === showStudentReport.id && sc.subjectId === s.id);
-                      const classScore = scoreData?.classScore || 0;
-                      const examScore = scoreData?.examScore || 0;
-                      const totalScore = classScore + examScore;
-                      const grade = totalScore > 0 ? getGrade(totalScore, showStudentReport.grade) : "-";
-                      const remark = totalScore >= 80 ? "Excellent" : totalScore >= 70 ? "Very Good" : totalScore >= 60 ? "Good" : totalScore >= 50 ? "Pass" : totalScore > 0 ? "Fail" : "-";
-                      return (
-                        <TableRow key={s.id}>
-                          <TableCell>{s.name}</TableCell>
-                          <TableCell className="text-center">{classScore || "-"}</TableCell>
-                          <TableCell className="text-center">{examScore || "-"}</TableCell>
-                          <TableCell className="text-center font-medium">{totalScore || "-"}</TableCell>
-                          <TableCell className="text-center">
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${totalScore >= 50 ? 'bg-green-100 text-green-800' : totalScore > 0 ? 'bg-red-100 text-red-800' : ''}`}>
-                              {grade}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-center text-xs">{remark}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex justify-between items-center flex-wrap gap-4">
-                    <div>
-                      <p className="text-lg font-bold">Total: {studentTotal} / {maxPossible}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Percentage: {studentPercentage}% - 
-                        <span className={`ml-1 font-medium ${studentPercentage >= 50 ? 'text-green-600' : 'text-red-600'}`}>
-                          {studentPercentage >= 80 ? "Excellent" : studentPercentage >= 70 ? "Very Good" : studentPercentage >= 60 ? "Good" : studentPercentage >= 50 ? "Pass" : "Needs Improvement"}
-                        </span>
-                      </p>
-                      <p className="text-sm text-muted-foreground">Position: {getStudentPosition(showStudentReport.id)} of {classStudents.length}</p>
-                    </div>
-                    <Button 
-                      className="gap-2"
-                      onClick={() => printStudentReport(showStudentReport)}
-                      data-testid="button-print-student-report"
-                    >
-                      <FileDown className="h-4 w-4" /> Download PDF
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="border-t pt-4 text-sm text-muted-foreground">
-                  <p className="font-medium mb-2">Class Teacher's Comments:</p>
-                  <div className="border border-dashed border-gray-300 rounded p-3 min-h-[40px] bg-white"></div>
-                  <p className="font-medium mt-3 mb-2">Headmaster's Comments:</p>
-                  <div className="border border-dashed border-gray-300 rounded p-3 min-h-[40px] bg-white"></div>
+                <div className="text-right">
+                  <p><strong>Position:</strong> {getPositionSuffix(getStudentPosition(showStudentReport.id))} of {classStudents.length}</p>
+                  <p><strong>Total:</strong> {calculateTotal(showStudentReport.id, allSubjects)}</p>
+                  <p><strong>Average:</strong> {calculateAverage(showStudentReport.id, allSubjects)}%</p>
                 </div>
               </div>
-            );
-          })()}
+
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-green-600 text-white">
+                    <TableHead className="text-white">Subject</TableHead>
+                    <TableHead className="text-center text-white">Class Score</TableHead>
+                    <TableHead className="text-center text-white">Exam Score</TableHead>
+                    <TableHead className="text-center text-white">Total</TableHead>
+                    <TableHead className="text-center text-white">Grade</TableHead>
+                    <TableHead className="text-center text-white">Remark</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {allSubjects.map(s => {
+                    const details = getScoreDetails(showStudentReport.id, s.id);
+                    const grade = details.total > 0 ? getNumericGrade(details.total) : "-";
+                    const remark = getGradeRemark(details.total);
+                    return (
+                      <TableRow key={s.id} className={details.total < 50 && details.total > 0 ? "bg-red-50" : ""}>
+                        <TableCell className="font-medium">{s.name}</TableCell>
+                        <TableCell className="text-center">{details.classScore || "-"}</TableCell>
+                        <TableCell className="text-center">{details.examScore || "-"}</TableCell>
+                        <TableCell className="text-center font-semibold">{details.total || "-"}</TableCell>
+                        <TableCell className="text-center">{grade}</TableCell>
+                        <TableCell className={`text-center ${remark === "Fail" ? "text-red-600 font-semibold" : ""}`}>
+                          {remark}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-semibold mb-2">Summary</p>
+                    <p><strong>Overall Performance:</strong> {getGradeRemark(calculateAverage(showStudentReport.id, allSubjects))}</p>
+                    <p><strong>Status:</strong> <span className={getStudentPassFail(showStudentReport.id, allSubjects) === "Pass" ? "text-green-600" : "text-red-600"}>{getStudentPassFail(showStudentReport.id, allSubjects)}</span></p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setShowStudentReport(null)}>
+                  Close
+                </Button>
+                <Button onClick={() => printStudentReport(showStudentReport)} className="gap-2">
+                  <Printer className="h-4 w-4" /> Print Report Card
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

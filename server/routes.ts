@@ -106,12 +106,20 @@ export async function registerRoutes(
         return res.status(404).json({ error: "User not found" });
       }
 
+      // For teachers, also fetch their teacher record
+      let teacherInfo = null;
+      if (user.role === "teacher") {
+        const teachers = await storage.getTeachers();
+        teacherInfo = teachers.find(t => t.userId === user.id);
+      }
+
       res.json({ 
         user: { 
           id: user.id, 
           username: user.username, 
           role: user.role 
-        } 
+        },
+        teacher: teacherInfo
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to get user" });
@@ -183,13 +191,14 @@ export async function registerRoutes(
     try {
       const { name, subject, email, assignedClass, username, password, secretWord } = req.body;
       
-      // Create user account
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Create user account - use a default password if not provided
+      const passwordToUse = password || "teacher123";
+      const hashedPassword = await bcrypt.hash(passwordToUse, 10);
       const user = await storage.createUser({
-        username,
+        username: username || `teacher_${Date.now()}`,
         password: hashedPassword,
         role: "teacher",
-        secretWord,
+        secretWord: secretWord || "",
       });
 
       // Generate teacher ID
@@ -200,16 +209,21 @@ export async function registerRoutes(
       const teacher = await storage.createTeacher({
         userId: user.id,
         teacherId,
-        name,
+        name: name || "New Teacher",
         subject: subject || "General",
-        email,
-        assignedClass,
+        email: email || "",
+        assignedClass: assignedClass || "",
       });
 
       res.status(201).json(teacher);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Create teacher error:", error);
-      res.status(400).json({ error: "Failed to create teacher" });
+      // Return more specific error messages
+      if (error?.message?.includes("duplicate") || error?.code === "23505") {
+        res.status(400).json({ error: "Username already exists. Please choose a different username." });
+      } else {
+        res.status(400).json({ error: error?.message || "Failed to create teacher" });
+      }
     }
   });
 

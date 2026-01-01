@@ -296,7 +296,7 @@ export default function Reports() {
     doc.text(`Term: ${termNumber}`, 70, 38);
     doc.text(today, 250, 38);
 
-    const subjectHeaders = displaySubjects.flatMap(s => [s.code || s.name.substring(0, 3).toUpperCase(), ""]);
+    const subjectHeaders = displaySubjects.flatMap(s => [s.name, ""]);
     const tableHead = [
       ["NAME OF STUDENTS", ...subjectHeaders, "TOT", "AVG", "POS"]
     ];
@@ -773,7 +773,7 @@ export default function Reports() {
                   <TableHead className="w-[200px] sticky left-0 bg-green-50 font-bold border-r">NAME OF STUDENTS</TableHead>
                   {displaySubjects.map(s => (
                     <TableHead key={s.id} colSpan={2} className="text-center min-w-[80px] border-x text-xs font-bold">
-                      {s.code || s.name.substring(0, 8)}
+                      {s.name}
                     </TableHead>
                   ))}
                   <TableHead className="text-center font-bold min-w-[50px] border-x">TOT</TableHead>

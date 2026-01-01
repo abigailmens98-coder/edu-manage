@@ -63,6 +63,10 @@ export default function Teachers() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
+  const [manageAssignmentsTeacher, setManageAssignmentsTeacher] = useState<Teacher | null>(null);
+  const [editSubject, setEditSubject] = useState("");
+  const [editClassLevel, setEditClassLevel] = useState("");
+  const [editIsClassTeacher, setEditIsClassTeacher] = useState(false);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -209,6 +213,76 @@ export default function Teachers() {
         variant: "destructive",
       });
     }
+  };
+
+  const handleAddAssignmentToTeacher = async () => {
+    if (!manageAssignmentsTeacher || !editSubject || !editClassLevel) {
+      toast({
+        title: "Error",
+        description: "Please select both a subject and class level",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const exists = allAssignments.some(
+      a => a.teacherId === manageAssignmentsTeacher.id && 
+           a.subjectId === editSubject && 
+           a.classLevel === editClassLevel
+    );
+    if (exists) {
+      toast({
+        title: "Error",
+        description: "This assignment already exists for this teacher",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await teacherAssignmentsApi.create({
+        teacherId: manageAssignmentsTeacher.id,
+        subjectId: editSubject,
+        classLevel: editClassLevel,
+        isClassTeacher: editIsClassTeacher,
+      });
+      toast({
+        title: "Success",
+        description: "Assignment added successfully",
+      });
+      setEditSubject("");
+      setEditClassLevel("");
+      setEditIsClassTeacher(false);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add assignment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId: string) => {
+    try {
+      await teacherAssignmentsApi.delete(assignmentId);
+      toast({
+        title: "Success",
+        description: "Assignment removed",
+      });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to remove assignment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const getEditSubjectClassLevels = () => {
+    const subject = subjects.find(s => s.id === editSubject);
+    return subject?.classLevels || GRADES;
   };
 
   const getTeacherAssignments = (teacherId: string) => {
@@ -685,6 +759,12 @@ export default function Teachers() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem 
+                                  onClick={() => setManageAssignmentsTeacher(teacher)}
+                                >
+                                  <BookOpen className="h-4 w-4 mr-2" />
+                                  Manage Assignments
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
                                   className="text-destructive"
                                   onClick={() => setDeleteConfirm(teacher.id)}
                                 >
@@ -716,6 +796,98 @@ export default function Teachers() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!manageAssignmentsTeacher} onOpenChange={(open) => !open && setManageAssignmentsTeacher(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Manage Assignments for {manageAssignmentsTeacher?.name}</DialogTitle>
+            <DialogDescription>
+              Add or remove subject and class assignments for this teacher.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {manageAssignmentsTeacher && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <Label className="font-semibold">Current Assignments</Label>
+                {getTeacherAssignments(manageAssignmentsTeacher.id).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {getTeacherAssignments(manageAssignmentsTeacher.id).map(a => (
+                      <Badge key={a.id} variant="secondary" className="flex items-center gap-2 py-1.5 px-3">
+                        {getSubjectName(a.subjectId)} - {a.classLevel}
+                        {a.isClassTeacher && <span className="text-blue-600 text-xs">(Class Teacher)</span>}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAssignment(a.id)}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No assignments yet. Add subjects and classes below.</p>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <Label className="font-semibold">Add New Assignment</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Subject</Label>
+                    <Select value={editSubject} onValueChange={setEditSubject}>
+                      <SelectTrigger data-testid="select-edit-subject">
+                        <SelectValue placeholder="Select Subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjects.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Class Level</Label>
+                    <Select value={editClassLevel} onValueChange={setEditClassLevel} disabled={!editSubject}>
+                      <SelectTrigger data-testid="select-edit-class">
+                        <SelectValue placeholder="Select Class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getEditSubjectClassLevels().map(g => (
+                          <SelectItem key={g} value={g}>{g}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={handleAddAssignmentToTeacher}
+                      disabled={!editSubject || !editClassLevel}
+                      className="w-full"
+                      data-testid="button-add-edit-assignment"
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-3">
+                  <Checkbox 
+                    id="edit-class-teacher" 
+                    checked={editIsClassTeacher}
+                    onCheckedChange={(checked) => setEditIsClassTeacher(checked as boolean)}
+                  />
+                  <Label htmlFor="edit-class-teacher" className="text-sm">Set as Class Teacher for this class</Label>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setManageAssignmentsTeacher(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

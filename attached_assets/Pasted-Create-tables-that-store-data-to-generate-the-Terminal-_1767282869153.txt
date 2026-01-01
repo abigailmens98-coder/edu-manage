@@ -1,0 +1,107 @@
+Create tables that store data to generate the Terminal Report exactly like the provided sample:
+Students Table
+id (PK)
+student_id (manual code e.g. 01146)
+first_name
+last_name
+class
+gender
+address
+phone
+date_of_birth
+Class Table
+id
+class_name (e.g. Basic 8D)
+form_master_name
+Subjects Table
+id
+subject_name
+Teacher Table
+id
+full_name
+phone_number
+TeacherAssignments Table
+teacher_id
+class_id
+subject_id
+Marks Table
+id
+student_id
+subject_id
+class_score (0-40)
+exam_score (0-60)
+total_score (auto = class + exam)
+grade (auto from grading logic)
+remark (auto)
+ReportComments / Remarks Table
+student_id
+interest
+conduct
+attitude
+class_teacher_remarks
+head_teacher_signature (text path or text field)
+attendance_present
+attendance_total
+Bills Table
+student_id
+arrears
+total_bill
+grand_total
+📌 2. Grading Logic
+This must run automatically whenever marks are saved:
+Score Range	Grade	Remark
+90 - 100	 1 (EXCELLENT)
+80 - 89	2 (Very Good)	VERY GOOD
+70 - 79	3 (Good)	GOOD
+60 - 69	4 (Credit)	CREDIT
+50 - 59	5 (Pass)	PASS
+0 - 49	9 (Fail)	FAIL
+Make these rules configurable in settings.
+📊 3. Average, Total & Class Position
+For each student:
+total_subject_score = SUM(total_score across all subjects)
+average = total_subject_score / total_number_of_subjects
+position ranking = sort by highest average → assign 1st, 2nd, 3rd etc.
+Save these into:
+ReportSummary Table
+student_id
+total_score
+average
+position
+📄 4. Terminal Report Output
+Generate a printable PDF (or HTML for printing) that must match the format in the uploaded DOC:
+Header Section
+School Name
+Address + Contact
+Session/Term (e.g., 2024 Term 2)
+Student Photo (optional)
+“Knowledge, Truth and Excellence” motto
+Student Info
+Name
+Student ID
+Class
+Date
+Form Master
+Number on Roll
+Next Term Begins
+Subjects Table
+Columns:
+Subject Name
+Class Score (40%)
+Exam Score (60%)
+Total (100%)
+Grade
+Remark
+Summary section
+Total (e.g., 288)
+Average (e.g., 72)
+Position (e.g., 1)
+Attendance: __ / __
+Interests, Conduct, Attitude
+Class Teacher’s Remarks ( only the class teacher can give remarks or comments and can be in form of drop down option )
+Head’s Signature
+Grand Total
+Footer
+School Motto
+Software by: B&P 
+Contact: 0242099920

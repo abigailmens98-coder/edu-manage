@@ -65,8 +65,8 @@ export default function Academics() {
     }
 
     try {
-      const teacher = teachers.find((t: any) => t.id === selectedTeacher);
-      const subject = subjects.find((s: any) => s.id === selectedSubject);
+      const teacher = teachers.find((t: any) => String(t.id) === selectedTeacher);
+      const subject = subjects.find((s: any) => String(s.id) === selectedSubject);
       
       if (teacher && subject) {
         await teachersApi.update(teacher.id, { subject: subject.name });
@@ -74,6 +74,12 @@ export default function Academics() {
         toast({
           title: "Assignment Created",
           description: `${teacher.name} has been assigned to ${subject.name} successfully`,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Could not find the selected teacher or subject",
+          variant: "destructive",
         });
       }
     } catch (error) {

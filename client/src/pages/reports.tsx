@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Printer, ArrowLeft, Users, GraduationCap, FileDown, User, FileSpreadsheet } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -16,6 +18,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+
+interface ReportFormData {
+  attendance: string;
+  attendanceTotal: string;
+  attitude: string;
+  conduct: string;
+  interest: string;
+  teacherRemarks: string;
+  formMaster: string;
+  arrears: string;
+  otherFees: string;
+  totalBill: string;
+  nextTermBegins: string;
+}
 
 const GRADES = [
   "KG 1", "KG 2", 
@@ -56,6 +72,19 @@ export default function Reports() {
   const [showStudentReport, setShowStudentReport] = useState<any | null>(null);
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
   const [teacherId, setTeacherId] = useState<string | null>(null);
+  const [reportFormData, setReportFormData] = useState<ReportFormData>({
+    attendance: "",
+    attendanceTotal: "60",
+    attitude: "RESPECTFUL",
+    conduct: "GOOD",
+    interest: "HOLDS VARIED INTERESTS",
+    teacherRemarks: "",
+    formMaster: "",
+    arrears: "",
+    otherFees: "",
+    totalBill: "",
+    nextTermBegins: "",
+  });
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { role, userId } = useAuth();
@@ -266,6 +295,31 @@ export default function Reports() {
     return hasAnyScores(studentId, allSubjects);
   };
 
+  const openStudentReport = (student: any) => {
+    const studentAvg = calculateAverage(student.id, allSubjects);
+    const termAttendance = terms.find(t => t.id === selectedTerm)?.totalAttendanceDays || 60;
+    const defaultRemark = studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" : 
+                          studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+                          studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+                          studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+                          "NEEDS SIGNIFICANT IMPROVEMENT.";
+    
+    setReportFormData({
+      attendance: String(student.attendance || termAttendance),
+      attendanceTotal: String(termAttendance),
+      attitude: "RESPECTFUL",
+      conduct: "GOOD",
+      interest: "HOLDS VARIED INTERESTS",
+      teacherRemarks: defaultRemark,
+      formMaster: "",
+      arrears: "",
+      otherFees: "",
+      totalBill: "",
+      nextTermBegins: "",
+    });
+    setShowStudentReport(student);
+  };
+
   const exportBroadsheetPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
@@ -458,49 +512,84 @@ export default function Reports() {
     const doc = new jsPDF();
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
     const termName = terms.find(t => t.id === selectedTerm)?.name || "";
+    const termAttendance = termData?.totalAttendanceDays || 60;
     const position = getStudentPosition(student.id);
     const total = calculateTotal(student.id, allSubjects);
     const avg = calculateAverage(student.id, allSubjects);
-    const maxPossibleScore = allSubjects.length * 100;
-    const percentage = maxPossibleScore > 0 ? Math.round((total / maxPossibleScore) * 100) : 0;
     
-    doc.setDrawColor(41, 128, 185);
-    doc.setLineWidth(0.5);
-    doc.rect(10, 10, 190, 277);
+    // Set blue color for headers
+    const blueColor: [number, number, number] = [30, 64, 175];
+    const lightBlue: [number, number, number] = [219, 234, 254];
     
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text("UNIVERSITY BASIC SCHOOL", 105, 25, { align: "center" });
-    doc.setFontSize(12);
-    doc.text("TARKWA, WESTERN REGION, GHANA", 105, 32, { align: "center" });
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Tel: 031-XXXXXXX | Email: info@universitybasicschool.edu.gh", 105, 38, { align: "center" });
-    
-    doc.setLineWidth(1);
-    doc.line(20, 42, 190, 42);
-    
+    // School Header
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
-    doc.text("STUDENT REPORT CARD", 105, 52, { align: "center" });
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "normal");
-    doc.text(`${termName} - Academic Year ${yearName}`, 105, 59, { align: "center" });
+    doc.setTextColor(...blueColor);
+    doc.text("UNIVERSITY BASIC SCHOOL", 105, 18, { align: "center" });
     
     doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Student Information", 14, 70);
+    doc.setFont("helvetica", "italic");
+    doc.text("Knowledge, Truth and Excellence", 105, 24, { align: "center" });
+    
+    // Contact info
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("TELEPHONE", 20, 32);
+    doc.text("Phone: 031-XXXXXXX", 20, 37);
+    doc.text("Email: info@universitybasic.edu.gh", 20, 42);
     
-    doc.text(`Name: ${student.name}`, 14, 78);
-    doc.text(`Student ID: ${student.studentId}`, 14, 85);
-    doc.text(`Class: ${student.grade}`, 14, 92);
+    doc.text("ADDRESS", 160, 32);
+    doc.text("P.O. BOX 237, TARKWA", 160, 37);
+    doc.text("WESTERN REGION, GHANA", 160, 42);
     
-    doc.text(`Position: ${getPositionSuffix(position)} of ${classStudents.length}`, 110, 78);
-    doc.text(`Total Score: ${total}`, 110, 85);
-    doc.text(`Average: ${avg}%`, 110, 92);
+    // Blue line separator
+    doc.setDrawColor(...blueColor);
+    doc.setLineWidth(1.5);
+    doc.line(10, 47, 200, 47);
+    
+    // Terminal Report Badge
+    doc.setFillColor(220, 38, 38);
+    doc.roundedRect(80, 50, 50, 8, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("TERMINAL REPORT", 105, 56, { align: "center" });
+    
+    // Student Info Section
+    doc.setTextColor(...blueColor);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Name of Student :", 14, 68);
+    doc.setFont("helvetica", "normal");
+    doc.text(student.name.toUpperCase(), 52, 68);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Student ID:", 14, 75);
+    doc.setFont("helvetica", "normal");
+    doc.text(student.studentId, 42, 75);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Class:", 14, 82);
+    doc.setFont("helvetica", "normal");
+    doc.text(student.grade, 30, 82);
+    
+    // Right side info
+    doc.setFont("helvetica", "bold");
+    doc.text(`${yearName}  ${termName}`, 160, 68);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Number On Roll :", 120, 75);
+    doc.setFont("helvetica", "normal");
+    doc.text(String(classStudents.length), 160, 75);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Next Term Begins :", 120, 82);
+    doc.setFont("helvetica", "normal");
+    doc.text("TBD", 165, 82);
 
-    const tableHead = [["Subject", "Class Score", "Exam Score", "Total", "Grade", "Remark"]];
+    // Score Table
+    const tableHead = [["SUBJECTS", "CLASS\nSCORE\n30%", "EXAMS\nSCORE\n70%", "TOTAL\n(100%)", "GRADES", "REMARKS"]];
     const tableBody = allSubjects.map(s => {
       const scoreData = scores.find(sc => sc.studentId === student.id && sc.subjectId === s.id);
       const classScore = scoreData?.classScore || 0;
@@ -508,52 +597,162 @@ export default function Reports() {
       const totalScore = classScore + examScore;
       const grade = totalScore > 0 ? getNumericGrade(totalScore) : "-";
       const remark = getGradeRemark(totalScore);
-      return [s.name, classScore || "-", examScore || "-", totalScore || "-", grade, remark];
+      return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, remark.toUpperCase()];
     });
+    
+    // Add Grand Total and Average rows
+    tableBody.push(["Grand Total", "", "", total, "", ""]);
+    tableBody.push(["Average", "", "", avg, "", ""]);
 
     autoTable(doc, {
       head: tableHead,
       body: tableBody,
-      startY: 100,
+      startY: 88,
       theme: 'grid',
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
+      styles: { 
+        fontSize: 8, 
+        textColor: blueColor,
+        lineColor: blueColor,
+        lineWidth: 0.3,
+        halign: 'center',
+        valign: 'middle'
+      },
+      headStyles: { 
+        fillColor: lightBlue, 
+        textColor: blueColor,
+        fontStyle: 'bold',
+        lineColor: blueColor,
+        lineWidth: 0.5
+      },
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 50 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 35 }
+      },
+      didParseCell: (data) => {
+        // Style Grand Total and Average rows
+        if (data.row.index >= tableBody.length - 2 && data.section === 'body') {
+          data.cell.styles.fillColor = lightBlue;
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
     });
 
     const finalY = (doc as any).lastAutoTable.finalY || 180;
     
+    // Additional Info - using form data
+    const attendanceVal = reportFormData.attendance || String(student.attendance || termAttendance);
+    const attendanceTotalVal = reportFormData.attendanceTotal || "60";
+    const attitudeVal = reportFormData.attitude || "RESPECTFUL";
+    const conductVal = reportFormData.conduct || "GOOD";
+    const interestVal = reportFormData.interest || "HOLDS VARIED INTERESTS";
+    const formMasterVal = reportFormData.formMaster || "_________________________";
+    const nextTermVal = reportFormData.nextTermBegins ? new Date(reportFormData.nextTermBegins).toLocaleDateString('en-GB') : "TBD";
+    const arrearsVal = reportFormData.arrears || "___________";
+    const otherFeesVal = reportFormData.otherFees || "___________";
+    const totalBillVal = reportFormData.totalBill || "___________";
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("Summary", 14, finalY + 12);
+    doc.text(`Attendance: `, 14, finalY + 10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Total Score: ${total} out of ${maxPossibleScore}`, 14, finalY + 20);
-    doc.text(`Average: ${avg}%`, 14, finalY + 27);
-    doc.text(`Class Position: ${getPositionSuffix(position)} out of ${classStudents.length} students`, 14, finalY + 34);
-    doc.text(`Overall Performance: ${getGradeRemark(avg)}`, 14, finalY + 41);
+    doc.text(`${attendanceVal} Out Of ${attendanceTotalVal}`, 38, finalY + 10);
     
     doc.setFont("helvetica", "bold");
-    doc.text("Class Teacher's Comments:", 14, finalY + 55);
-    doc.setFont("helvetica", "normal");
-    doc.setDrawColor(200, 200, 200);
-    doc.line(14, finalY + 62, 196, finalY + 62);
-    doc.line(14, finalY + 70, 196, finalY + 70);
-    
-    doc.setFont("helvetica", "bold");
-    doc.text("Headmaster's Comments:", 14, finalY + 82);
-    doc.setFont("helvetica", "normal");
-    doc.line(14, finalY + 89, 196, finalY + 89);
-    
-    doc.text("Class Teacher's Signature: _____________________", 14, finalY + 105);
-    doc.text("Date: ________________", 130, finalY + 105);
-    
-    doc.text("Headmaster's Signature: _____________________", 14, finalY + 115);
-    doc.text("Date: ________________", 130, finalY + 115);
-    
-    doc.setFontSize(8);
+    doc.text("Attitude:", 14, finalY + 17);
     doc.setFont("helvetica", "italic");
-    doc.text("This report card is the property of University Basic School, Tarkwa.", 105, 280, { align: "center" });
+    doc.text(attitudeVal.toUpperCase(), 35, finalY + 17);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Conduct:", 14, finalY + 24);
+    doc.setFont("helvetica", "italic");
+    doc.text(conductVal.toUpperCase(), 35, finalY + 24);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Interest:", 14, finalY + 31);
+    doc.setFont("helvetica", "italic");
+    doc.text(interestVal.toUpperCase(), 35, finalY + 31);
+    
+    // Class Teacher's Remarks - using form data or auto-generated
+    const defaultRemark = avg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" : 
+                          avg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+                          avg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+                          avg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+                          "NEEDS SIGNIFICANT IMPROVEMENT.";
+    const teacherRemark = reportFormData.teacherRemarks || defaultRemark;
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Class Teacher's Remarks:", 14, finalY + 42);
+    doc.setFont("helvetica", "italic");
+    const remarkLines = doc.splitTextToSize(teacherRemark, 130);
+    doc.text(remarkLines, 60, finalY + 42);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Position:", 14, finalY + 52);
+    doc.setTextColor(...blueColor);
+    const positionText = position != null && position > 0 ? `${getPositionSuffix(position)} out of ${classStudents.length}` : "N/A";
+    doc.text(positionText, 35, finalY + 52);
+    
+    // Form Master
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text("Form Master:", 14, finalY + 63);
+    doc.setFont("helvetica", "normal");
+    doc.text(formMasterVal, 40, finalY + 63);
+    
+    // Next Term Begins
+    doc.setFont("helvetica", "bold");
+    doc.text("Next Term Begins:", 100, finalY + 63);
+    doc.setFont("helvetica", "normal");
+    doc.text(nextTermVal, 145, finalY + 63);
+    
+    // Head's Signature
+    doc.setFont("helvetica", "bold");
+    doc.text("Head's Signature:", 14, finalY + 73);
+    doc.setFont("helvetica", "normal");
+    doc.text("_________________________", 50, finalY + 73);
+    
+    // Student Bill Section
+    const billY = finalY + 82;
+    doc.setFillColor(...blueColor);
+    doc.rect(14, billY, 182, 8, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("STUDENT'S BILL FOR NEXT ACADEMIC TERM", 105, billY + 6, { align: "center" });
+    
+    // Bill table
+    doc.setDrawColor(...blueColor);
+    doc.setLineWidth(0.3);
+    doc.rect(14, billY + 8, 182, 25);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("Arrears:", 18, billY + 16);
+    doc.setFont("helvetica", "normal");
+    doc.text(arrearsVal, 40, billY + 16);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Other Fees:", 100, billY + 16);
+    doc.setFont("helvetica", "normal");
+    doc.text(otherFeesVal, 130, billY + 16);
+    
+    doc.setFont("helvetica", "bold");
+    doc.text("Total Bill:", 100, billY + 26);
+    doc.setFont("helvetica", "normal");
+    doc.text(totalBillVal, 130, billY + 26);
 
-    doc.save(`Report_${student.name.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
+    doc.save(`Terminal_Report_${student.name.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
+    
+    toast({
+      title: "Success",
+      description: "Terminal report PDF exported successfully",
+    });
   };
 
   if (loading) {
@@ -793,7 +992,7 @@ export default function Reports() {
                     <TableRow 
                       key={student.id} 
                       className={`${!hasScores ? "opacity-50" : ""} ${status === "Fail" && hasScores ? "bg-red-50" : ""} hover:bg-gray-50 cursor-pointer`}
-                      onClick={() => hasScores && setShowStudentReport(student)}
+                      onClick={() => hasScores && openStudentReport(student)}
                       data-testid={`row-report-${student.id}`}
                     >
                       <TableCell className="sticky left-0 bg-white font-medium border-r" data-testid={`text-name-${student.id}`}>
@@ -882,84 +1081,300 @@ export default function Reports() {
       </Card>
 
       <Dialog open={!!showStudentReport} onOpenChange={() => setShowStudentReport(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-center">
-              <div className="bg-gradient-to-r from-green-700 to-green-600 text-white p-4 -mx-6 -mt-6 rounded-t-lg">
-                <div className="text-lg font-bold">UNIVERSITY BASIC SCHOOL</div>
-                <div className="text-sm">TARKWA, WESTERN REGION, GHANA</div>
-                <div className="text-xs mt-1">Student Report Card</div>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-          
-          {showStudentReport && (
-            <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p><strong>Name:</strong> {showStudentReport.name}</p>
-                  <p><strong>Student ID:</strong> {showStudentReport.studentId}</p>
-                  <p><strong>Class:</strong> {showStudentReport.grade}</p>
-                </div>
-                <div className="text-right">
-                  <p><strong>Position:</strong> {getPositionSuffix(getStudentPosition(showStudentReport.id))} of {classStudents.length}</p>
-                  <p><strong>Total:</strong> {calculateTotal(showStudentReport.id, allSubjects)}</p>
-                  <p><strong>Average:</strong> {calculateAverage(showStudentReport.id, allSubjects)}%</p>
-                </div>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-green-600 text-white">
-                    <TableHead className="text-white">Subject</TableHead>
-                    <TableHead className="text-center text-white">Class Score</TableHead>
-                    <TableHead className="text-center text-white">Exam Score</TableHead>
-                    <TableHead className="text-center text-white">Total</TableHead>
-                    <TableHead className="text-center text-white">Grade</TableHead>
-                    <TableHead className="text-center text-white">Remark</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {allSubjects.map(s => {
-                    const details = getScoreDetails(showStudentReport.id, s.id);
-                    const grade = details.total > 0 ? getNumericGrade(details.total) : "-";
-                    const remark = getGradeRemark(details.total);
-                    return (
-                      <TableRow key={s.id} className={details.total < 50 && details.total > 0 ? "bg-red-50" : ""}>
-                        <TableCell className="font-medium">{s.name}</TableCell>
-                        <TableCell className="text-center">{details.classScore || "-"}</TableCell>
-                        <TableCell className="text-center">{details.examScore || "-"}</TableCell>
-                        <TableCell className="text-center font-semibold">{details.total || "-"}</TableCell>
-                        <TableCell className="text-center">{grade}</TableCell>
-                        <TableCell className={`text-center ${remark === "Fail" ? "text-red-600 font-semibold" : ""}`}>
-                          {remark}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="font-semibold mb-2">Summary</p>
-                    <p><strong>Overall Performance:</strong> {getGradeRemark(calculateAverage(showStudentReport.id, allSubjects))}</p>
-                    <p><strong>Status:</strong> <span className={getStudentPassFail(showStudentReport.id, allSubjects) === "Pass" ? "text-green-600" : "text-red-600"}>{getStudentPassFail(showStudentReport.id, allSubjects)}</span></p>
+        <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
+          {showStudentReport && (() => {
+            const studentTotal = calculateTotal(showStudentReport.id, allSubjects);
+            const studentAvg = calculateAverage(showStudentReport.id, allSubjects);
+            const studentPosition = getStudentPosition(showStudentReport.id);
+            const termAttendance = termData?.totalAttendanceDays || 60;
+            
+            return (
+              <div className="bg-white">
+                {/* School Header */}
+                <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
+                  <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY BASIC SCHOOL</h1>
+                  <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
+                  <div className="flex justify-between text-xs mt-2 text-gray-600">
+                    <div className="text-left">
+                      <p><strong>TELEPHONE</strong></p>
+                      <p>Phone: 031-XXXXXXX</p>
+                      <p>Email: info@universitybasic.edu.gh</p>
+                    </div>
+                    <div className="text-right">
+                      <p><strong>ADDRESS</strong></p>
+                      <p>P.O. BOX 237, TARKWA</p>
+                      <p>WESTERN REGION, GHANA</p>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className="bg-red-600 text-white px-4 py-1 text-sm font-bold rounded">TERMINAL REPORT</span>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setShowStudentReport(null)}>
-                  Close
-                </Button>
-                <Button onClick={() => printStudentReport(showStudentReport)} className="gap-2">
-                  <Printer className="h-4 w-4" /> Print Report Card
-                </Button>
+                {/* Student Info Section */}
+                <div className="px-6 py-4 space-y-2 text-sm border-b">
+                  <div className="flex gap-2">
+                    <span className="font-semibold text-blue-700">Name of Student :</span>
+                    <span className="text-blue-600 font-medium">{showStudentReport.name.toUpperCase()}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-semibold text-blue-700">Student ID:</span>
+                    <span className="text-blue-600">{showStudentReport.studentId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="flex gap-2">
+                      <span className="font-semibold text-blue-700">Class:</span>
+                      <span className="text-blue-600">{showStudentReport.grade}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="font-semibold">{yearName}</span>
+                      <span className="text-blue-600 font-medium">{termName}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <div className="flex gap-2">
+                      <span className="font-semibold text-blue-700">Number On Roll :</span>
+                      <span className="text-blue-600">{classStudents.length}</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="font-semibold text-blue-700">Next Term Begins :</span>
+                      <span className="text-blue-600">
+                        {reportFormData.nextTermBegins 
+                          ? new Date(reportFormData.nextTermBegins).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                          : "TBD"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Score Table */}
+                <div className="px-6 py-4">
+                  <Table className="border-2 border-blue-600">
+                    <TableHeader>
+                      <TableRow className="bg-blue-50">
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[180px]">SUBJECTS</TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
+                          <div>CLASS</div>
+                          <div>SCORE</div>
+                          <div className="text-xs font-normal">30 %</div>
+                        </TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
+                          <div>EXAMS</div>
+                          <div>SCORE</div>
+                          <div className="text-xs font-normal">70 %</div>
+                        </TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
+                          <div>TOTAL</div>
+                          <div>(100%)</div>
+                        </TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[70px]">GRADES</TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center">REMARKS</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allSubjects.map(s => {
+                        const details = getScoreDetails(showStudentReport.id, s.id);
+                        const grade = details.total > 0 ? getNumericGrade(details.total) : "-";
+                        const remark = getGradeRemark(details.total);
+                        return (
+                          <TableRow key={s.id}>
+                            <TableCell className="border-2 border-blue-600 text-blue-700 font-medium">{s.name.toUpperCase()}</TableCell>
+                            <TableCell className="border-2 border-blue-600 text-center text-blue-600">{details.classScore || "-"}</TableCell>
+                            <TableCell className="border-2 border-blue-600 text-center text-blue-600">{details.examScore || "-"}</TableCell>
+                            <TableCell className="border-2 border-blue-600 text-center font-semibold text-blue-600">{details.total || "-"}</TableCell>
+                            <TableCell className="border-2 border-blue-600 text-center font-semibold">{grade}</TableCell>
+                            <TableCell className={`border-2 border-blue-600 text-center font-medium ${remark === "Excellent" ? "text-green-600" : remark === "Fail" ? "text-red-600" : "text-blue-600"}`}>
+                              {remark.toUpperCase()}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {/* Grand Total Row */}
+                      <TableRow className="bg-blue-50">
+                        <TableCell className="border-2 border-blue-600 font-bold text-blue-700">Grand Total</TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">{studentTotal}</TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                      </TableRow>
+                      {/* Average Row */}
+                      <TableRow className="bg-blue-50">
+                        <TableCell className="border-2 border-blue-600 font-bold text-blue-700">Average</TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">{studentAvg}</TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Additional Info Section - Editable */}
+                <div className="px-6 py-3 space-y-3 text-sm border-t">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Attendance:</span>
+                    <Input
+                      type="number"
+                      className="w-16 h-7 text-center"
+                      value={reportFormData.attendance || String(showStudentReport.attendance || termAttendance)}
+                      onChange={(e) => setReportFormData({...reportFormData, attendance: e.target.value})}
+                      data-testid="input-attendance"
+                    />
+                    <span>Out Of</span>
+                    <Input
+                      type="number"
+                      className="w-16 h-7 text-center"
+                      value={reportFormData.attendanceTotal}
+                      onChange={(e) => setReportFormData({...reportFormData, attendanceTotal: e.target.value})}
+                      data-testid="input-attendance-total"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Attitude:</span>
+                    <Input
+                      className="flex-1 h-7"
+                      value={reportFormData.attitude}
+                      onChange={(e) => setReportFormData({...reportFormData, attitude: e.target.value})}
+                      placeholder="e.g., RESPECTFUL"
+                      data-testid="input-attitude"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Conduct:</span>
+                    <Input
+                      className="flex-1 h-7"
+                      value={reportFormData.conduct}
+                      onChange={(e) => setReportFormData({...reportFormData, conduct: e.target.value})}
+                      placeholder="e.g., GOOD"
+                      data-testid="input-conduct"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold w-24">Interest:</span>
+                    <Input
+                      className="flex-1 h-7"
+                      value={reportFormData.interest}
+                      onChange={(e) => setReportFormData({...reportFormData, interest: e.target.value})}
+                      placeholder="e.g., HOLDS VARIED INTERESTS"
+                      data-testid="input-interest"
+                    />
+                  </div>
+                </div>
+
+                {/* Class Teacher's Remarks - Editable */}
+                <div className="px-6 py-3 space-y-3 text-sm border-t">
+                  <div className="space-y-2">
+                    <span className="font-semibold">Class Teacher's Remarks:</span>
+                    <Textarea
+                      className="w-full h-16 text-sm"
+                      value={reportFormData.teacherRemarks || (
+                        studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" : 
+                        studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+                        studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+                        studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+                        "NEEDS SIGNIFICANT IMPROVEMENT."
+                      )}
+                      onChange={(e) => setReportFormData({...reportFormData, teacherRemarks: e.target.value})}
+                      placeholder="Enter class teacher's remarks..."
+                      data-testid="input-teacher-remarks"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="font-semibold">Position:</span>
+                    <span className="text-blue-600 font-medium">
+                      {studentPosition != null && studentPosition > 0 ? `${getPositionSuffix(studentPosition)} out of ${classStudents.length}` : "N/A"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Signatures Section - Editable Form Master */}
+                <div className="px-6 py-4 space-y-3 text-sm border-t">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold w-28">Form Master:</span>
+                    <Input
+                      className="flex-1 h-7"
+                      value={reportFormData.formMaster}
+                      onChange={(e) => setReportFormData({...reportFormData, formMaster: e.target.value})}
+                      placeholder="Enter form master name"
+                      data-testid="input-form-master"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold w-28">Next Term Begins:</span>
+                    <Input
+                      type="date"
+                      className="w-40 h-7"
+                      value={reportFormData.nextTermBegins}
+                      onChange={(e) => setReportFormData({...reportFormData, nextTermBegins: e.target.value})}
+                      data-testid="input-next-term"
+                    />
+                  </div>
+                  <div className="flex justify-end">
+                    <div>
+                      <span className="font-semibold">Head's Signature:</span>
+                      <span className="ml-2 text-gray-600 italic">_________________________</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Student Bill Section - Editable */}
+                <div className="px-6 py-4 border-t bg-gray-50">
+                  <div className="border-2 border-blue-600 text-center bg-blue-700 text-white py-1 font-bold text-sm">
+                    STUDENT'S BILL FOR NEXT ACADEMIC TERM
+                  </div>
+                  <div className="border-2 border-t-0 border-blue-600 p-3">
+                    <div className="grid grid-cols-4 gap-2 text-sm items-center">
+                      <div className="col-span-1 font-semibold">Arrears</div>
+                      <div className="col-span-1">
+                        <Input
+                          className="h-7"
+                          value={reportFormData.arrears}
+                          onChange={(e) => setReportFormData({...reportFormData, arrears: e.target.value})}
+                          placeholder="GHS 0.00"
+                          data-testid="input-arrears"
+                        />
+                      </div>
+                      <div className="col-span-1 text-right font-semibold">Other Fees</div>
+                      <div className="col-span-1">
+                        <Input
+                          className="h-7"
+                          value={reportFormData.otherFees}
+                          onChange={(e) => setReportFormData({...reportFormData, otherFees: e.target.value})}
+                          placeholder="GHS 0.00"
+                          data-testid="input-other-fees"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2 text-sm mt-2 items-center">
+                      <div className="col-span-2"></div>
+                      <div className="col-span-1 text-right font-bold">Total Bill</div>
+                      <div className="col-span-1">
+                        <Input
+                          className="h-7 font-bold"
+                          value={reportFormData.totalBill}
+                          onChange={(e) => setReportFormData({...reportFormData, totalBill: e.target.value})}
+                          placeholder="GHS 0.00"
+                          data-testid="input-total-bill"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 p-4 border-t bg-white sticky bottom-0">
+                  <Button variant="outline" onClick={() => setShowStudentReport(null)}>
+                    Close
+                  </Button>
+                  <Button onClick={() => printStudentReport(showStudentReport)} className="gap-2 bg-blue-600 hover:bg-blue-700">
+                    <Printer className="h-4 w-4" /> Print Report Card
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

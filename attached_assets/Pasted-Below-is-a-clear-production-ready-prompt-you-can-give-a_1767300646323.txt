@@ -1,0 +1,171 @@
+Below is a **clear, production-ready prompt** you can give **any AI developer, software engineer, or AI system** to design your student terminal report **exactly like the image you shared**.
+
+You can copy and paste this **as-is**.
+
+---
+
+# 📘 AI DEVELOPER PROMPT
+
+**Student Terminal Report Design & Generation**
+
+## 🎯 Goal
+
+Design a **School Terminal Report System** that generates a **print-ready HTML/PDF student report** that matches the **attached sample image exactly in layout, structure, labels, and flow**.
+
+The output must visually and structurally resemble a real Ghanaian basic school terminal report.
+
+---
+
+## 1️⃣ Report Layout (Must Match Sample)
+
+### **HEADER**
+
+* School Logo (left)
+* **School Name (Bold, uppercase)**
+  *UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL*
+* School Motto (italic):
+  *“Knowledge, Truth and Excellence”*
+* Contact Information:
+
+  * Telephone
+  * Email
+  * Address (P.O. Box, Town)
+* Centered title box:
+  **TERMINAL REPORT**
+
+---
+
+## 2️⃣ STUDENT INFORMATION SECTION
+
+Display in two-column format:
+
+* **Name of Student**
+* **Student ID**
+* **Term & Year** (e.g. *2024 Term 1*)
+* **Number on Roll**
+* **Next Term Begins (Date)**
+
+---
+
+## 3️⃣ SUBJECTS & SCORES TABLE
+
+Table columns must be exactly:
+
+| SUBJECTS | CLASS SCORE (30%) | EXAMS SCORE (70%) | TOTAL (100%) | GRADE | REMARKS |
+
+Rules:
+
+* Class Score max = 30
+* Exams Score max = 70
+* Total = class + exams
+* Grade & remark calculated automatically
+
+Subjects appear as rows:
+
+* Mathematics
+* Science
+* English Language
+* Social Studies
+* Religious & Moral Education
+* Computing
+* Career Technology
+* Fante
+* French
+* Creative Arts & Design
+
+---
+
+## 4️⃣ GRADING LOGIC (AUTOMATIC)
+
+| Score  | Grade | Remark    |
+| ------ | ----- | --------- |
+| 90–100 | 1     | EXCELLENT |
+| 80–89  | 2     | VERY GOOD |
+| 70–79  | 3     | GOOD      |
+| 60–69  | 4     | GOOD      |
+| 50–59  | 5     | PASS      |
+| 0–49   | 9     | FAIL      |
+
+Grading rules must be **configurable from settings**, not hardcoded.
+
+---
+
+## 5️⃣ SUMMARY SECTION (Below Table)
+
+* **Grand Total** (sum of all subjects)
+* **Average** (total ÷ number of subjects)
+
+---
+
+## 6️⃣ ATTENDANCE & BEHAVIOR SECTION
+
+Display as labeled lines:
+
+* Attendance: ___ Out of ___
+* Attitude
+* Conduct
+* Interest
+
+---
+
+## 7️⃣ REMARKS & SIGNATURES
+
+* Class Teacher’s Remarks
+* Form Master’s Name
+* Head Teacher’s Signature (image or drawn signature)
+
+---
+
+## 8️⃣ BILLING SECTION
+
+Title (boxed):
+**STUDENT’S BILL FOR NEXT ACADEMIC TERM**
+
+Fields:
+
+* Arrears
+* Total Bill
+
+---
+
+## 9️⃣ FOOTER
+
+* School Motto
+* Software Credit:
+  **Software by: B&P**
+* Contact Number
+
+---
+
+## 10️⃣ TECHNICAL REQUIREMENTS
+
+* Output must be:
+
+  * Printable **HTML** and/or **PDF**
+  * A4 portrait
+  * Proper borders, spacing, and alignment
+* Must support:
+
+  * Dynamic student data
+  * Multiple students
+  * Clean typography
+* Fonts similar to official school documents
+* Table borders exactly visible like sample
+
+---
+
+## ✅ EXPECTED RESULT
+
+When student data is entered, the system should generate a **professional terminal report that looks identical to the provided image**, suitable for printing and official school use.
+
+---
+
+If you want, I can also:
+
+* Turn this into an **AI system prompt**
+* Generate **HTML/CSS template**
+* Create **PDF layout**
+* Build **Laravel / Django report logic**
+* Design **database schema & API**
+
+Just tell me 👍

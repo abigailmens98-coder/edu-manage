@@ -223,22 +223,35 @@ export default function Students() {
   };
 
   const exportToCSV = () => {
-    const headers = ["Student ID", "Name", "Grade", "Email", "Status", "Attendance"];
-    const rows = students.map(s => [
-      s.studentId,
-      s.name,
-      s.grade,
-      s.email,
-      s.status,
-      s.attendance.toString(),
-    ]);
+    // Export in the same format as import for easy re-import to production
+    const headers = ["FIRSTNAME", "SURNAME", "OTHER NAME", "LEVEL"];
+    const rows = students.map(s => {
+      // Split name into parts: first name, other name(s), and surname (last part)
+      const nameParts = s.name.split(" ").filter(p => p.length > 0);
+      let firstName = "";
+      let surname = "";
+      let otherName = "";
+      
+      if (nameParts.length === 1) {
+        firstName = nameParts[0];
+      } else if (nameParts.length === 2) {
+        firstName = nameParts[0];
+        surname = nameParts[1];
+      } else if (nameParts.length >= 3) {
+        firstName = nameParts[0];
+        surname = nameParts[nameParts.length - 1];
+        otherName = nameParts.slice(1, -1).join(" ");
+      }
+      
+      return [firstName, surname, otherName, s.grade];
+    });
 
     const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `students_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `students_export_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
   };
 

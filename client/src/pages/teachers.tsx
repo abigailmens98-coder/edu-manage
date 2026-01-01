@@ -213,16 +213,7 @@ export default function Teachers() {
       setClassTeacherClass("");
       fetchData();
     } catch (error: any) {
-      let errorMessage = "Failed to add teacher";
-      if (error?.message) {
-        if (error.message.includes("username") || error.message.includes("duplicate")) {
-          errorMessage = "This username is already taken. Please choose a different username.";
-        } else if (error.message.includes("email")) {
-          errorMessage = "This email is already in use.";
-        } else {
-          errorMessage = error.message;
-        }
-      }
+      const errorMessage = error?.message || "Failed to add teacher";
       toast({
         title: "Error Adding Teacher",
         description: errorMessage,

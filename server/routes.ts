@@ -218,12 +218,21 @@ export async function registerRoutes(
       res.status(201).json(teacher);
     } catch (error: any) {
       console.error("Create teacher error:", error);
-      // Return more specific error messages
-      if (error?.message?.includes("duplicate") || error?.code === "23505") {
-        res.status(400).json({ error: "Username already exists. Please choose a different username." });
-      } else {
-        res.status(400).json({ error: error?.message || "Failed to create teacher" });
+      // Return specific error messages based on the actual error
+      let errorMessage = "Failed to create teacher";
+      if (error?.code === "23505") {
+        // PostgreSQL unique constraint violation
+        if (error?.detail?.includes("username")) {
+          errorMessage = "Username already exists. Please choose a different username.";
+        } else if (error?.detail?.includes("email")) {
+          errorMessage = "Email already exists.";
+        } else {
+          errorMessage = "A record with this information already exists.";
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
       }
+      res.status(400).json({ error: errorMessage });
     }
   });
 

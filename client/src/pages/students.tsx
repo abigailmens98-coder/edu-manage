@@ -134,31 +134,66 @@ export default function Students() {
         }
 
         const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
-        const firstNameIdx = headers.findIndex(h => h.includes("FIRST"));
-        const otherNameIdx = headers.findIndex(h => h.includes("OTHER") || h.includes("LAST"));
+        
+        // Find column indices - support FIRSTNAME, SURNAME, OTHER NAME, LEVEL/GRADE
+        const firstNameIdx = headers.findIndex(h => h.includes("FIRST") || h === "FIRSTNAME");
+        const surnameIdx = headers.findIndex(h => h.includes("SURNAME") || h === "SURNAME");
+        const otherNameIdx = headers.findIndex(h => h.includes("OTHER") && h.includes("NAME"));
         const gradeIdx = headers.findIndex(h => h.includes("GRADE") || h.includes("LEVEL"));
 
-        if (firstNameIdx === -1 || otherNameIdx === -1 || gradeIdx === -1) {
-          throw new Error("CSV must contain FIRST NAME, OTHER NAME, and GRADE/LEVEL columns");
+        if (firstNameIdx === -1 || gradeIdx === -1) {
+          throw new Error("CSV must contain FIRSTNAME and LEVEL/GRADE columns. Optional: SURNAME, OTHER NAME");
         }
 
+        // Build list of existing student names for duplicate detection
+        const existingNames = new Set(students.map(s => s.name.toLowerCase().trim()));
+        
         let importCount = 0;
+        let duplicateCount = 0;
+        const newStudentNames = new Set<string>();
+        
         for (let i = 1; i < lines.length; i++) {
           const cols = lines[i].split(",").map(c => c.trim());
-          if (cols.length >= Math.max(firstNameIdx, otherNameIdx, gradeIdx) + 1) {
+          const maxIdx = Math.max(firstNameIdx, surnameIdx, otherNameIdx, gradeIdx);
+          
+          if (cols.length >= maxIdx + 1) {
             const firstName = cols[firstNameIdx] || "";
-            const otherName = cols[otherNameIdx] || "";
+            const surname = surnameIdx !== -1 ? (cols[surnameIdx] || "") : "";
+            const otherName = otherNameIdx !== -1 ? (cols[otherNameIdx] || "") : "";
             const grade = cols[gradeIdx] || "";
 
-            if (firstName && otherName && grade) {
+            // Build full name: FIRSTNAME OTHERNAME SURNAME
+            const nameParts = [firstName, otherName, surname].filter(p => p.length > 0);
+            const fullName = nameParts.join(" ").trim();
+
+            if (firstName && grade && fullName) {
+              const normalizedName = fullName.toLowerCase();
+              
+              // Check for duplicates (both in database and within this import)
+              if (existingNames.has(normalizedName) || newStudentNames.has(normalizedName)) {
+                duplicateCount++;
+                continue; // Skip duplicate
+              }
+              
+              // Add to tracking set
+              newStudentNames.add(normalizedName);
+              
               const studentId = `S${String(students.length + importCount + 1).padStart(3, "0")}`;
-              const name = `${firstName} ${otherName}`;
+              
+              // Normalize grade format
+              let normalizedGrade = grade;
+              if (/^(kg|kindergarten)\s*[12]$/i.test(grade)) {
+                normalizedGrade = grade.toUpperCase().replace(/KINDERGARTEN/i, "KG").replace(/\s+/g, " ");
+              } else if (/^(basic|b)\s*\d+$/i.test(grade)) {
+                const num = grade.replace(/[^0-9]/g, "");
+                normalizedGrade = `Basic ${num}`;
+              }
               
               await studentsApi.create({
                 studentId,
-                name,
-                grade: grade.replace(/^Basic\s*/i, "Basic "),
-                email: `${firstName.toLowerCase()}.${otherName.toLowerCase()}@student.academia.edu`,
+                name: fullName,
+                grade: normalizedGrade,
+                email: "",
                 status: "Active",
                 attendance: 0,
               });
@@ -168,11 +203,15 @@ export default function Students() {
           }
         }
 
-        if (importCount === 0) {
+        if (importCount === 0 && duplicateCount === 0) {
           throw new Error("No valid student records found in CSV");
         }
 
-        setCsvSuccess(`Successfully imported ${importCount} student(s)`);
+        let message = `Successfully imported ${importCount} student(s)`;
+        if (duplicateCount > 0) {
+          message += `. ${duplicateCount} duplicate(s) were skipped.`;
+        }
+        setCsvSuccess(message);
         fetchStudents();
       } catch (err) {
         setCsvError(err instanceof Error ? err.message : "Failed to parse CSV file");
@@ -238,7 +277,7 @@ export default function Students() {
               <DialogHeader>
                 <DialogTitle>Import Students from CSV</DialogTitle>
                 <DialogDescription>
-                  Upload a CSV file with columns: FIRST NAME, OTHER NAME, GRADE/LEVEL
+                  Upload a CSV file. Duplicates will be automatically detected and skipped.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -270,10 +309,14 @@ export default function Students() {
                   </Label>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 space-y-1">
-                  <p className="font-semibold">CSV Format Example:</p>
-                  <code className="block font-mono text-blue-800">FIRST NAME,OTHER NAME,GRADE/LEVEL</code>
-                  <code className="block font-mono text-blue-800">John,Doe,Basic 7</code>
-                  <code className="block font-mono text-blue-800">Jane,Smith,Basic 9</code>
+                  <p className="font-semibold">Required Columns:</p>
+                  <p>FIRSTNAME, LEVEL/GRADE</p>
+                  <p className="font-semibold mt-2">Optional Columns:</p>
+                  <p>SURNAME, OTHER NAME</p>
+                  <p className="font-semibold mt-2">Example:</p>
+                  <code className="block font-mono text-blue-800">FIRSTNAME,SURNAME,OTHER NAME,LEVEL</code>
+                  <code className="block font-mono text-blue-800">Kofi,Mensah,Kwame,Basic 7</code>
+                  <code className="block font-mono text-blue-800">Ama,Asante,,Basic 9</code>
                 </div>
               </div>
             </DialogContent>

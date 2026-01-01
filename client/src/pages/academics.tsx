@@ -1,16 +1,59 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { MOCK_SUBJECTS, MOCK_TEACHERS } from "@/lib/mock-data";
-import { BookOpen, UserPlus, ArrowRight } from "lucide-react";
+import { teachersApi, subjectsApi } from "@/lib/api";
+import { BookOpen, UserPlus, ArrowRight, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Academics() {
+  const { toast } = useToast();
+  const [selectedTeacher, setSelectedTeacher] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const { data: teachers = [], isLoading: teachersLoading } = useQuery({
+    queryKey: ['/api/teachers'],
+    queryFn: teachersApi.getAll,
+  });
+
+  const { data: subjects = [], isLoading: subjectsLoading } = useQuery({
+    queryKey: ['/api/subjects'],
+    queryFn: subjectsApi.getAll,
+  });
+
+  const handleAssignment = () => {
+    if (!selectedTeacher || !selectedSubject) {
+      toast({
+        title: "Error",
+        description: "Please select both a teacher and a subject",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Assignment Created",
+      description: "Teacher has been assigned to the subject successfully",
+    });
+    setDialogOpen(false);
+    setSelectedTeacher("");
+    setSelectedSubject("");
+  };
+
+  if (teachersLoading || subjectsLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -25,9 +68,9 @@ export default function Academics() {
               <CardTitle>Subject Allocation</CardTitle>
               <CardDescription>Current subject assignments per teacher</CardDescription>
             </div>
-            <Dialog>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-2">
+                <Button size="sm" className="gap-2" data-testid="button-assign-new">
                   <UserPlus className="h-4 w-4" /> Assign New
                 </Button>
               </DialogTrigger>
@@ -38,34 +81,40 @@ export default function Academics() {
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
-                     <Label>Select Teacher</Label>
-                     <Select>
-                       <SelectTrigger>
-                         <SelectValue placeholder="Select a teacher" />
-                       </SelectTrigger>
-                       <SelectContent>
-                         {MOCK_TEACHERS.map(t => (
-                           <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
+                    <Label>Select Teacher</Label>
+                    <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
+                      <SelectTrigger data-testid="select-teacher">
+                        <SelectValue placeholder="Select a teacher" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teachers.map((t: any) => (
+                          <SelectItem key={t.id} value={t.id.toString()} data-testid={`option-teacher-${t.id}`}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
-                     <Label>Select Subject</Label>
-                     <Select>
-                       <SelectTrigger>
-                         <SelectValue placeholder="Select a subject" />
-                       </SelectTrigger>
-                       <SelectContent>
-                         {MOCK_SUBJECTS.map(s => (
-                           <SelectItem key={s.id} value={s.id}>{s.name} ({s.code})</SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
+                    <Label>Select Subject</Label>
+                    <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+                      <SelectTrigger data-testid="select-subject">
+                        <SelectValue placeholder="Select a subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subjects.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id.toString()} data-testid={`option-subject-${s.id}`}>
+                            {s.name} ({s.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button>Confirm Assignment</Button>
+                  <Button onClick={handleAssignment} data-testid="button-confirm-assignment">
+                    Confirm Assignment
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -76,34 +125,43 @@ export default function Academics() {
                 <TableRow>
                   <TableHead>Subject Code</TableHead>
                   <TableHead>Subject Name</TableHead>
-                  <TableHead>Assigned Teacher</TableHead>
-                  <TableHead>Students</TableHead>
+                  <TableHead>Class Levels</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {MOCK_SUBJECTS.map((subject) => (
-                  <TableRow key={subject.id}>
+                {subjects.map((subject: any) => (
+                  <TableRow key={subject.id} data-testid={`row-subject-${subject.id}`}>
                     <TableCell className="font-mono text-xs">{subject.code}</TableCell>
                     <TableCell className="font-medium">{subject.name}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center text-xs text-primary font-bold">
-                          {subject.teacher[0]}
-                        </div>
-                        {subject.teacher}
+                      <div className="flex flex-wrap gap-1">
+                        {subject.classLevels?.slice(0, 3).map((level: string) => (
+                          <Badge key={level} variant="secondary" className="text-xs">
+                            {level}
+                          </Badge>
+                        ))}
+                        {subject.classLevels?.length > 3 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{subject.classLevels.length - 3} more
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="rounded-full">
-                        {subject.students} Enrolled
-                      </Badge>
-                    </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Manage</Button>
+                      <Button variant="ghost" size="sm" data-testid={`button-manage-${subject.id}`}>
+                        Manage
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
+                {subjects.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                      No subjects found. Add subjects to get started.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

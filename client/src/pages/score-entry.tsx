@@ -149,7 +149,7 @@ export default function ScoreEntry() {
     const basicNum = parseInt(classLevel.replace(/[^0-9]/g, ""));
     const scale = basicNum >= 1 && basicNum <= 6 ? BASIC_1_6_GRADING_SCALE : GES_GRADING_SCALE;
     const entry = scale.find(g => total >= g.range[0] && total <= g.range[1]);
-    return entry ? (entry.grade || entry.remark) : "F";
+    return entry ? entry.grade : "F";
   };
 
   const isBasic1to6 = selectedClass.includes("Basic 1") || selectedClass.includes("Basic 2") || selectedClass.includes("Basic 3") || 

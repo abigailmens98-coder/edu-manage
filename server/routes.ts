@@ -285,6 +285,158 @@ export async function registerRoutes(
     }
   });
 
+  // Teacher-scoped student and score endpoints
+  app.get("/api/teachers/:id/students", async (req, res) => {
+    try {
+      const teacherId = req.params.id;
+      const { classLevel } = req.query;
+      
+      // Verify the logged-in user owns this teacher record
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher || teacher.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized to access this teacher's data" });
+      }
+      
+      // Get teacher's assignments
+      const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
+      
+      if (assignments.length === 0) {
+        // Fallback: get teacher's assigned class from teacher record
+        if (teacher?.assignedClass) {
+          const students = await storage.getStudents();
+          const filtered = students.filter(s => s.grade === teacher.assignedClass);
+          return res.json(filtered);
+        }
+        return res.json([]);
+      }
+      
+      // Get unique class levels from assignments
+      const allowedClasses = Array.from(new Set(assignments.map(a => a.classLevel)));
+      
+      // Filter by specific class if provided
+      if (classLevel && !allowedClasses.includes(classLevel as string)) {
+        return res.status(403).json({ error: "Not authorized for this class" });
+      }
+      
+      const students = await storage.getStudents();
+      const targetClasses = classLevel ? [classLevel as string] : allowedClasses;
+      const filtered = students.filter(s => targetClasses.includes(s.grade));
+      
+      res.json(filtered);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch students" });
+    }
+  });
+
+  app.get("/api/teachers/:id/scores", async (req, res) => {
+    try {
+      const teacherId = req.params.id;
+      const { termId, classLevel, subjectId } = req.query;
+      
+      // Verify authentication
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher || teacher.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      if (!termId || !classLevel || !subjectId) {
+        return res.status(400).json({ error: "termId, classLevel, and subjectId are required" });
+      }
+      
+      // Verify teacher has access to this class/subject
+      const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
+      
+      const hasAccess = assignments.some(
+        a => a.classLevel === classLevel && a.subjectId === subjectId
+      );
+      
+      if (!hasAccess && assignments.length > 0) {
+        return res.status(403).json({ error: "Not authorized for this class/subject" });
+      }
+      
+      // Get students in the authorized class only
+      const students = await storage.getStudents();
+      const classStudents = students.filter(s => s.grade === classLevel);
+      
+      // Get scores for this term, filtered to authorized students and subject
+      const allScores = await storage.getScoresByTerm(termId as string);
+      const studentIds = classStudents.map(s => s.id);
+      const relevantScores = allScores.filter(score => 
+        studentIds.includes(score.studentId) && score.subjectId === subjectId
+      );
+      
+      res.json(relevantScores);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch scores" });
+    }
+  });
+
+  app.post("/api/teachers/:id/scores", async (req, res) => {
+    try {
+      const teacherId = req.params.id;
+      const { studentId, subjectId, termId, classScore, examScore } = req.body;
+      
+      // Verify authentication
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher || teacher.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      // Verify teacher authorization for this class/subject
+      const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
+      const student = await storage.getStudent(studentId);
+      
+      if (!student) {
+        return res.status(404).json({ error: "Student not found" });
+      }
+      
+      // Check if teacher is assigned to this student's class and subject
+      const hasAccess = assignments.some(
+        a => a.classLevel === student.grade && a.subjectId === subjectId
+      );
+      
+      if (!hasAccess && assignments.length > 0) {
+        return res.status(403).json({ error: "Not authorized to grade this student/subject" });
+      }
+      
+      // Check if score already exists
+      const existingScores = await storage.getScoresByTerm(termId);
+      const existing = existingScores.find(
+        s => s.studentId === studentId && s.subjectId === subjectId
+      );
+      
+      const scoreData = {
+        studentId,
+        subjectId,
+        termId,
+        classScore: classScore || 0,
+        examScore: examScore || 0,
+        totalScore: (classScore || 0) + (examScore || 0),
+      };
+      
+      let result;
+      if (existing) {
+        result = await storage.updateScore(existing.id, scoreData);
+      } else {
+        result = await storage.createScore(scoreData);
+      }
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Save score error:", error);
+      res.status(500).json({ error: "Failed to save score" });
+    }
+  });
+
   // Subjects API
   app.get("/api/subjects", async (req, res) => {
     try {

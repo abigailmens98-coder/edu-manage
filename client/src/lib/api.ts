@@ -104,6 +104,37 @@ export const teachersApi = {
     });
     return handleResponse<{ message: string }>(response);
   },
+
+  getStudents: async (teacherId: string, classLevel?: string) => {
+    const url = classLevel 
+      ? `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(classLevel)}`
+      : `/api/teachers/${teacherId}/students`;
+    const response = await fetch(url);
+    return handleResponse<any[]>(response);
+  },
+
+  getScores: async (teacherId: string, termId: string, classLevel?: string, subjectId?: string) => {
+    const params = new URLSearchParams({ termId });
+    if (classLevel) params.append('classLevel', classLevel);
+    if (subjectId) params.append('subjectId', subjectId);
+    const response = await fetch(`/api/teachers/${teacherId}/scores?${params}`);
+    return handleResponse<any[]>(response);
+  },
+
+  saveScore: async (teacherId: string, scoreData: {
+    studentId: string;
+    subjectId: string;
+    termId: string;
+    classScore: number;
+    examScore: number;
+  }) => {
+    const response = await fetch(`/api/teachers/${teacherId}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(scoreData),
+    });
+    return handleResponse<any>(response);
+  },
 };
 
 // Subjects API

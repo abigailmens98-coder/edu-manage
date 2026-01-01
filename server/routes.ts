@@ -699,5 +699,127 @@ export async function registerRoutes(
     }
   });
 
+  // Dashboard Statistics API
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const { termId } = req.query;
+      
+      const [students, teachers, subjects, scores, terms] = await Promise.all([
+        storage.getStudents(),
+        storage.getTeachers(),
+        storage.getSubjects(),
+        termId ? storage.getScoresByTerm(termId as string) : storage.getScores(),
+        storage.getAcademicTerms(),
+      ]);
+      
+      const activeTerm = terms.find(t => t.status === "Active");
+      const activeStudents = students.filter(s => s.status === "Active");
+      
+      // Calculate average score across all scores
+      const scoresWithValues = scores.filter(s => s.totalScore && s.totalScore > 0);
+      const averageScore = scoresWithValues.length > 0 
+        ? Math.round(scoresWithValues.reduce((sum, s) => sum + (s.totalScore || 0), 0) / scoresWithValues.length)
+        : 0;
+      
+      // Calculate pass rate (score >= 50 is passing)
+      const passCount = scoresWithValues.filter(s => (s.totalScore || 0) >= 50).length;
+      const passRate = scoresWithValues.length > 0 
+        ? Math.round((passCount / scoresWithValues.length) * 100)
+        : 0;
+      
+      // Calculate attendance rate
+      const attendanceRate = students.length > 0 
+        ? Math.round(students.reduce((sum, s) => sum + (s.attendance || 0), 0) / students.length)
+        : 0;
+      
+      // Score distribution by grade level
+      const scoresByGrade: Record<string, { total: number; count: number }> = {};
+      for (const score of scoresWithValues) {
+        const student = students.find(s => s.id === score.studentId);
+        if (student) {
+          const grade = student.grade || "Unknown";
+          if (!scoresByGrade[grade]) {
+            scoresByGrade[grade] = { total: 0, count: 0 };
+          }
+          scoresByGrade[grade].total += score.totalScore || 0;
+          scoresByGrade[grade].count += 1;
+        }
+      }
+      
+      const gradePerformance = Object.entries(scoresByGrade).map(([grade, data]) => ({
+        grade,
+        average: Math.round(data.total / data.count),
+        count: data.count,
+      })).sort((a, b) => {
+        const order = ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"];
+        return order.indexOf(a.grade) - order.indexOf(b.grade);
+      });
+      
+      // Subject performance
+      const scoresBySubject: Record<string, { total: number; count: number; name: string }> = {};
+      for (const score of scoresWithValues) {
+        const subject = subjects.find(s => s.id === score.subjectId);
+        if (subject) {
+          if (!scoresBySubject[score.subjectId]) {
+            scoresBySubject[score.subjectId] = { total: 0, count: 0, name: subject.name };
+          }
+          scoresBySubject[score.subjectId].total += score.totalScore || 0;
+          scoresBySubject[score.subjectId].count += 1;
+        }
+      }
+      
+      const subjectPerformance = Object.entries(scoresBySubject).map(([id, data]) => ({
+        subjectId: id,
+        name: data.name,
+        average: Math.round(data.total / data.count),
+        count: data.count,
+      })).sort((a, b) => b.average - a.average);
+      
+      // Top performers
+      const studentScores: Record<string, { total: number; count: number; name: string; grade: string }> = {};
+      for (const score of scoresWithValues) {
+        const student = students.find(s => s.id === score.studentId);
+        if (student) {
+          if (!studentScores[score.studentId]) {
+            studentScores[score.studentId] = { total: 0, count: 0, name: student.name, grade: student.grade || "" };
+          }
+          studentScores[score.studentId].total += score.totalScore || 0;
+          studentScores[score.studentId].count += 1;
+        }
+      }
+      
+      const topPerformers = Object.entries(studentScores)
+        .map(([id, data]) => ({
+          studentId: id,
+          name: data.name,
+          grade: data.grade,
+          average: Math.round(data.total / data.count),
+          totalSubjects: data.count,
+        }))
+        .sort((a, b) => b.average - a.average)
+        .slice(0, 10);
+      
+      res.json({
+        overview: {
+          totalStudents: students.length,
+          activeStudents: activeStudents.length,
+          totalTeachers: teachers.length,
+          totalSubjects: subjects.length,
+          averageScore,
+          passRate,
+          attendanceRate,
+          totalScoresEntered: scoresWithValues.length,
+          currentTerm: activeTerm?.name || "Not set",
+        },
+        gradePerformance,
+        subjectPerformance,
+        topPerformers,
+      });
+    } catch (error) {
+      console.error("Dashboard stats error:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard statistics" });
+    }
+  });
+
   return httpServer;
 }

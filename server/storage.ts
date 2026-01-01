@@ -82,15 +82,20 @@ export interface IStorage {
   // Academic Year operations
   getAcademicYears(): Promise<AcademicYear[]>;
   getAcademicYear(id: string): Promise<AcademicYear | undefined>;
+  getActiveAcademicYear(): Promise<AcademicYear | undefined>;
   createAcademicYear(year: InsertAcademicYear): Promise<AcademicYear>;
   updateAcademicYear(id: string, year: Partial<InsertAcademicYear>): Promise<AcademicYear | undefined>;
+  setActiveAcademicYear(id: string): Promise<AcademicYear | undefined>;
   deleteAcademicYear(id: string): Promise<boolean>;
 
   // Academic Term operations
   getAcademicTerms(): Promise<AcademicTerm[]>;
+  getAcademicTermsByYear(yearId: string): Promise<AcademicTerm[]>;
   getAcademicTerm(id: string): Promise<AcademicTerm | undefined>;
+  getActiveAcademicTerm(): Promise<AcademicTerm | undefined>;
   createAcademicTerm(term: InsertAcademicTerm): Promise<AcademicTerm>;
   updateAcademicTerm(id: string, term: Partial<InsertAcademicTerm>): Promise<AcademicTerm | undefined>;
+  setActiveAcademicTerm(id: string): Promise<AcademicTerm | undefined>;
   deleteAcademicTerm(id: string): Promise<boolean>;
 
   // Score operations
@@ -217,6 +222,11 @@ export class DatabaseStorage implements IStorage {
     return year;
   }
 
+  async getActiveAcademicYear(): Promise<AcademicYear | undefined> {
+    const [year] = await db.select().from(schema.academicYears).where(eq(schema.academicYears.status, "Active"));
+    return year;
+  }
+
   async createAcademicYear(insertYear: InsertAcademicYear): Promise<AcademicYear> {
     const [year] = await db.insert(schema.academicYears).values(insertYear).returning();
     return year;
@@ -231,8 +241,18 @@ export class DatabaseStorage implements IStorage {
     return year;
   }
 
+  async setActiveAcademicYear(id: string): Promise<AcademicYear | undefined> {
+    await db.update(schema.academicYears).set({ status: "Inactive" });
+    const [year] = await db
+      .update(schema.academicYears)
+      .set({ status: "Active" })
+      .where(eq(schema.academicYears.id, id))
+      .returning();
+    return year;
+  }
+
   async deleteAcademicYear(id: string): Promise<boolean> {
-    const result = await db.delete(schema.academicYears).where(eq(schema.academicYears.id, id));
+    await db.delete(schema.academicYears).where(eq(schema.academicYears.id, id));
     return true;
   }
 
@@ -241,8 +261,17 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(schema.academicTerms);
   }
 
+  async getAcademicTermsByYear(yearId: string): Promise<AcademicTerm[]> {
+    return await db.select().from(schema.academicTerms).where(eq(schema.academicTerms.academicYearId, yearId));
+  }
+
   async getAcademicTerm(id: string): Promise<AcademicTerm | undefined> {
     const [term] = await db.select().from(schema.academicTerms).where(eq(schema.academicTerms.id, id));
+    return term;
+  }
+
+  async getActiveAcademicTerm(): Promise<AcademicTerm | undefined> {
+    const [term] = await db.select().from(schema.academicTerms).where(eq(schema.academicTerms.status, "Active"));
     return term;
   }
 
@@ -260,8 +289,18 @@ export class DatabaseStorage implements IStorage {
     return term;
   }
 
+  async setActiveAcademicTerm(id: string): Promise<AcademicTerm | undefined> {
+    await db.update(schema.academicTerms).set({ status: "Inactive" });
+    const [term] = await db
+      .update(schema.academicTerms)
+      .set({ status: "Active" })
+      .where(eq(schema.academicTerms.id, id))
+      .returning();
+    return term;
+  }
+
   async deleteAcademicTerm(id: string): Promise<boolean> {
-    const result = await db.delete(schema.academicTerms).where(eq(schema.academicTerms.id, id));
+    await db.delete(schema.academicTerms).where(eq(schema.academicTerms.id, id));
     return true;
   }
 

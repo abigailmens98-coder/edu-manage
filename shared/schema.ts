@@ -42,7 +42,8 @@ export const academicTerms = pgTable("academic_terms", {
   name: text("name").notNull(), // "Term 1", "Term 2", "Term 3"
   description: text("description"),
   status: text("status").notNull().default("Inactive"), // "Active" or "Inactive"
-  academicYearId: varchar("academic_year_id").references(() => academicYears.id),
+  academicYearId: varchar("academic_year_id").references(() => academicYears.id, { onDelete: "cascade" }),
+  totalAttendanceDays: integer("total_attendance_days").notNull().default(60), // Total school days for this term
   createdAt: timestamp("created_at").defaultNow(),
 });
 

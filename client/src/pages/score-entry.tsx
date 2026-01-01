@@ -52,6 +52,18 @@ export default function ScoreEntry() {
     }
   };
 
+  // Get unique classes from students
+  const uniqueClasses = Array.from(new Set(students.map(s => s.grade))).sort((a, b) => {
+    // Sort KG first, then Basic levels
+    const getOrder = (grade: string) => {
+      if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
+      if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
+      return 100;
+    };
+    return getOrder(a) - getOrder(b);
+  });
+
+  // Filter students by selected class (exact match or starts with for sub-classes like 5A, 5B)
   const classStudents = students.filter(s => s.grade === selectedClass);
 
   useEffect(() => {
@@ -197,17 +209,15 @@ export default function ScoreEntry() {
                 <SelectValue placeholder="Select Class" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="KG 1">KG 1</SelectItem>
-                <SelectItem value="KG 2">KG 2</SelectItem>
-                <SelectItem value="Basic 1">Basic 1</SelectItem>
-                <SelectItem value="Basic 2">Basic 2</SelectItem>
-                <SelectItem value="Basic 3">Basic 3</SelectItem>
-                <SelectItem value="Basic 4">Basic 4</SelectItem>
-                <SelectItem value="Basic 5">Basic 5</SelectItem>
-                <SelectItem value="Basic 6">Basic 6</SelectItem>
-                <SelectItem value="Basic 7">Basic 7</SelectItem>
-                <SelectItem value="Basic 8">Basic 8</SelectItem>
-                <SelectItem value="Basic 9">Basic 9</SelectItem>
+                {uniqueClasses.length > 0 ? (
+                  uniqueClasses.map(cls => (
+                    <SelectItem key={cls} value={cls}>
+                      {cls} ({students.filter(s => s.grade === cls).length} students)
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="" disabled>No classes with students</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>

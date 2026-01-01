@@ -31,6 +31,7 @@ const GRADES = [
 
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterClass, setFilterClass] = useState("all");
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -255,10 +256,22 @@ export default function Students() {
     a.click();
   };
 
-  const filteredStudents = students.filter(student => 
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    student.studentId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Get unique classes from students for the filter
+  const uniqueClasses = Array.from(new Set(students.map(s => s.grade))).sort((a, b) => {
+    const getOrder = (grade: string) => {
+      if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
+      if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
+      return 100;
+    };
+    return getOrder(a) - getOrder(b);
+  });
+
+  const filteredStudents = students.filter(student => {
+    const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          student.studentId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesClass = filterClass === "all" || student.grade === filterClass;
+    return matchesSearch && matchesClass;
+  });
 
   if (loading) {
     return (
@@ -406,16 +419,31 @@ export default function Students() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-col sm:flex-row gap-4">
-            <CardTitle>All Students</CardTitle>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search by name or ID..." 
-                className="pl-9"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                data-testid="input-search-students"
-              />
+            <CardTitle>All Students ({filteredStudents.length})</CardTitle>
+            <div className="flex gap-2 flex-col sm:flex-row w-full sm:w-auto">
+              <Select value={filterClass} onValueChange={setFilterClass}>
+                <SelectTrigger className="w-full sm:w-40" data-testid="select-filter-class">
+                  <SelectValue placeholder="Filter by class" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes</SelectItem>
+                  {uniqueClasses.map(cls => (
+                    <SelectItem key={cls} value={cls}>
+                      {cls} ({students.filter(s => s.grade === cls).length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Search by name or ID..." 
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  data-testid="input-search-students"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>

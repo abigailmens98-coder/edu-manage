@@ -136,6 +136,24 @@ export async function registerRoutes(
     }
   });
 
+  // Get unique class levels from students
+  app.get("/api/students/class-levels", async (req, res) => {
+    try {
+      const students = await storage.getStudents();
+      const classLevels = Array.from(new Set(students.map(s => s.grade).filter(Boolean)));
+      // Sort class levels naturally
+      classLevels.sort((a, b) => {
+        const orderA = a.startsWith("KG") ? 0 : 1;
+        const orderB = b.startsWith("KG") ? 0 : 1;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.localeCompare(b, undefined, { numeric: true });
+      });
+      res.json(classLevels);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch class levels" });
+    }
+  });
+
   app.post("/api/students", async (req, res) => {
     try {
       const validated = insertStudentSchema.parse(req.body);

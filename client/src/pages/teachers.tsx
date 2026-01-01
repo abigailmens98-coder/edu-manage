@@ -46,7 +46,7 @@ interface PendingAssignment {
   isClassTeacher: boolean;
 }
 
-const GRADES = [
+const DEFAULT_GRADES = [
   "KG 1", "KG 2", 
   "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6",
   "Basic 7", "Basic 8", "Basic 9"
@@ -57,6 +57,7 @@ export default function Teachers() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [allAssignments, setAllAssignments] = useState<TeacherAssignment[]>([]);
+  const [actualClassLevels, setActualClassLevels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -89,14 +90,16 @@ export default function Teachers() {
 
   const fetchData = async () => {
     try {
-      const [teachersData, subjectsData, assignmentsData] = await Promise.all([
+      const [teachersData, subjectsData, assignmentsData, classLevelsRes] = await Promise.all([
         teachersApi.getAll(),
         subjectsApi.getAll(),
         teacherAssignmentsApi.getAll(),
+        fetch('/api/students/class-levels').then(r => r.ok ? r.json() : []),
       ]);
       setTeachers(teachersData);
       setSubjects(subjectsData);
       setAllAssignments(assignmentsData);
+      setActualClassLevels(classLevelsRes.length > 0 ? classLevelsRes : DEFAULT_GRADES);
     } catch (error) {
       toast({
         title: "Error",
@@ -307,7 +310,7 @@ export default function Teachers() {
 
   const getEditSubjectClassLevels = () => {
     const subject = subjects.find(s => s.id === editSubject);
-    return subject?.classLevels || GRADES;
+    return subject?.classLevels || actualClassLevels;
   };
 
   const getTeacherAssignments = (teacherId: string) => {
@@ -325,7 +328,7 @@ export default function Teachers() {
 
   const getSelectedSubjectClassLevels = () => {
     const subject = subjects.find(s => s.id === selectedSubject);
-    return subject?.classLevels || GRADES;
+    return subject?.classLevels || actualClassLevels;
   };
 
   const exportToCSV = () => {
@@ -679,7 +682,7 @@ export default function Teachers() {
                         <SelectValue placeholder="Select class" />
                       </SelectTrigger>
                       <SelectContent>
-                        {GRADES.map(grade => (
+                        {actualClassLevels.map(grade => (
                           <SelectItem key={grade} value={grade}>{grade}</SelectItem>
                         ))}
                       </SelectContent>

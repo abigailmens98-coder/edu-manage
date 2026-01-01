@@ -109,6 +109,23 @@ export const insertSubjectSchema = createInsertSchema(subjects).omit({
 export type InsertSubject = z.infer<typeof insertSubjectSchema>;
 export type Subject = typeof subjects.$inferSelect;
 
+// Teacher Assignments (which subjects/classes a teacher can teach)
+export const teacherAssignments = pgTable("teacher_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").references(() => teachers.id, { onDelete: "cascade" }).notNull(),
+  subjectId: varchar("subject_id").references(() => subjects.id, { onDelete: "cascade" }).notNull(),
+  classLevel: text("class_level").notNull(), // e.g., "Basic 8"
+  isClassTeacher: boolean("is_class_teacher").default(false), // Whether this teacher is the class teacher for this level
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertTeacherAssignmentSchema = createInsertSchema(teacherAssignments).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertTeacherAssignment = z.infer<typeof insertTeacherAssignmentSchema>;
+export type TeacherAssignment = typeof teacherAssignments.$inferSelect;
+
 // Scores
 export const scores = pgTable("scores", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

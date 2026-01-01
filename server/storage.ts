@@ -17,6 +17,8 @@ import type {
   InsertAcademicTerm,
   Score,
   InsertScore,
+  TeacherAssignment,
+  InsertTeacherAssignment,
 } from "@shared/schema";
 
 // Create database pool with error handling
@@ -106,6 +108,13 @@ export interface IStorage {
   createScore(score: InsertScore): Promise<Score>;
   updateScore(id: string, score: Partial<InsertScore>): Promise<Score | undefined>;
   deleteScore(id: string): Promise<boolean>;
+
+  // Teacher Assignment operations
+  getTeacherAssignments(): Promise<TeacherAssignment[]>;
+  getTeacherAssignmentsByTeacher(teacherId: string): Promise<TeacherAssignment[]>;
+  createTeacherAssignment(assignment: InsertTeacherAssignment): Promise<TeacherAssignment>;
+  deleteTeacherAssignment(id: string): Promise<boolean>;
+  deleteTeacherAssignmentsByTeacher(teacherId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -338,6 +347,30 @@ export class DatabaseStorage implements IStorage {
 
   async deleteScore(id: string): Promise<boolean> {
     const result = await db.delete(schema.scores).where(eq(schema.scores.id, id));
+    return true;
+  }
+
+  // Teacher Assignment operations
+  async getTeacherAssignments(): Promise<TeacherAssignment[]> {
+    return await db.select().from(schema.teacherAssignments);
+  }
+
+  async getTeacherAssignmentsByTeacher(teacherId: string): Promise<TeacherAssignment[]> {
+    return await db.select().from(schema.teacherAssignments).where(eq(schema.teacherAssignments.teacherId, teacherId));
+  }
+
+  async createTeacherAssignment(insertAssignment: InsertTeacherAssignment): Promise<TeacherAssignment> {
+    const [assignment] = await db.insert(schema.teacherAssignments).values(insertAssignment).returning();
+    return assignment;
+  }
+
+  async deleteTeacherAssignment(id: string): Promise<boolean> {
+    await db.delete(schema.teacherAssignments).where(eq(schema.teacherAssignments.id, id));
+    return true;
+  }
+
+  async deleteTeacherAssignmentsByTeacher(teacherId: string): Promise<boolean> {
+    await db.delete(schema.teacherAssignments).where(eq(schema.teacherAssignments.teacherId, teacherId));
     return true;
   }
 }

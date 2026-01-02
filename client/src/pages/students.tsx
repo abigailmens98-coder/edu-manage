@@ -7,11 +7,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, ArrowLeft, Users, GraduationCap } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, ArrowLeft, Users, GraduationCap, Eye } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { studentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Student {
   id: string;
@@ -29,6 +30,21 @@ const GRADES = [
   "Basic 7", "Basic 8", "Basic 9"
 ];
 
+interface ParsedStudent {
+  name: string;
+  grade: string;
+  isValid: boolean;
+  isDuplicate: boolean;
+}
+
+interface ColumnMapping {
+  name: number | null;
+  firstName: number | null;
+  surname: number | null;
+  otherName: number | null;
+  grade: number | null;
+}
+
 export default function Students() {
   const [searchTerm, setSearchTerm] = useState("");
   const [students, setStudents] = useState<Student[]>([]);
@@ -40,6 +56,19 @@ export default function Students() {
   const [csvSuccess, setCsvSuccess] = useState("");
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const [importStep, setImportStep] = useState<"upload" | "preview">("upload");
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
+  const [csvData, setCsvData] = useState<string[][]>([]);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({
+    name: null,
+    firstName: null,
+    surname: null,
+    otherName: null,
+    grade: null,
+  });
+  const [parsedStudents, setParsedStudents] = useState<ParsedStudent[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -116,6 +145,122 @@ export default function Students() {
     }
   };
 
+  const detectColumnMapping = (headers: string[]): ColumnMapping => {
+    const mapping: ColumnMapping = {
+      name: null,
+      firstName: null,
+      surname: null,
+      otherName: null,
+      grade: null,
+    };
+    
+    headers.forEach((h, idx) => {
+      const header = h.toUpperCase().trim();
+      
+      if (/^(FULL\s*NAME|STUDENT\s*NAME|NAME|NAMES|PUPIL)$/.test(header)) {
+        mapping.name = idx;
+      }
+      else if (/FIRST|FNAME|GIVEN/.test(header) && /NAME/.test(header)) {
+        mapping.firstName = idx;
+      }
+      else if (/^(FIRSTNAME|FIRST)$/.test(header)) {
+        mapping.firstName = idx;
+      }
+      else if (/SUR|LAST|FAMILY/.test(header) && /NAME/.test(header)) {
+        mapping.surname = idx;
+      }
+      else if (/^(SURNAME|LAST)$/.test(header)) {
+        mapping.surname = idx;
+      }
+      else if (/OTHER|MIDDLE/.test(header)) {
+        mapping.otherName = idx;
+      }
+      else if (/GRADE|LEVEL|CLASS|FORM/.test(header)) {
+        mapping.grade = idx;
+      }
+    });
+    
+    if (mapping.name === null && mapping.firstName === null) {
+      const possibleNameIdx = headers.findIndex((h, i) => {
+        const upper = h.toUpperCase();
+        return upper.includes("NAME") || upper === "STUDENT" || upper === "PUPIL";
+      });
+      if (possibleNameIdx !== -1) {
+        mapping.name = possibleNameIdx;
+      }
+    }
+    
+    return mapping;
+  };
+  
+  const normalizeGrade = (grade: string): string => {
+    if (!grade) return "";
+    const g = grade.trim();
+    
+    if (/^(kg|kindergarten)\s*[12]$/i.test(g)) {
+      const num = g.replace(/[^0-9]/g, "");
+      return `KG ${num}`;
+    }
+    if (/^(basic|b)\s*\d+$/i.test(g)) {
+      const num = g.replace(/[^0-9]/g, "");
+      return `Basic ${num}`;
+    }
+    if (/^(class|grade|form)\s*\d+$/i.test(g)) {
+      const num = g.replace(/[^0-9]/g, "");
+      const numInt = parseInt(num);
+      if (numInt >= 1 && numInt <= 9) return `Basic ${num}`;
+    }
+    if (/^[1-9]$/.test(g)) {
+      return `Basic ${g}`;
+    }
+    
+    const matched = GRADES.find(gr => gr.toLowerCase() === g.toLowerCase());
+    if (matched) return matched;
+    
+    return g;
+  };
+  
+  const parseStudentsFromCSV = (data: string[][], mapping: ColumnMapping, gradeOverride?: string): ParsedStudent[] => {
+    const existingNames = new Set(students.map(s => s.name.toLowerCase().trim()));
+    const seen = new Set<string>();
+    
+    return data.map(row => {
+      let name = "";
+      let grade = "";
+      
+      if (mapping.name !== null && row[mapping.name]) {
+        name = row[mapping.name].trim();
+      } else {
+        const parts: string[] = [];
+        if (mapping.firstName !== null && row[mapping.firstName]) {
+          parts.push(row[mapping.firstName].trim());
+        }
+        if (mapping.otherName !== null && row[mapping.otherName]) {
+          parts.push(row[mapping.otherName].trim());
+        }
+        if (mapping.surname !== null && row[mapping.surname]) {
+          parts.push(row[mapping.surname].trim());
+        }
+        name = parts.filter(p => p).join(" ");
+      }
+      
+      if (mapping.grade !== null && row[mapping.grade]) {
+        grade = normalizeGrade(row[mapping.grade]);
+      }
+      if (!grade && gradeOverride) {
+        grade = gradeOverride;
+      }
+      
+      const normalizedName = name.toLowerCase();
+      const isDuplicate = existingNames.has(normalizedName) || seen.has(normalizedName);
+      if (normalizedName) seen.add(normalizedName);
+      
+      const isValid = name.length > 0 && grade.length > 0 && !isDuplicate;
+      
+      return { name, grade, isValid, isDuplicate };
+    });
+  };
+
   const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -127,90 +272,69 @@ export default function Students() {
     reader.onload = async (e) => {
       try {
         const text = e.target?.result as string;
-        const lines = text.split("\n").map(line => line.trim()).filter(line => line);
+        const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line);
         
         if (lines.length < 2) {
-          throw new Error("CSV file must have at least a header and one student row");
+          throw new Error("CSV file must have at least a header and one data row");
         }
 
-        const headers = lines[0].split(",").map(h => h.trim().toUpperCase());
-        
-        const firstNameIdx = headers.findIndex(h => h.includes("FIRST") || h === "FIRSTNAME");
-        const surnameIdx = headers.findIndex(h => h.includes("SURNAME") || h === "SURNAME");
-        const otherNameIdx = headers.findIndex(h => h.includes("OTHER") && h.includes("NAME"));
-        const gradeIdx = headers.findIndex(h => h.includes("GRADE") || h.includes("LEVEL"));
-
-        if (firstNameIdx === -1) {
-          throw new Error("CSV must contain FIRSTNAME column. If importing to a specific class, LEVEL/GRADE is optional.");
-        }
-
-        const existingNames = new Set(students.map(s => s.name.toLowerCase().trim()));
-        
-        let importCount = 0;
-        let duplicateCount = 0;
-        const newStudentNames = new Set<string>();
-        
-        for (let i = 1; i < lines.length; i++) {
-          const cols = lines[i].split(",").map(c => c.trim());
-          const maxIdx = Math.max(firstNameIdx, surnameIdx, otherNameIdx, gradeIdx);
+        const parseCSVLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = "";
+          let inQuotes = false;
+          let i = 0;
           
-          if (cols.length >= Math.max(firstNameIdx, surnameIdx !== -1 ? surnameIdx : 0, otherNameIdx !== -1 ? otherNameIdx : 0) + 1) {
-            const firstName = cols[firstNameIdx] || "";
-            const surname = surnameIdx !== -1 ? (cols[surnameIdx] || "") : "";
-            const otherName = otherNameIdx !== -1 ? (cols[otherNameIdx] || "") : "";
-            let grade = gradeIdx !== -1 ? (cols[gradeIdx] || "") : "";
-
-            if (!grade && selectedClass) {
-              grade = selectedClass;
-            }
-
-            const nameParts = [firstName, otherName, surname].filter(p => p.length > 0);
-            const fullName = nameParts.join(" ").trim();
-
-            if (firstName && grade && fullName) {
-              const normalizedName = fullName.toLowerCase();
-              
-              if (existingNames.has(normalizedName) || newStudentNames.has(normalizedName)) {
-                duplicateCount++;
-                continue;
+          while (i < line.length) {
+            const char = line[i];
+            
+            if (inQuotes) {
+              if (char === '"') {
+                if (i + 1 < line.length && line[i + 1] === '"') {
+                  current += '"';
+                  i += 2;
+                  continue;
+                } else {
+                  inQuotes = false;
+                  i++;
+                  continue;
+                }
+              } else {
+                current += char;
               }
-              
-              newStudentNames.add(normalizedName);
-              
-              const studentId = `S${String(students.length + importCount + 1).padStart(3, "0")}`;
-              
-              let normalizedGrade = grade;
-              if (/^(kg|kindergarten)\s*[12]$/i.test(grade)) {
-                normalizedGrade = grade.toUpperCase().replace(/KINDERGARTEN/i, "KG").replace(/\s+/g, " ");
-              } else if (/^(basic|b)\s*\d+$/i.test(grade)) {
-                const num = grade.replace(/[^0-9]/g, "");
-                normalizedGrade = `Basic ${num}`;
+            } else {
+              if (char === '"') {
+                inQuotes = true;
+              } else if (char === ',') {
+                result.push(current.trim());
+                current = "";
+              } else {
+                current += char;
               }
-              
-              await studentsApi.create({
-                studentId,
-                name: fullName,
-                grade: normalizedGrade,
-                email: "",
-                status: "Active",
-                attendance: 0,
-              });
-              
-              importCount++;
             }
+            i++;
           }
-        }
+          result.push(current.trim());
+          return result;
+        };
 
-        if (importCount === 0 && duplicateCount === 0) {
-          throw new Error("No valid student records found in CSV");
+        const headers = parseCSVLine(lines[0]);
+        const data = lines.slice(1).map(line => parseCSVLine(line));
+        
+        const mapping = detectColumnMapping(headers);
+        
+        const hasNameColumn = mapping.name !== null || mapping.firstName !== null;
+        if (!hasNameColumn) {
+          throw new Error("Could not detect a name column. Please ensure your CSV has a column with 'Name', 'First Name', 'Student Name', or similar header.");
         }
-
-        let message = `Successfully imported ${importCount} student(s)`;
-        if (duplicateCount > 0) {
-          message += `. ${duplicateCount} duplicate(s) were skipped.`;
-        }
-        setCsvSuccess(message);
-        fetchStudents();
+        
+        setCsvHeaders(headers);
+        setCsvData(data);
+        setColumnMapping(mapping);
+        
+        const parsed = parseStudentsFromCSV(data, mapping, selectedClass || undefined);
+        setParsedStudents(parsed);
+        setImportStep("preview");
+        
       } catch (err) {
         setCsvError(err instanceof Error ? err.message : "Failed to parse CSV file");
       } finally {
@@ -218,6 +342,57 @@ export default function Students() {
       }
     };
     reader.readAsText(file);
+  };
+  
+  const handleConfirmImport = async () => {
+    setIsImporting(true);
+    setCsvError("");
+    
+    try {
+      const validStudents = parsedStudents.filter(s => s.isValid);
+      let importCount = 0;
+      
+      for (const student of validStudents) {
+        const studentId = `S${String(students.length + importCount + 1).padStart(3, "0")}`;
+        await studentsApi.create({
+          studentId,
+          name: student.name,
+          grade: student.grade,
+          email: "",
+          status: "Active",
+          attendance: 0,
+        });
+        importCount++;
+      }
+      
+      const duplicates = parsedStudents.filter(s => s.isDuplicate).length;
+      let message = `Successfully imported ${importCount} student(s)`;
+      if (duplicates > 0) {
+        message += `. ${duplicates} duplicate(s) were skipped.`;
+      }
+      
+      setCsvSuccess(message);
+      setImportStep("upload");
+      setParsedStudents([]);
+      setCsvData([]);
+      setCsvHeaders([]);
+      fetchStudents();
+      
+    } catch (err) {
+      setCsvError(err instanceof Error ? err.message : "Failed to import students");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+  
+  const resetImportDialog = () => {
+    setImportStep("upload");
+    setCsvError("");
+    setCsvSuccess("");
+    setParsedStudents([]);
+    setCsvData([]);
+    setCsvHeaders([]);
+    setColumnMapping({ name: null, firstName: null, surname: null, otherName: null, grade: null });
   };
 
   const exportToCSV = () => {
@@ -404,58 +579,138 @@ export default function Students() {
             <FileDown className="h-4 w-4" /> Export Class
           </Button>
           
-          <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+          <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) resetImportDialog(); }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2" data-testid="button-import-csv">
                 <Upload className="h-4 w-4" /> Import CSV
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className={importStep === "preview" ? "sm:max-w-[700px]" : "sm:max-w-[500px]"}>
               <DialogHeader>
-                <DialogTitle>Import Students to {selectedClass}</DialogTitle>
+                <DialogTitle>
+                  {importStep === "upload" ? `Import Students to ${selectedClass}` : "Preview Import"}
+                </DialogTitle>
                 <DialogDescription>
-                  Upload a CSV file. Students will be added to {selectedClass}. Duplicates will be skipped.
+                  {importStep === "upload" 
+                    ? "Upload any CSV file with student names. The system will automatically detect columns."
+                    : `Review ${parsedStudents.filter(s => s.isValid).length} students to import to ${selectedClass}`
+                  }
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                {csvError && (
-                  <Alert variant="destructive" className="bg-red-50 border-red-200">
-                    <AlertCircle className="h-4 w-4 text-red-600" />
-                    <AlertDescription className="text-red-800 ml-2">{csvError}</AlertDescription>
-                  </Alert>
-                )}
-                {csvSuccess && (
-                  <Alert className="bg-green-50 border-green-200">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800 ml-2">{csvSuccess}</AlertDescription>
-                  </Alert>
-                )}
-                <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={handleCSVImport}
-                    className="hidden"
-                    id="csv-import"
-                    data-testid="input-csv-file"
-                  />
-                  <Label htmlFor="csv-import" className="cursor-pointer block">
-                    <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="font-semibold">Click to upload CSV file</p>
-                    <p className="text-xs text-muted-foreground mt-1">or drag and drop</p>
-                  </Label>
+              
+              {csvError && (
+                <Alert variant="destructive" className="bg-red-50 border-red-200">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800 ml-2">{csvError}</AlertDescription>
+                </Alert>
+              )}
+              {csvSuccess && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800 ml-2">{csvSuccess}</AlertDescription>
+                </Alert>
+              )}
+              
+              {importStep === "upload" && (
+                <div className="space-y-4 py-4">
+                  <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleCSVImport}
+                      className="hidden"
+                      id="csv-import"
+                      data-testid="input-csv-file"
+                    />
+                    <Label htmlFor="csv-import" className="cursor-pointer block">
+                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="font-semibold">Click to upload CSV file</p>
+                      <p className="text-xs text-muted-foreground mt-1">Accepts any column arrangement</p>
+                    </Label>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 space-y-1">
+                    <p className="font-semibold">Smart Column Detection:</p>
+                    <p>The system automatically detects columns like: Name, First Name, Surname, Last Name, Student, Class, Level, Grade, Form</p>
+                    <p className="mt-2">If no grade column is found, students will be added to <strong>{selectedClass}</strong></p>
+                    <p className="font-semibold mt-2">Supported formats:</p>
+                    <p>Single name column OR separate First/Last name columns</p>
+                  </div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 space-y-1">
-                  <p className="font-semibold">Required Columns:</p>
-                  <p>FIRSTNAME</p>
-                  <p className="font-semibold mt-2">Optional Columns:</p>
-                  <p>SURNAME, OTHER NAME, LEVEL (defaults to {selectedClass})</p>
-                  <p className="font-semibold mt-2">Example:</p>
-                  <code className="block font-mono text-blue-800">FIRSTNAME,SURNAME,OTHER NAME</code>
-                  <code className="block font-mono text-blue-800">Kofi,Mensah,Kwame</code>
-                  <code className="block font-mono text-blue-800">Ama,Asante,</code>
+              )}
+              
+              {importStep === "preview" && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <Badge variant="outline" className="bg-green-50">
+                      Detected: {csvHeaders.join(", ")}
+                    </Badge>
+                  </div>
+                  
+                  <div className="flex gap-4 text-sm">
+                    <span className="text-green-600 font-medium">
+                      {parsedStudents.filter(s => s.isValid).length} valid
+                    </span>
+                    <span className="text-yellow-600 font-medium">
+                      {parsedStudents.filter(s => s.isDuplicate).length} duplicates (skipped)
+                    </span>
+                    <span className="text-red-600 font-medium">
+                      {parsedStudents.filter(s => !s.isValid && !s.isDuplicate).length} invalid
+                    </span>
+                  </div>
+                  
+                  <ScrollArea className="h-[300px] border rounded-md">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[40px]">Status</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Class</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {parsedStudents.map((student, idx) => (
+                          <TableRow 
+                            key={idx} 
+                            className={
+                              student.isDuplicate ? "bg-yellow-50" : 
+                              !student.isValid ? "bg-red-50" : ""
+                            }
+                          >
+                            <TableCell>
+                              {student.isValid ? (
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              ) : student.isDuplicate ? (
+                                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-red-600" />
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {student.name || <span className="text-muted-foreground italic">No name</span>}
+                            </TableCell>
+                            <TableCell>
+                              {student.grade || <span className="text-muted-foreground italic">No class</span>}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                  
+                  <DialogFooter className="gap-2">
+                    <Button variant="outline" onClick={resetImportDialog} data-testid="button-cancel-import">
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleConfirmImport} 
+                      disabled={isImporting || parsedStudents.filter(s => s.isValid).length === 0}
+                      data-testid="button-confirm-import"
+                    >
+                      {isImporting ? "Importing..." : `Import ${parsedStudents.filter(s => s.isValid).length} Students`}
+                    </Button>
+                  </DialogFooter>
                 </div>
-              </div>
+              )}
             </DialogContent>
           </Dialog>
 

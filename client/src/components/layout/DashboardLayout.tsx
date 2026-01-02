@@ -8,7 +8,8 @@ import {
   Bell,
   Search,
   LogOut,
-  Menu
+  Menu,
+  X
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
@@ -25,10 +26,22 @@ import {
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
+}
+
+interface Student {
+  id: string;
+  name: string;
+  classLevel: string;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  classLevels: string[];
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -36,10 +49,100 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { logout } = useAuth();
   const [, setLocation] = useLocation();
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ students: Student[]; subjects: Subject[] }>({ students: [], subjects: [] });
+  const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
     setLocation("/login");
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const currentQuery = searchQuery.trim();
+    
+    if (currentQuery.length < 2) {
+      setSearchResults({ students: [], subjects: [] });
+      setShowResults(false);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    setShowResults(true);
+    
+    const searchData = async () => {
+      try {
+        const [studentsRes, subjectsRes] = await Promise.all([
+          fetch("/api/students", { signal: controller.signal }),
+          fetch("/api/subjects", { signal: controller.signal })
+        ]);
+        
+        if (controller.signal.aborted) return;
+        
+        const students: Student[] = await studentsRes.json();
+        const subjects: Subject[] = await subjectsRes.json();
+        
+        const query = currentQuery.toLowerCase();
+        
+        const filteredStudents = students.filter(s => 
+          s.name.toLowerCase().includes(query) || 
+          s.classLevel.toLowerCase().includes(query)
+        ).slice(0, 5);
+        
+        const filteredSubjects = subjects.filter(s => 
+          s.name.toLowerCase().includes(query)
+        ).slice(0, 5);
+        
+        if (!controller.signal.aborted) {
+          setSearchResults({ students: filteredStudents, subjects: filteredSubjects });
+          setIsSearching(false);
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error("Search error:", error);
+          setIsSearching(false);
+        }
+      }
+    };
+
+    const debounce = setTimeout(searchData, 300);
+    return () => {
+      clearTimeout(debounce);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  const handleSelectStudent = (student: Student) => {
+    setSearchQuery("");
+    setShowResults(false);
+    setLocation(`/students?highlight=${student.id}`);
+  };
+
+  const handleSelectSubject = (subject: Subject) => {
+    setSearchQuery("");
+    setShowResults(false);
+    setLocation(`/subjects?highlight=${subject.id}`);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults({ students: [], subjects: [] });
+    setShowResults(false);
   };
 
   const navigation = [
@@ -128,12 +231,85 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </SheetContent>
             </Sheet>
             
-            <div className="hidden md:flex relative w-96">
+            <div className="hidden md:flex relative w-96" ref={searchRef}>
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input 
-                placeholder="Search students, teachers, or courses..." 
-                className="pl-9 bg-muted/50 border-none focus-visible:ring-1"
+                placeholder="Quick search students or subjects..." 
+                className="pl-9 pr-9 bg-muted/50 border-none focus-visible:ring-1"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+                data-testid="input-quick-search"
               />
+              {searchQuery && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="absolute right-1 top-1 h-6 w-6"
+                  onClick={clearSearch}
+                  data-testid="button-clear-search"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
+              
+              {showResults && (searchResults.students.length > 0 || searchResults.subjects.length > 0) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg max-h-80 overflow-y-auto z-50" data-testid="dropdown-search-results">
+                  {searchResults.students.length > 0 && (
+                    <div className="p-2">
+                      <div className="text-xs font-semibold text-muted-foreground px-2 py-1 flex items-center gap-2">
+                        <Users className="h-3 w-3" />
+                        STUDENTS
+                      </div>
+                      {searchResults.students.map((student) => (
+                        <button
+                          key={student.id}
+                          className="w-full text-left px-3 py-2 hover:bg-muted rounded-sm flex items-center justify-between"
+                          onClick={() => handleSelectStudent(student)}
+                          data-testid={`search-result-student-${student.id}`}
+                        >
+                          <span className="font-medium">{student.name}</span>
+                          <span className="text-xs text-muted-foreground">{student.classLevel}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {searchResults.subjects.length > 0 && (
+                    <div className="p-2 border-t">
+                      <div className="text-xs font-semibold text-muted-foreground px-2 py-1 flex items-center gap-2">
+                        <BookOpen className="h-3 w-3" />
+                        SUBJECTS
+                      </div>
+                      {searchResults.subjects.map((subject) => (
+                        <button
+                          key={subject.id}
+                          className="w-full text-left px-3 py-2 hover:bg-muted rounded-sm flex items-center justify-between"
+                          onClick={() => handleSelectSubject(subject)}
+                          data-testid={`search-result-subject-${subject.id}`}
+                        >
+                          <span className="font-medium">{subject.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {subject.classLevels?.length || 0} classes
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {showResults && isSearching && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg p-4 text-center text-sm text-muted-foreground z-50">
+                  Searching...
+                </div>
+              )}
+              
+              {showResults && !isSearching && searchQuery.length >= 2 && searchResults.students.length === 0 && searchResults.subjects.length === 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg p-4 text-center text-sm text-muted-foreground z-50" data-testid="text-no-results">
+                  No results found for "{searchQuery}"
+                </div>
+              )}
             </div>
           </div>
 

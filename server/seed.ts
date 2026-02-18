@@ -20,6 +20,32 @@ export async function seedDatabase() {
       console.log("✅ Admin user already exists");
     }
 
+    // Create default teacher user
+    const existingTeacher = await storage.getUserByUsername("teacher");
+    if (!existingTeacher) {
+      const teacherPassword = await bcrypt.hash("teacher123", 10);
+      const teacherUser = await storage.createUser({
+        username: "teacher",
+        password: teacherPassword,
+        role: "teacher",
+        secretWord: "teaching",
+      });
+
+      // Create associated teacher record
+      await storage.createTeacher({
+        userId: teacherUser.id,
+        teacherId: "T001",
+        name: "Default Teacher",
+        subject: "General",
+        email: "teacher@example.com",
+        assignedClass: "Basic 1",
+      });
+
+      console.log("✅ Teacher user created (username: teacher, password: teacher123)");
+    } else {
+      console.log("✅ Teacher user already exists");
+    }
+
     // Create default subjects if none exist
     const subjects = await storage.getSubjects();
     if (subjects.length === 0) {

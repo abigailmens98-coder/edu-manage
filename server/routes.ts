@@ -15,7 +15,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   // Health check endpoint
   app.get("/api/health", (req, res) => {
-    res.json({ 
+    res.json({
       status: "ok",
       database: isDatabaseAvailable ? "connected" : "not configured",
       timestamp: new Date().toISOString()
@@ -23,7 +23,8 @@ export async function registerRoutes(
   });
 
   // Seed database on first run with error handling
-  if (!isSeeded && isDatabaseAvailable) {
+  // Seed database on first run
+  if (!isSeeded) {
     try {
       const user = await storage.getUserByUsername("admin");
       if (!user) {
@@ -32,31 +33,27 @@ export async function registerRoutes(
       isSeeded = true;
     } catch (error) {
       console.error('❌ Failed to seed database:', error);
-      // Continue without seeding - app will still work but admin won't exist
       isSeeded = true;
     }
-  } else if (!isDatabaseAvailable) {
-    console.warn('⚠️  Database not available - skipping seed');
-    isSeeded = true;
   }
 
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password } = req.body;
-      
+
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password required" });
       }
 
       const user = await storage.getUserByUsername(username);
-      
+
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       const validPassword = await bcrypt.compare(password, user.password);
-      
+
       if (!validPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -72,13 +69,13 @@ export async function registerRoutes(
         teacherInfo = teachers.find(t => t.userId === user.id);
       }
 
-      res.json({ 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          role: user.role 
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
         },
-        teacher: teacherInfo 
+        teacher: teacherInfo
       });
     } catch (error) {
       console.error("Login error:", error);
@@ -113,11 +110,11 @@ export async function registerRoutes(
         teacherInfo = teachers.find(t => t.userId === user.id);
       }
 
-      res.json({ 
-        user: { 
-          id: user.id, 
-          username: user.username, 
-          role: user.role 
+      res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role
         },
         teacher: teacherInfo
       });
@@ -134,7 +131,7 @@ export async function registerRoutes(
 
     try {
       const result = await storage.cleanupDemoData();
-      res.json({ 
+      res.json({
         message: "Demo data cleaned up successfully",
         ...result
       });
@@ -226,7 +223,7 @@ export async function registerRoutes(
   app.post("/api/teachers", async (req, res) => {
     try {
       const { name, subject, email, assignedClass, username, password, secretWord } = req.body;
-      
+
       // Create user account - use a default password if not provided
       const passwordToUse = password || "teacher123";
       const hashedPassword = await bcrypt.hash(passwordToUse, 10);
@@ -322,10 +319,10 @@ export async function registerRoutes(
   app.post("/api/teacher-assignments/bulk", async (req, res) => {
     try {
       const { teacherId, assignments } = req.body;
-      
+
       // Delete existing assignments for this teacher
       await storage.deleteTeacherAssignmentsByTeacher(teacherId);
-      
+
       // Create new assignments
       const created = [];
       for (const assignment of assignments) {
@@ -337,7 +334,7 @@ export async function registerRoutes(
         });
         created.push(newAssignment);
       }
-      
+
       res.status(201).json(created);
     } catch (error) {
       console.error("Bulk assignment error:", error);
@@ -359,7 +356,7 @@ export async function registerRoutes(
     try {
       const teacherId = req.params.id;
       const { classLevel } = req.query;
-      
+
       // Verify the logged-in user owns this teacher record
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -368,10 +365,10 @@ export async function registerRoutes(
       if (!teacher || teacher.userId !== req.session.userId) {
         return res.status(403).json({ error: "Not authorized to access this teacher's data" });
       }
-      
+
       // Get teacher's assignments
       const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
-      
+
       if (assignments.length === 0) {
         // Fallback: get teacher's assigned class from teacher record
         if (teacher?.assignedClass) {
@@ -381,19 +378,19 @@ export async function registerRoutes(
         }
         return res.json([]);
       }
-      
+
       // Get unique class levels from assignments
       const allowedClasses = Array.from(new Set(assignments.map(a => a.classLevel)));
-      
+
       // Filter by specific class if provided
       if (classLevel && !allowedClasses.includes(classLevel as string)) {
         return res.status(403).json({ error: "Not authorized for this class" });
       }
-      
+
       const students = await storage.getStudents();
       const targetClasses = classLevel ? [classLevel as string] : allowedClasses;
       const filtered = students.filter(s => targetClasses.includes(s.grade));
-      
+
       res.json(filtered);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch students" });
@@ -404,7 +401,7 @@ export async function registerRoutes(
     try {
       const teacherId = req.params.id;
       const { termId, classLevel, subjectId } = req.query;
-      
+
       // Verify authentication
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -413,33 +410,33 @@ export async function registerRoutes(
       if (!teacher || teacher.userId !== req.session.userId) {
         return res.status(403).json({ error: "Not authorized" });
       }
-      
+
       if (!termId || !classLevel || !subjectId) {
         return res.status(400).json({ error: "termId, classLevel, and subjectId are required" });
       }
-      
+
       // Verify teacher has access to this class/subject
       const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
-      
+
       const hasAccess = assignments.some(
         a => a.classLevel === classLevel && a.subjectId === subjectId
       );
-      
+
       if (!hasAccess && assignments.length > 0) {
         return res.status(403).json({ error: "Not authorized for this class/subject" });
       }
-      
+
       // Get students in the authorized class only
       const students = await storage.getStudents();
       const classStudents = students.filter(s => s.grade === classLevel);
-      
+
       // Get scores for this term, filtered to authorized students and subject
       const allScores = await storage.getScoresByTerm(termId as string);
       const studentIds = classStudents.map(s => s.id);
-      const relevantScores = allScores.filter(score => 
+      const relevantScores = allScores.filter(score =>
         studentIds.includes(score.studentId) && score.subjectId === subjectId
       );
-      
+
       res.json(relevantScores);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch scores" });
@@ -450,7 +447,7 @@ export async function registerRoutes(
     try {
       const teacherId = req.params.id;
       const { studentId, subjectId, termId, classScore, examScore } = req.body;
-      
+
       // Verify authentication
       if (!req.session.userId) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -459,30 +456,30 @@ export async function registerRoutes(
       if (!teacher || teacher.userId !== req.session.userId) {
         return res.status(403).json({ error: "Not authorized" });
       }
-      
+
       // Verify teacher authorization for this class/subject
       const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
       const student = await storage.getStudent(studentId);
-      
+
       if (!student) {
         return res.status(404).json({ error: "Student not found" });
       }
-      
+
       // Check if teacher is assigned to this student's class and subject
       const hasAccess = assignments.some(
         a => a.classLevel === student.grade && a.subjectId === subjectId
       );
-      
+
       if (!hasAccess && assignments.length > 0) {
         return res.status(403).json({ error: "Not authorized to grade this student/subject" });
       }
-      
+
       // Check if score already exists
       const existingScores = await storage.getScoresByTerm(termId);
       const existing = existingScores.find(
         s => s.studentId === studentId && s.subjectId === subjectId
       );
-      
+
       const scoreData = {
         studentId,
         subjectId,
@@ -491,14 +488,14 @@ export async function registerRoutes(
         examScore: examScore || 0,
         totalScore: (classScore || 0) + (examScore || 0),
       };
-      
+
       let result;
       if (existing) {
         result = await storage.updateScore(existing.id, scoreData);
       } else {
         result = await storage.createScore(scoreData);
       }
-      
+
       res.json(result);
     } catch (error) {
       console.error("Save score error:", error);
@@ -681,7 +678,7 @@ export async function registerRoutes(
   app.get("/api/scores", async (req, res) => {
     try {
       const { studentId, termId } = req.query;
-      
+
       let scores;
       if (studentId) {
         scores = await storage.getScoresByStudent(studentId as string);
@@ -690,7 +687,7 @@ export async function registerRoutes(
       } else {
         scores = await storage.getScores();
       }
-      
+
       res.json(scores);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch scores" });
@@ -700,7 +697,7 @@ export async function registerRoutes(
   app.post("/api/scores", async (req, res) => {
     try {
       const validated = insertScoreSchema.parse(req.body);
-      
+
       // Calculate total and grade
       const classScore = validated.classScore || 0;
       const examScore = validated.examScore || 0;
@@ -712,7 +709,7 @@ export async function registerRoutes(
         totalScore: total,
         enteredBy: req.session.userId,
       };
-      
+
       const score = await storage.createScore(scoreData);
       res.status(201).json(score);
     } catch (error) {
@@ -733,7 +730,7 @@ export async function registerRoutes(
           updates.totalScore = classScore + examScore;
         }
       }
-      
+
       const score = await storage.updateScore(req.params.id, updates);
       if (!score) {
         return res.status(404).json({ error: "Score not found" });
@@ -748,7 +745,7 @@ export async function registerRoutes(
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
       const { termId } = req.query;
-      
+
       const [students, teachers, subjects, scores, terms] = await Promise.all([
         storage.getStudents(),
         storage.getTeachers(),
@@ -756,27 +753,27 @@ export async function registerRoutes(
         termId ? storage.getScoresByTerm(termId as string) : storage.getScores(),
         storage.getAcademicTerms(),
       ]);
-      
+
       const activeTerm = terms.find(t => t.status === "Active");
       const activeStudents = students.filter(s => s.status === "Active");
-      
+
       // Calculate average score across all scores
       const scoresWithValues = scores.filter(s => s.totalScore && s.totalScore > 0);
-      const averageScore = scoresWithValues.length > 0 
+      const averageScore = scoresWithValues.length > 0
         ? Math.round(scoresWithValues.reduce((sum, s) => sum + (s.totalScore || 0), 0) / scoresWithValues.length)
         : 0;
-      
+
       // Calculate pass rate (score >= 50 is passing)
       const passCount = scoresWithValues.filter(s => (s.totalScore || 0) >= 50).length;
-      const passRate = scoresWithValues.length > 0 
+      const passRate = scoresWithValues.length > 0
         ? Math.round((passCount / scoresWithValues.length) * 100)
         : 0;
-      
+
       // Calculate attendance rate
-      const attendanceRate = students.length > 0 
+      const attendanceRate = students.length > 0
         ? Math.round(students.reduce((sum, s) => sum + (s.attendance || 0), 0) / students.length)
         : 0;
-      
+
       // Score distribution by grade level
       const scoresByGrade: Record<string, { total: number; count: number }> = {};
       for (const score of scoresWithValues) {
@@ -790,7 +787,7 @@ export async function registerRoutes(
           scoresByGrade[grade].count += 1;
         }
       }
-      
+
       const gradePerformance = Object.entries(scoresByGrade).map(([grade, data]) => ({
         grade,
         average: Math.round(data.total / data.count),
@@ -799,7 +796,7 @@ export async function registerRoutes(
         const order = ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"];
         return order.indexOf(a.grade) - order.indexOf(b.grade);
       });
-      
+
       // Subject performance
       const scoresBySubject: Record<string, { total: number; count: number; name: string }> = {};
       for (const score of scoresWithValues) {
@@ -812,14 +809,14 @@ export async function registerRoutes(
           scoresBySubject[score.subjectId].count += 1;
         }
       }
-      
+
       const subjectPerformance = Object.entries(scoresBySubject).map(([id, data]) => ({
         subjectId: id,
         name: data.name,
         average: Math.round(data.total / data.count),
         count: data.count,
       })).sort((a, b) => b.average - a.average);
-      
+
       // Top performers
       const studentScores: Record<string, { total: number; count: number; name: string; grade: string }> = {};
       for (const score of scoresWithValues) {
@@ -832,7 +829,7 @@ export async function registerRoutes(
           studentScores[score.studentId].count += 1;
         }
       }
-      
+
       const topPerformers = Object.entries(studentScores)
         .map(([id, data]) => ({
           studentId: id,
@@ -843,7 +840,7 @@ export async function registerRoutes(
         }))
         .sort((a, b) => b.average - a.average)
         .slice(0, 10);
-      
+
       res.json({
         overview: {
           totalStudents: students.length,

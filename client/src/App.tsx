@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Login from "@/pages/login";
 import TeacherDashboard from "@/pages/teacher-dashboard";
 import TeacherProfile from "@/pages/teacher-profile";
+import TeacherBroadsheet from "@/pages/teacher-broadsheet";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
@@ -29,6 +30,8 @@ function AppRoutes() {
     return (
       <Switch>
         <Route path="/profile" component={TeacherProfile} />
+        <Route path="/remarks" component={TeacherRemarks} />
+        <Route path="/broadsheet" component={TeacherBroadsheet} />
         <Route component={TeacherDashboard} />
       </Switch>
     );

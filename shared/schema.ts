@@ -149,3 +149,51 @@ export const insertScoreSchema = createInsertSchema(scores).omit({
 });
 export type InsertScore = z.infer<typeof insertScoreSchema>;
 export type Score = typeof scores.$inferSelect;
+
+// Student Term Details (Remarks, Attendance, etc.)
+export const studentTermDetails = pgTable("student_term_details", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").references(() => students.id).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id).notNull(),
+  attendance: integer("attendance").default(0),
+  attendanceTotal: integer("attendance_total").default(0),
+  attitude: text("attitude"),
+  conduct: text("conduct"),
+  interest: text("interest"),
+  classTeacherRemark: text("class_teacher_remark"),
+  headTeacherRemark: text("head_teacher_remark"),
+  formMaster: text("form_master"),
+  promotedTo: text("promoted_to"),
+  arrears: text("arrears"), // Storing as text/string for simplicity
+  otherFees: text("other_fees"),
+  totalBill: text("total_bill"),
+  nextTermBegins: text("next_term_begins"), // Date string
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertStudentTermDetailsSchema = createInsertSchema(studentTermDetails).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertStudentTermDetails = z.infer<typeof insertStudentTermDetailsSchema>;
+export type StudentTermDetails = typeof studentTermDetails.$inferSelect;
+
+// Grading Scales
+export const gradingScales = pgTable("grading_scales", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: text("type").notNull(), // 'primary' (1-6) or 'jhs' (7-9)
+  grade: text("grade").notNull(), // 'A', 'B+', etc.
+  minScore: integer("min_score").notNull(),
+  maxScore: integer("max_score").notNull(),
+  description: text("description").notNull(), // 'Excellent', 'Very Good'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGradingScaleSchema = createInsertSchema(gradingScales).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertGradingScale = z.infer<typeof insertGradingScaleSchema>;
+export type GradingScale = typeof gradingScales.$inferSelect;

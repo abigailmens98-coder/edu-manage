@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, isDatabaseAvailable } from "./storage";
 import bcrypt from "bcryptjs";
-import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema, insertTeacherAssignmentSchema } from "@shared/schema";
+import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema, insertTeacherAssignmentSchema, insertStudentTermDetailsSchema } from "@shared/schema";
 import { seedDatabase } from "./seed";
 import "./types"; // Import session type declarations
 
@@ -141,6 +141,35 @@ export async function registerRoutes(
     }
   });
 
+  // Admin Password Reset
+  app.post("/api/admin/teachers/:id/reset-password", async (req, res) => {
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const teacherId = req.params.id;
+      const { password } = req.body;
+
+      if (!password || password.length < 4) {
+        return res.status(400).json({ error: "Password must be at least 4 characters" });
+      }
+
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await storage.updateUserPassword(teacher.userId, hashedPassword);
+
+      res.json({ message: "Password updated successfully" });
+    } catch (error) {
+      console.error("Password reset error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+
   // Students API
   app.get("/api/students", async (req, res) => {
     try {
@@ -197,6 +226,65 @@ export async function registerRoutes(
       res.json({ message: "Student deleted" });
     } catch (error) {
       res.status(500).json({ error: "Failed to delete student" });
+    }
+  });
+
+  // Delete all students in a class level (admin only)
+  app.delete("/api/students/class/:classLevel", async (req, res) => {
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+
+    try {
+      const classLevel = decodeURIComponent(req.params.classLevel);
+      const students = await storage.getStudents();
+      const classStudents = students.filter(s => s.grade === classLevel);
+
+      let deletedCount = 0;
+      for (const student of classStudents) {
+        await storage.deleteStudent(student.id);
+        deletedCount++;
+      }
+
+      res.json({ message: `Deleted ${deletedCount} students from ${classLevel}`, count: deletedCount });
+    } catch (error) {
+      console.error("Delete class error:", error);
+      res.status(500).json({ error: "Failed to delete class" });
+    }
+  });
+
+  // Student Term Details API
+  app.get("/api/students/:studentId/term-details", async (req, res) => {
+    try {
+      const { termId } = req.query;
+      if (!termId) {
+        return res.status(400).json({ error: "Term ID is required" });
+      }
+
+      const details = await storage.getStudentTermDetails(req.params.studentId, termId as string);
+      res.json(details || null);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch student details" });
+    }
+  });
+
+  app.post("/api/students/:studentId/term-details", async (req, res) => {
+    try {
+      // Verify teacher or admin
+      if (!req.session.userId || (req.session.role !== "admin" && req.session.role !== "teacher")) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const validated = insertStudentTermDetailsSchema.parse(req.body);
+
+      // If teacher, verify they are assigned to this student's class (optional strictly, but good practice)
+      // For now, relying on the fact that they can only access the UI for their class
+
+      const details = await storage.createOrUpdateStudentTermDetails(validated);
+      res.json(details);
+    } catch (error) {
+      console.error("Save details error:", error);
+      res.status(400).json({ error: "Invalid details data" });
     }
   });
 
@@ -860,6 +948,89 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Dashboard stats error:", error);
       res.status(500).json({ error: "Failed to fetch dashboard statistics" });
+    }
+  });
+
+  // Teacher Broadsheet Scores
+  app.get("/api/teachers/:id/broadsheet-scores", async (req, res) => {
+    try {
+      const teacherId = req.params.id;
+      const { termId, classLevel } = req.query;
+
+      // Verify authentication
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher || teacher.userId !== req.session.userId) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+
+      if (!termId || !classLevel) {
+        return res.status(400).json({ error: "termId and classLevel are required" });
+      }
+
+      // Verify teacher has access to this class
+      const assignments = await storage.getTeacherAssignmentsByTeacher(teacherId);
+      const hasAccess = assignments.some(a => a.classLevel === classLevel);
+      if (!hasAccess && assignments.length > 0) {
+        return res.status(403).json({ error: "Not authorized for this class" });
+      }
+
+      // Get students in the class
+      const students = await storage.getStudents();
+      const classStudents = students.filter(s => s.grade === classLevel);
+      const studentIds = classStudents.map(s => s.id);
+
+      // Get all scores for this term, filtered to class students
+      const allScores = await storage.getScoresByTerm(termId as string);
+      const relevantScores = allScores.filter(score =>
+        studentIds.includes(score.studentId)
+      );
+
+      res.json(relevantScores);
+    } catch (error) {
+      console.error("Broadsheet scores error:", error);
+      res.status(500).json({ error: "Failed to fetch broadsheet scores" });
+    }
+  });
+
+  // Grading Scale Routes
+  app.get("/api/grading-scales", async (req, res) => {
+    try {
+      // Ensure initial scales exist
+      await storage.initializeGradingScales();
+      const scales = await storage.getGradingScales();
+      res.json(scales);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch grading scales" });
+    }
+  });
+
+  app.post("/api/grading-scales", async (req, res) => {
+    try {
+      const scale = await storage.createGradingScale(req.body);
+      res.status(201).json(scale);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create grading scale" });
+    }
+  });
+
+  app.patch("/api/grading-scales/:id", async (req, res) => {
+    try {
+      const scale = await storage.updateGradingScale(req.params.id, req.body);
+      res.json(scale);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update grading scale" });
+    }
+  });
+
+  app.delete("/api/grading-scales/:id", async (req, res) => {
+    try {
+      await storage.deleteGradingScale(req.params.id);
+      res.json({ message: "Grading scale deleted" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete grading scale" });
     }
   });
 

@@ -12,10 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi } from "@/lib/api";
+import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, gradingScalesApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
+import { getGradeFromScales, GradingScale } from "@/lib/grading";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -34,7 +34,7 @@ interface ReportFormData {
 }
 
 const GRADES = [
-  "KG 1", "KG 2", 
+  "KG 1", "KG 2",
   "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6",
   "Basic 7", "Basic 8", "Basic 9"
 ];
@@ -65,6 +65,7 @@ export default function Reports() {
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [terms, setTerms] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
+  const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState("");
@@ -85,35 +86,56 @@ export default function Reports() {
     totalBill: "",
     nextTermBegins: "",
   });
+  const [loadingReportDetails, setLoadingReportDetails] = useState(false);
+  const [schoolLogoBase64, setSchoolLogoBase64] = useState<string>("");
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { role, userId } = useAuth();
-  
+
   const isTeacher = role === "teacher";
   const isAdmin = role === "admin";
 
   useEffect(() => {
     fetchData();
+    // Pre-load school logo as base64 for PDF and on-screen display
+    const loadLogo = async () => {
+      try {
+        const response = await fetch("/school-logo.png");
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setSchoolLogoBase64(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+      } catch (e) {
+        console.error("Failed to load school logo", e);
+      }
+    };
+    loadLogo();
   }, []);
 
   const fetchData = async () => {
     try {
-      const [studentsData, subjectsData, yearsData, termsData] = await Promise.all([
+      const [studentsData, subjectsData, yearsData, termsData, assignmentsData, gradingData] = await Promise.all([
         studentsApi.getAll(),
         subjectsApi.getAll(),
         academicYearsApi.getAll(),
         academicTermsApi.getAll(),
+        teacherAssignmentsApi.getAll(),
+        gradingScalesApi.getAll(),
       ]);
       setStudents(studentsData);
       setSubjects(subjectsData);
       setAcademicYears(yearsData);
       setTerms(termsData);
-      
+      setTeacherAssignments(assignmentsData);
+      setGradingScales(gradingData);
+
       const activeYear = yearsData.find((y: any) => y.status === "Active");
       if (activeYear) {
         setSelectedYear(activeYear.id);
       }
-      
+
       if (isTeacher && userId) {
         const teachers = await teachersApi.getAll();
         const teacher = teachers.find((t: any) => t.userId === userId);
@@ -139,6 +161,33 @@ export default function Reports() {
       loadScores();
     }
   }, [selectedTerm]);
+
+  useEffect(() => {
+    if (showStudentReport && selectedTerm) {
+      const fetchDetails = async () => {
+        setLoadingReportDetails(true);
+        try {
+          const details = await studentsApi.getTermDetails(showStudentReport.id, selectedTerm);
+          if (details) {
+            setReportFormData(prev => ({
+              ...prev,
+              attendance: String(details.attendance !== null ? details.attendance : ""),
+              attendanceTotal: String(details.attendanceTotal !== null ? details.attendanceTotal : ""),
+              attitude: details.attitude || "RESPECTFUL",
+              conduct: details.conduct || "GOOD",
+              interest: details.interest || "HOLDS VARIED INTERESTS",
+              teacherRemarks: details.classTeacherRemark || prev.teacherRemarks,
+            }));
+          }
+        } catch (err) {
+          console.error("Failed to fetch term details", err);
+        } finally {
+          setLoadingReportDetails(false);
+        }
+      };
+      fetchDetails();
+    }
+  }, [showStudentReport, selectedTerm]);
 
   const loadScores = async () => {
     try {
@@ -198,11 +247,11 @@ export default function Reports() {
     const allGrades = new Set<string>(GRADES);
     Object.keys(classCounts).forEach(g => allGrades.add(g));
     let classes = Array.from(allGrades);
-    
+
     if (teacherClasses) {
       classes = classes.filter(c => teacherClasses.includes(c));
     }
-    
+
     return classes.sort((a, b) => {
       const getOrder = (grade: string) => {
         if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
@@ -215,17 +264,17 @@ export default function Reports() {
 
   const yearTerms = terms.filter(t => t.academicYearId === selectedYear);
   const classStudents = selectedClass ? students.filter(s => s.grade === selectedClass) : [];
-  
+
   const getSubjectsForClass = (classLevel: string) => {
-    const filtered = subjects.filter(s => 
+    const filtered = subjects.filter(s =>
       s.classLevels && s.classLevels.includes(classLevel)
     );
     return filtered.length > 0 ? filtered : subjects;
   };
 
   const classSubjects = selectedClass ? getSubjectsForClass(selectedClass) : subjects;
-  
-  const displaySubjects = selectedClass 
+
+  const displaySubjects = selectedClass
     ? (isTeacher ? getTeacherSubjectsForClass(selectedClass) : classSubjects)
     : subjects;
 
@@ -261,10 +310,11 @@ export default function Reports() {
   };
 
   const getGrade = (total: number, classLevel: string) => {
-    const basicNum = parseInt(classLevel.replace(/[^0-9]/g, ""));
-    const scale = basicNum >= 1 && basicNum <= 6 ? BASIC_1_6_GRADING_SCALE : GES_GRADING_SCALE;
-    const entry = scale.find(g => total >= g.range[0] && total <= g.range[1]);
-    return entry ? entry.grade : "F";
+    return getGradeFromScales(total, classLevel, gradingScales).grade;
+  };
+
+  const getFullGradeDetail = (total: number, classLevel: string) => {
+    return getGradeFromScales(total, classLevel, gradingScales);
   };
 
   const getStudentsRankedByAverage = () => {
@@ -298,12 +348,12 @@ export default function Reports() {
   const openStudentReport = (student: any) => {
     const studentAvg = calculateAverage(student.id, allSubjects);
     const termAttendance = terms.find(t => t.id === selectedTerm)?.totalAttendanceDays || 60;
-    const defaultRemark = studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" : 
-                          studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
-                          studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
-                          studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
-                          "NEEDS SIGNIFICANT IMPROVEMENT.";
-    
+    const defaultRemark = studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
+      studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+        studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+          studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+            "NEEDS SIGNIFICANT IMPROVEMENT.";
+
     setReportFormData({
       attendance: String(student.attendance || termAttendance),
       attendanceTotal: String(termAttendance),
@@ -327,23 +377,23 @@ export default function Reports() {
     const termName = termData?.name || "";
     const termNumber = termData?.termNumber || "";
     const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-    
+
     doc.setFillColor(0, 100, 0);
     doc.rect(0, 0, 297, 8, "F");
-    
+
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 100, 0);
     doc.text("UNIVERSITY BASIC SCHOOL", 148.5, 18, { align: "center" });
-    
+
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
     doc.text(`${yearName} TERM ${termNumber}    BROADSHEET FOR    ${selectedClass?.toUpperCase()}`, 148.5, 26, { align: "center" });
-    
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.text("SCORE AND POSITION OF STUDENTS", 148.5, 33, { align: "center" });
-    
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.text(`Number on Roll: ${classStudents.length}`, 14, 38);
@@ -366,13 +416,13 @@ export default function Reports() {
       const avg = calculateAverage(student.id, allSubjects);
       const position = getStudentPosition(student.id);
       const posText = getPositionSuffix(position);
-      
+
       const subjectScores = displaySubjects.flatMap(s => {
         const score = getScore(student.id, s.id);
         const grade = score > 0 ? getNumericGrade(score) : "";
         return [score || "", grade];
       });
-      
+
       return [
         student.name.toUpperCase(),
         ...subjectScores,
@@ -396,9 +446,9 @@ export default function Reports() {
       startY: 42,
       theme: "grid",
       styles: { fontSize: 6, cellPadding: 1 },
-      headStyles: { 
-        fillColor: [200, 220, 200], 
-        textColor: [0, 0, 0], 
+      headStyles: {
+        fillColor: [200, 220, 200],
+        textColor: [0, 0, 0],
         fontStyle: "bold",
         halign: "center",
         fontSize: 5
@@ -428,7 +478,7 @@ export default function Reports() {
     });
 
     doc.save(`Broadsheet_${selectedClass}_${termName.replace(/\s+/g, "_")}.pdf`);
-    
+
     toast({
       title: "Success",
       description: "Broadsheet PDF exported successfully",
@@ -439,7 +489,7 @@ export default function Reports() {
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
     const termData = terms.find(t => t.id === selectedTerm);
     const termName = termData?.name || "";
-    
+
     const headers = [
       "Position",
       "Student Name",
@@ -459,13 +509,13 @@ export default function Reports() {
       const avg = calculateAverage(student.id, allSubjects);
       const position = getStudentPosition(student.id);
       const status = getStudentPassFail(student.id, allSubjects);
-      
+
       const subjectData = displaySubjects.flatMap(s => {
         const score = getScore(student.id, s.id);
         const grade = score > 0 ? getNumericGrade(score) : "-";
         return [score || 0, grade];
       });
-      
+
       return [
         getPositionSuffix(position),
         student.name,
@@ -489,7 +539,7 @@ export default function Reports() {
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Broadsheet");
-    
+
     ws["!cols"] = [
       { wch: 8 },
       { wch: 25 },
@@ -501,7 +551,7 @@ export default function Reports() {
     ];
 
     XLSX.writeFile(wb, `Broadsheet_${selectedClass}_${termName.replace(/\s+/g, "_")}.xlsx`);
-    
+
     toast({
       title: "Success",
       description: "Broadsheet Excel exported successfully",
@@ -516,21 +566,30 @@ export default function Reports() {
     const position = getStudentPosition(student.id);
     const total = calculateTotal(student.id, allSubjects);
     const avg = calculateAverage(student.id, allSubjects);
-    
+
     // Set blue color for headers
     const blueColor: [number, number, number] = [30, 64, 175];
     const lightBlue: [number, number, number] = [219, 234, 254];
-    
+
+    // Add School Badge
+    if (schoolLogoBase64) {
+      try {
+        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 28, 28);
+      } catch (e) {
+        console.error("Failed to add school logo to PDF", e);
+      }
+    }
+
     // School Header
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...blueColor);
     doc.text("UNIVERSITY BASIC SCHOOL", 105, 18, { align: "center" });
-    
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
     doc.text("Knowledge, Truth and Excellence", 105, 24, { align: "center" });
-    
+
     // Contact info
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
@@ -538,16 +597,16 @@ export default function Reports() {
     doc.text("TELEPHONE", 20, 32);
     doc.text("Phone: 031-XXXXXXX", 20, 37);
     doc.text("Email: info@universitybasic.edu.gh", 20, 42);
-    
+
     doc.text("ADDRESS", 160, 32);
     doc.text("P.O. BOX 237, TARKWA", 160, 37);
     doc.text("WESTERN REGION, GHANA", 160, 42);
-    
+
     // Blue line separator
     doc.setDrawColor(...blueColor);
     doc.setLineWidth(1.5);
     doc.line(10, 47, 200, 47);
-    
+
     // Terminal Report Badge
     doc.setFillColor(220, 38, 38);
     doc.roundedRect(80, 50, 50, 8, 2, 2, 'F');
@@ -555,7 +614,7 @@ export default function Reports() {
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text("TERMINAL REPORT", 105, 56, { align: "center" });
-    
+
     // Student Info Section
     doc.setTextColor(...blueColor);
     doc.setFontSize(10);
@@ -563,26 +622,26 @@ export default function Reports() {
     doc.text("Name of Student :", 14, 68);
     doc.setFont("helvetica", "normal");
     doc.text(student.name.toUpperCase(), 52, 68);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Student ID:", 14, 75);
     doc.setFont("helvetica", "normal");
     doc.text(student.studentId, 42, 75);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Class:", 14, 82);
     doc.setFont("helvetica", "normal");
     doc.text(student.grade, 30, 82);
-    
+
     // Right side info
     doc.setFont("helvetica", "bold");
     doc.text(`${yearName}  ${termName}`, 160, 68);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Number On Roll :", 120, 75);
     doc.setFont("helvetica", "normal");
     doc.text(String(classStudents.length), 160, 75);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Next Term Begins :", 120, 82);
     doc.setFont("helvetica", "normal");
@@ -599,7 +658,7 @@ export default function Reports() {
       const remark = getGradeRemark(totalScore);
       return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, remark.toUpperCase()];
     });
-    
+
     // Add Grand Total and Average rows
     tableBody.push(["Grand Total", "", "", total, "", ""]);
     tableBody.push(["Average", "", "", avg, "", ""]);
@@ -609,16 +668,16 @@ export default function Reports() {
       body: tableBody,
       startY: 88,
       theme: 'grid',
-      styles: { 
-        fontSize: 8, 
+      styles: {
+        fontSize: 8,
         textColor: blueColor,
         lineColor: blueColor,
         lineWidth: 0.3,
         halign: 'center',
         valign: 'middle'
       },
-      headStyles: { 
-        fillColor: lightBlue, 
+      headStyles: {
+        fillColor: lightBlue,
         textColor: blueColor,
         fontStyle: 'bold',
         lineColor: blueColor,
@@ -642,7 +701,7 @@ export default function Reports() {
     });
 
     const finalY = (doc as any).lastAutoTable.finalY || 180;
-    
+
     // Additional Info - using form data
     const attendanceVal = reportFormData.attendance || String(student.attendance || termAttendance);
     const attendanceTotalVal = reportFormData.attendanceTotal || "60";
@@ -654,68 +713,68 @@ export default function Reports() {
     const arrearsVal = reportFormData.arrears || "___________";
     const otherFeesVal = reportFormData.otherFees || "___________";
     const totalBillVal = reportFormData.totalBill || "___________";
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text(`Attendance: `, 14, finalY + 10);
     doc.setFont("helvetica", "normal");
     doc.text(`${attendanceVal} Out Of ${attendanceTotalVal}`, 38, finalY + 10);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Attitude:", 14, finalY + 17);
     doc.setFont("helvetica", "italic");
     doc.text(attitudeVal.toUpperCase(), 35, finalY + 17);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Conduct:", 14, finalY + 24);
     doc.setFont("helvetica", "italic");
     doc.text(conductVal.toUpperCase(), 35, finalY + 24);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Interest:", 14, finalY + 31);
     doc.setFont("helvetica", "italic");
     doc.text(interestVal.toUpperCase(), 35, finalY + 31);
-    
+
     // Class Teacher's Remarks - using form data or auto-generated
-    const defaultRemark = avg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" : 
-                          avg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
-                          avg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
-                          avg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
-                          "NEEDS SIGNIFICANT IMPROVEMENT.";
+    const defaultRemark = avg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
+      avg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+        avg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+          avg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+            "NEEDS SIGNIFICANT IMPROVEMENT.";
     const teacherRemark = reportFormData.teacherRemarks || defaultRemark;
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Class Teacher's Remarks:", 14, finalY + 42);
     doc.setFont("helvetica", "italic");
     const remarkLines = doc.splitTextToSize(teacherRemark, 130);
     doc.text(remarkLines, 60, finalY + 42);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Position:", 14, finalY + 52);
     doc.setTextColor(...blueColor);
     const positionText = position != null && position > 0 ? `${getPositionSuffix(position)} out of ${classStudents.length}` : "N/A";
     doc.text(positionText, 35, finalY + 52);
-    
+
     // Form Master
     doc.setTextColor(0, 0, 0);
     doc.setFont("helvetica", "bold");
     doc.text("Form Master:", 14, finalY + 63);
     doc.setFont("helvetica", "normal");
     doc.text(formMasterVal, 40, finalY + 63);
-    
+
     // Next Term Begins
     doc.setFont("helvetica", "bold");
     doc.text("Next Term Begins:", 100, finalY + 63);
     doc.setFont("helvetica", "normal");
     doc.text(nextTermVal, 145, finalY + 63);
-    
+
     // Head's Signature
     doc.setFont("helvetica", "bold");
     doc.text("Head's Signature:", 14, finalY + 73);
     doc.setFont("helvetica", "normal");
     doc.text("_________________________", 50, finalY + 73);
-    
+
     // Student Bill Section
     const billY = finalY + 82;
     doc.setFillColor(...blueColor);
@@ -724,31 +783,31 @@ export default function Reports() {
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text("STUDENT'S BILL FOR NEXT ACADEMIC TERM", 105, billY + 6, { align: "center" });
-    
+
     // Bill table
     doc.setDrawColor(...blueColor);
     doc.setLineWidth(0.3);
     doc.rect(14, billY + 8, 182, 25);
-    
+
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.text("Arrears:", 18, billY + 16);
     doc.setFont("helvetica", "normal");
     doc.text(arrearsVal, 40, billY + 16);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Other Fees:", 100, billY + 16);
     doc.setFont("helvetica", "normal");
     doc.text(otherFeesVal, 130, billY + 16);
-    
+
     doc.setFont("helvetica", "bold");
     doc.text("Total Bill:", 100, billY + 26);
     doc.setFont("helvetica", "normal");
     doc.text(totalBillVal, 130, billY + 26);
 
     doc.save(`Terminal_Report_${student.name.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
-    
+
     toast({
       title: "Success",
       description: "Terminal report PDF exported successfully",
@@ -769,7 +828,7 @@ export default function Reports() {
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Reports & Broadsheet</h1>
           <p className="text-muted-foreground mt-1">
-            {isTeacher 
+            {isTeacher
               ? "View reports and broadsheets for your assigned subjects."
               : "Select a class to view student reports and generate broadsheets."
             }
@@ -780,7 +839,7 @@ export default function Reports() {
           <Alert className="bg-blue-50 border-blue-200">
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800 ml-2">
-              You can view broadsheets for your assigned subjects only. 
+              You can view broadsheets for your assigned subjects only.
               {teacherAssignments.length > 0 && ` Showing ${sortedClasses.length} class(es) with ${new Set(teacherAssignments.map(a => a.subjectId)).size} subject(s).`}
             </AlertDescription>
           </Alert>
@@ -808,7 +867,7 @@ export default function Reports() {
                 </Select>
               </div>
             </div>
-            
+
             {selectedYear && yearTerms.length > 0 && (
               <div className="mt-6">
                 <Label className="mb-3 block">Academic Terms</Label>
@@ -817,9 +876,8 @@ export default function Reports() {
                     <Button
                       key={term.id}
                       variant={selectedTerm === term.id ? "default" : "outline"}
-                      className={`${
-                        term.status === "Inactive" ? "opacity-50" : ""
-                      } ${selectedTerm === term.id ? "" : term.status === "Active" ? "border-green-500 text-green-700" : ""}`}
+                      className={`${term.status === "Inactive" ? "opacity-50" : ""
+                        } ${selectedTerm === term.id ? "" : term.status === "Active" ? "border-green-500 text-green-700" : ""}`}
                       onClick={() => setSelectedTerm(term.id)}
                       data-testid={`button-term-${term.id}`}
                     >
@@ -839,16 +897,15 @@ export default function Reports() {
           {sortedClasses.map((grade) => {
             const count = classCounts[grade] || 0;
             const isKG = grade.startsWith("KG");
-            const assignedSubjectsCount = isTeacher 
-              ? teacherAssignments.filter(a => a.classLevel === grade).length 
+            const assignedSubjectsCount = isTeacher
+              ? teacherAssignments.filter(a => a.classLevel === grade).length
               : subjects.length;
-            
+
             return (
-              <Card 
-                key={grade} 
-                className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] ${
-                  isKG ? 'border-l-4 border-l-pink-500' : 'border-l-4 border-l-blue-500'
-                } ${!selectedTerm ? 'opacity-50 pointer-events-none' : ''}`}
+              <Card
+                key={grade}
+                className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] ${isKG ? 'border-l-4 border-l-pink-500' : 'border-l-4 border-l-blue-500'
+                  } ${!selectedTerm ? 'opacity-50 pointer-events-none' : ''}`}
                 onClick={() => selectedTerm && setSelectedClass(grade)}
                 data-testid={`card-report-class-${grade.replace(/\s+/g, "-")}`}
               >
@@ -904,9 +961,9 @@ export default function Reports() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setSelectedClass(null)}
             data-testid="button-back-to-classes"
           >
@@ -918,8 +975,8 @@ export default function Reports() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="gap-2"
             onClick={exportBroadsheetPDF}
             disabled={classStudents.length === 0}
@@ -927,8 +984,8 @@ export default function Reports() {
           >
             <FileDown className="h-4 w-4" /> Export PDF
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="gap-2"
             onClick={exportBroadsheetExcel}
             disabled={classStudents.length === 0}
@@ -964,7 +1021,7 @@ export default function Reports() {
             </div>
             <span className="text-gray-600">{today}</span>
           </div>
-          
+
           <div className="overflow-x-auto" ref={printRef}>
             <Table>
               <TableHeader className="bg-green-50">
@@ -987,10 +1044,10 @@ export default function Reports() {
                   const position = getStudentPosition(student.id);
                   const hasScores = hasScoresEntered(student.id);
                   const status = getStudentPassFail(student.id, allSubjects);
-                  
+
                   return (
-                    <TableRow 
-                      key={student.id} 
+                    <TableRow
+                      key={student.id}
                       className={`${!hasScores ? "opacity-50" : ""} ${status === "Fail" && hasScores ? "bg-red-50" : ""} hover:bg-gray-50 cursor-pointer`}
                       onClick={() => hasScores && openStudentReport(student)}
                       data-testid={`row-report-${student.id}`}
@@ -1003,14 +1060,14 @@ export default function Reports() {
                         const grade = score > 0 ? getNumericGrade(score) : "";
                         return (
                           <>
-                            <TableCell 
+                            <TableCell
                               key={`${s.id}-score`}
                               className={`text-center border-l ${score === 0 ? 'text-muted-foreground' : score < 50 ? 'text-red-600 font-semibold' : ''}`}
                               data-testid={`text-score-${student.id}-${s.id}`}
                             >
                               {score || ""}
                             </TableCell>
-                            <TableCell 
+                            <TableCell
                               key={`${s.id}-grade`}
                               className={`text-center bg-gray-50 text-xs border-r ${score < 50 && score > 0 ? 'text-red-600' : ''}`}
                               data-testid={`text-grade-${student.id}-${s.id}`}
@@ -1042,7 +1099,7 @@ export default function Reports() {
               </TableBody>
             </Table>
           </div>
-          
+
           <div className="p-4 bg-gray-50 border-t flex justify-between items-center flex-wrap gap-4">
             <div className="text-sm text-gray-600">
               <span className="font-medium">{studentsRankedByAverage.length}</span> of {classStudents.length} students have scores entered
@@ -1087,17 +1144,23 @@ export default function Reports() {
             const studentAvg = calculateAverage(showStudentReport.id, allSubjects);
             const studentPosition = getStudentPosition(showStudentReport.id);
             const termAttendance = termData?.totalAttendanceDays || 60;
-            
+
             return (
               <div className="bg-white">
-                {/* School Header */}
+                {/* School Header with Badge */}
                 <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
-                  <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY BASIC SCHOOL</h1>
-                  <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-shrink-0 w-20">
+                      <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
+                    </div>
+                    <div className="flex-1 px-4">
+                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY BASIC SCHOOL</h1>
+                      <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
+                    </div>
+                    <div className="flex-shrink-0 w-20" />
+                  </div>
                   <div className="flex justify-between text-xs mt-2 text-gray-600">
                     <div className="text-left">
-                      <p><strong>TELEPHONE</strong></p>
-                      <p>Phone: 031-XXXXXXX</p>
                       <p>Email: info@universitybasic.edu.gh</p>
                     </div>
                     <div className="text-right">
@@ -1139,7 +1202,7 @@ export default function Reports() {
                     <div className="flex gap-2">
                       <span className="font-semibold text-blue-700">Next Term Begins :</span>
                       <span className="text-blue-600">
-                        {reportFormData.nextTermBegins 
+                        {reportFormData.nextTermBegins
                           ? new Date(reportFormData.nextTermBegins).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                           : "TBD"}
                       </span>
@@ -1219,7 +1282,7 @@ export default function Reports() {
                       type="number"
                       className="w-16 h-7 text-center"
                       value={reportFormData.attendance || String(showStudentReport.attendance || termAttendance)}
-                      onChange={(e) => setReportFormData({...reportFormData, attendance: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, attendance: e.target.value })}
                       data-testid="input-attendance"
                     />
                     <span>Out Of</span>
@@ -1227,7 +1290,7 @@ export default function Reports() {
                       type="number"
                       className="w-16 h-7 text-center"
                       value={reportFormData.attendanceTotal}
-                      onChange={(e) => setReportFormData({...reportFormData, attendanceTotal: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, attendanceTotal: e.target.value })}
                       data-testid="input-attendance-total"
                     />
                   </div>
@@ -1236,7 +1299,7 @@ export default function Reports() {
                     <Input
                       className="flex-1 h-7"
                       value={reportFormData.attitude}
-                      onChange={(e) => setReportFormData({...reportFormData, attitude: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, attitude: e.target.value })}
                       placeholder="e.g., RESPECTFUL"
                       data-testid="input-attitude"
                     />
@@ -1246,7 +1309,7 @@ export default function Reports() {
                     <Input
                       className="flex-1 h-7"
                       value={reportFormData.conduct}
-                      onChange={(e) => setReportFormData({...reportFormData, conduct: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, conduct: e.target.value })}
                       placeholder="e.g., GOOD"
                       data-testid="input-conduct"
                     />
@@ -1256,7 +1319,7 @@ export default function Reports() {
                     <Input
                       className="flex-1 h-7"
                       value={reportFormData.interest}
-                      onChange={(e) => setReportFormData({...reportFormData, interest: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, interest: e.target.value })}
                       placeholder="e.g., HOLDS VARIED INTERESTS"
                       data-testid="input-interest"
                     />
@@ -1270,13 +1333,13 @@ export default function Reports() {
                     <Textarea
                       className="w-full h-16 text-sm"
                       value={reportFormData.teacherRemarks || (
-                        studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" : 
-                        studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
-                        studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
-                        studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
-                        "NEEDS SIGNIFICANT IMPROVEMENT."
+                        studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
+                          studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+                            studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+                              studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+                                "NEEDS SIGNIFICANT IMPROVEMENT."
                       )}
-                      onChange={(e) => setReportFormData({...reportFormData, teacherRemarks: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, teacherRemarks: e.target.value })}
                       placeholder="Enter class teacher's remarks..."
                       data-testid="input-teacher-remarks"
                     />
@@ -1292,11 +1355,11 @@ export default function Reports() {
                 {/* Signatures Section - Editable Form Master */}
                 <div className="px-6 py-4 space-y-3 text-sm border-t">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold w-28">Form Master:</span>
+                    <span className="font-semibold w-28">Class Teacher:</span>
                     <Input
                       className="flex-1 h-7"
                       value={reportFormData.formMaster}
-                      onChange={(e) => setReportFormData({...reportFormData, formMaster: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, formMaster: e.target.value })}
                       placeholder="Enter form master name"
                       data-testid="input-form-master"
                     />
@@ -1307,7 +1370,7 @@ export default function Reports() {
                       type="date"
                       className="w-40 h-7"
                       value={reportFormData.nextTermBegins}
-                      onChange={(e) => setReportFormData({...reportFormData, nextTermBegins: e.target.value})}
+                      onChange={(e) => setReportFormData({ ...reportFormData, nextTermBegins: e.target.value })}
                       data-testid="input-next-term"
                     />
                   </div>
@@ -1320,48 +1383,6 @@ export default function Reports() {
                 </div>
 
                 {/* Student Bill Section - Editable */}
-                <div className="px-6 py-4 border-t bg-gray-50">
-                  <div className="border-2 border-blue-600 text-center bg-blue-700 text-white py-1 font-bold text-sm">
-                    STUDENT'S BILL FOR NEXT ACADEMIC TERM
-                  </div>
-                  <div className="border-2 border-t-0 border-blue-600 p-3">
-                    <div className="grid grid-cols-4 gap-2 text-sm items-center">
-                      <div className="col-span-1 font-semibold">Arrears</div>
-                      <div className="col-span-1">
-                        <Input
-                          className="h-7"
-                          value={reportFormData.arrears}
-                          onChange={(e) => setReportFormData({...reportFormData, arrears: e.target.value})}
-                          placeholder="GHS 0.00"
-                          data-testid="input-arrears"
-                        />
-                      </div>
-                      <div className="col-span-1 text-right font-semibold">Other Fees</div>
-                      <div className="col-span-1">
-                        <Input
-                          className="h-7"
-                          value={reportFormData.otherFees}
-                          onChange={(e) => setReportFormData({...reportFormData, otherFees: e.target.value})}
-                          placeholder="GHS 0.00"
-                          data-testid="input-other-fees"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2 text-sm mt-2 items-center">
-                      <div className="col-span-2"></div>
-                      <div className="col-span-1 text-right font-bold">Total Bill</div>
-                      <div className="col-span-1">
-                        <Input
-                          className="h-7 font-bold"
-                          value={reportFormData.totalBill}
-                          onChange={(e) => setReportFormData({...reportFormData, totalBill: e.target.value})}
-                          placeholder="GHS 0.00"
-                          data-testid="input-total-bill"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-2 p-4 border-t bg-white sticky bottom-0">

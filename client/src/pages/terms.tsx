@@ -222,9 +222,9 @@ export default function TermsManagement() {
                     <CardFooter className="pt-0 gap-2">
                       <Dialog open={editingTerm?.id === term.id} onOpenChange={(open) => !open && setEditingTerm(null)}>
                         <DialogTrigger asChild>
-                          <Button 
-                            variant="outline" 
-                            className="flex-1 gap-2" 
+                          <Button
+                            variant="outline"
+                            className="flex-1 gap-2"
                             size="sm"
                             onClick={() => handleEditTerm(term)}
                             data-testid={`button-edit-term-${term.id}`}
@@ -276,8 +276,8 @@ export default function TermsManagement() {
                       </Dialog>
                       <Dialog open={deleteTermId === term.id} onOpenChange={(open) => !open && setDeleteTermId(null)}>
                         <DialogTrigger asChild>
-                          <Button 
-                            variant="destructive" 
+                          <Button
+                            variant="destructive"
                             size="sm"
                             onClick={() => setDeleteTermId(term.id)}
                             data-testid={`button-delete-term-${term.id}`}
@@ -320,47 +320,47 @@ export default function TermsManagement() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-primary">A+</div>
+              <div className="font-bold text-lg text-primary">1</div>
               <div className="text-xs text-muted-foreground">80-100</div>
               <div className="text-xs font-medium mt-1">Excellent</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-primary">A</div>
+              <div className="font-bold text-lg text-primary">2</div>
               <div className="text-xs text-muted-foreground">75-79</div>
               <div className="text-xs font-medium mt-1">Very Good</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-blue-600">B+</div>
+              <div className="font-bold text-lg text-blue-600">3</div>
               <div className="text-xs text-muted-foreground">70-74</div>
               <div className="text-xs font-medium mt-1">Good</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-blue-600">B</div>
+              <div className="font-bold text-lg text-blue-600">4</div>
               <div className="text-xs text-muted-foreground">65-69</div>
               <div className="text-xs font-medium mt-1">Good</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-green-600">C+</div>
+              <div className="font-bold text-lg text-green-600">5</div>
               <div className="text-xs text-muted-foreground">60-64</div>
               <div className="text-xs font-medium mt-1">Satisfactory</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-green-600">C</div>
+              <div className="font-bold text-lg text-green-600">6</div>
               <div className="text-xs text-muted-foreground">55-59</div>
               <div className="text-xs font-medium mt-1">Satisfactory</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-orange-600">D+</div>
+              <div className="font-bold text-lg text-orange-600">7</div>
               <div className="text-xs text-muted-foreground">50-54</div>
               <div className="text-xs font-medium mt-1">Pass</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-orange-600">D</div>
+              <div className="font-bold text-lg text-orange-600">8</div>
               <div className="text-xs text-muted-foreground">45-49</div>
               <div className="text-xs font-medium mt-1">Pass</div>
             </div>
             <div className="text-center p-3 bg-white dark:bg-slate-900 rounded border">
-              <div className="font-bold text-lg text-red-600">E</div>
+              <div className="font-bold text-lg text-red-600">9</div>
               <div className="text-xs text-muted-foreground">40-44</div>
               <div className="text-xs font-medium mt-1">Weak Pass</div>
             </div>

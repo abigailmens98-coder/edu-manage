@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import pg from "pg";
 import { randomUUID } from "crypto";
 import * as schema from "@shared/schema";
@@ -20,7 +20,13 @@ import type {
   InsertScore,
   TeacherAssignment,
   InsertTeacherAssignment,
+
+  StudentTermDetails,
+  InsertStudentTermDetails,
+  GradingScale,
+  InsertGradingScale,
 } from "@shared/schema";
+import { and } from "drizzle-orm";
 
 // Create database pool with error handling
 let pool: pg.Pool | null = null;
@@ -32,7 +38,7 @@ if (isDatabaseAvailable) {
   try {
     pool = new pg.Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl: { rejectUnauthorized: false },
     });
 
     db = drizzle(pool, { schema });
@@ -94,6 +100,14 @@ export interface IStorage {
   // Academic Term operations
   getAcademicTerms(): Promise<AcademicTerm[]>;
   getAcademicTermsByYear(yearId: string): Promise<AcademicTerm[]>;
+
+  // Grading Scale operations
+  getGradingScales(): Promise<GradingScale[]>;
+  getGradingScale(id: string): Promise<GradingScale | undefined>;
+  createGradingScale(scale: InsertGradingScale): Promise<GradingScale>;
+  updateGradingScale(id: string, scale: Partial<InsertGradingScale>): Promise<GradingScale | undefined>;
+  deleteGradingScale(id: string): Promise<boolean>;
+  initializeGradingScales(): Promise<void>;
   getAcademicTerm(id: string): Promise<AcademicTerm | undefined>;
   getActiveAcademicTerm(): Promise<AcademicTerm | undefined>;
   createAcademicTerm(term: InsertAcademicTerm): Promise<AcademicTerm>;
@@ -116,6 +130,13 @@ export interface IStorage {
   createTeacherAssignment(assignment: InsertTeacherAssignment): Promise<TeacherAssignment>;
   deleteTeacherAssignment(id: string): Promise<boolean>;
   deleteTeacherAssignmentsByTeacher(teacherId: string): Promise<boolean>;
+
+  // Student Term Details operations
+  getStudentTermDetails(studentId: string, termId: string): Promise<StudentTermDetails | undefined>;
+  createOrUpdateStudentTermDetails(details: InsertStudentTermDetails): Promise<StudentTermDetails>;
+
+  // User Password Management
+  updateUserPassword(userId: string, newPassword: string): Promise<boolean>;
 
   // Admin operations
   cleanupDemoData(): Promise<{ teachersDeleted: number; studentsDeleted: number; usersDeleted: number }>;
@@ -279,6 +300,67 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(schema.academicTerms).where(eq(schema.academicTerms.academicYearId, yearId));
   }
 
+  // Grading Scale operations
+  async getGradingScales(): Promise<GradingScale[]> {
+    return await db.select().from(schema.gradingScales);
+  }
+
+  async getGradingScale(id: string): Promise<GradingScale | undefined> {
+    const [scale] = await db.select().from(schema.gradingScales).where(eq(schema.gradingScales.id, id));
+    return scale;
+  }
+
+  async createGradingScale(scale: InsertGradingScale): Promise<GradingScale> {
+    const [newScale] = await db.insert(schema.gradingScales).values(scale).returning();
+    return newScale;
+  }
+
+  async updateGradingScale(id: string, scale: Partial<InsertGradingScale>): Promise<GradingScale | undefined> {
+    const [updated] = await db
+      .update(schema.gradingScales)
+      .set(scale)
+      .where(eq(schema.gradingScales.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteGradingScale(id: string): Promise<boolean> {
+    const [deleted] = await db.delete(schema.gradingScales).where(eq(schema.gradingScales.id, id)).returning();
+    return !!deleted;
+  }
+
+  async initializeGradingScales(): Promise<void> {
+    const count = await db.select({ count: sql<number>`count(*)` }).from(schema.gradingScales);
+    if (Number(count[0].count) === 0) {
+      // Basic 7-9 (JHS) - GES
+      const jhsScales = [
+        { type: "jhs", minScore: 80, maxScore: 100, grade: "A+", description: "Excellent" },
+        { type: "jhs", minScore: 75, maxScore: 79, grade: "A", description: "Very Good" },
+        { type: "jhs", minScore: 70, maxScore: 74, grade: "B+", description: "Good" },
+        { type: "jhs", minScore: 65, maxScore: 69, grade: "B", description: "Good" },
+        { type: "jhs", minScore: 60, maxScore: 64, grade: "C+", description: "Satisfactory" },
+        { type: "jhs", minScore: 55, maxScore: 59, grade: "C", description: "Satisfactory" },
+        { type: "jhs", minScore: 50, maxScore: 54, grade: "D+", description: "Pass" },
+        { type: "jhs", minScore: 45, maxScore: 49, grade: "D", description: "Pass" },
+        { type: "jhs", minScore: 40, maxScore: 44, grade: "E", description: "Weak Pass" },
+        { type: "jhs", minScore: 0, maxScore: 39, grade: "F", description: "Fail" },
+      ];
+
+      // Basic 1-6
+      const primaryScales = [
+        { type: "primary", minScore: 80, maxScore: 100, grade: "A", description: "Advance" },
+        { type: "primary", minScore: 75, maxScore: 79, grade: "P", description: "Proficient" },
+        { type: "primary", minScore: 70, maxScore: 74, grade: "AP", description: "Approaching Proficient" },
+        { type: "primary", minScore: 65, maxScore: 69, grade: "D", description: "Developing" },
+        { type: "primary", minScore: 0, maxScore: 64, grade: "B", description: "Beginning" },
+      ];
+
+      for (const s of [...jhsScales, ...primaryScales]) {
+        await this.createGradingScale(s);
+      }
+    }
+  }
+
   async getAcademicTerm(id: string): Promise<AcademicTerm | undefined> {
     const [term] = await db.select().from(schema.academicTerms).where(eq(schema.academicTerms.id, id));
     return term;
@@ -424,6 +506,47 @@ export class DatabaseStorage implements IStorage {
 
     return { teachersDeleted, studentsDeleted, usersDeleted };
   }
+  // Student Term Details operations
+  async getStudentTermDetails(studentId: string, termId: string): Promise<StudentTermDetails | undefined> {
+    const [details] = await db
+      .select()
+      .from(schema.studentTermDetails)
+      .where(
+        and(
+          eq(schema.studentTermDetails.studentId, studentId),
+          eq(schema.studentTermDetails.termId, termId)
+        )
+      );
+    return details;
+  }
+
+  async createOrUpdateStudentTermDetails(insertDetails: InsertStudentTermDetails): Promise<StudentTermDetails> {
+    const existing = await this.getStudentTermDetails(insertDetails.studentId, insertDetails.termId);
+
+    if (existing) {
+      const [updated] = await db
+        .update(schema.studentTermDetails)
+        .set({ ...insertDetails, updatedAt: new Date() })
+        .where(eq(schema.studentTermDetails.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(schema.studentTermDetails)
+        .values(insertDetails)
+        .returning();
+      return created;
+    }
+  }
+
+  // User Password Management
+  async updateUserPassword(userId: string, newPassword: string): Promise<boolean> {
+    await db
+      .update(schema.users)
+      .set({ password: newPassword })
+      .where(eq(schema.users.id, userId));
+    return true;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -433,8 +556,11 @@ export class MemStorage implements IStorage {
   private subjects: Map<string, Subject>;
   private academicYears: Map<string, AcademicYear>;
   private academicTerms: Map<string, AcademicTerm>;
+  private gradingScales: Map<string, GradingScale>;
   private scores: Map<string, Score>;
   private teacherAssignments: Map<string, TeacherAssignment>;
+  private studentTermDetails: Map<string, StudentTermDetails>;
+  private currentId: number;
 
   constructor() {
     this.users = new Map();
@@ -443,8 +569,11 @@ export class MemStorage implements IStorage {
     this.subjects = new Map();
     this.academicYears = new Map();
     this.academicTerms = new Map();
+    this.gradingScales = new Map();
     this.scores = new Map();
     this.teacherAssignments = new Map();
+    this.studentTermDetails = new Map();
+    this.currentId = 1;
   }
 
   // User operations
@@ -474,6 +603,66 @@ export class MemStorage implements IStorage {
   // Student operations
   async getStudents(): Promise<Student[]> {
     return Array.from(this.students.values());
+  }
+
+  // Grading Scale operations
+  async getGradingScales(): Promise<GradingScale[]> {
+    return Array.from(this.gradingScales.values());
+  }
+
+  async getGradingScale(id: string): Promise<GradingScale | undefined> {
+    return this.gradingScales.get(id);
+  }
+
+  async createGradingScale(insertScale: InsertGradingScale): Promise<GradingScale> {
+    const id = (this.currentId++).toString();
+    const scale: GradingScale = { ...insertScale, id, createdAt: new Date() };
+    this.gradingScales.set(id, scale);
+    return scale;
+  }
+
+  async updateGradingScale(id: string, updateScale: Partial<InsertGradingScale>): Promise<GradingScale | undefined> {
+    const scale = this.gradingScales.get(id);
+    if (!scale) return undefined;
+    const updated = { ...scale, ...updateScale };
+    this.gradingScales.set(id, updated);
+    return updated;
+  }
+
+  async deleteGradingScale(id: string): Promise<boolean> {
+    return this.gradingScales.delete(id);
+  }
+
+  async initializeGradingScales(): Promise<void> {
+    // Only initialize if empty
+    if (this.gradingScales.size === 0) {
+      // Basic 7-9 (JHS) - GES
+      const jhsScales = [
+        { type: "jhs", minScore: 80, maxScore: 100, grade: "A+", description: "Excellent" },
+        { type: "jhs", minScore: 75, maxScore: 79, grade: "A", description: "Very Good" },
+        { type: "jhs", minScore: 70, maxScore: 74, grade: "B+", description: "Good" },
+        { type: "jhs", minScore: 65, maxScore: 69, grade: "B", description: "Good" },
+        { type: "jhs", minScore: 60, maxScore: 64, grade: "C+", description: "Satisfactory" },
+        { type: "jhs", minScore: 55, maxScore: 59, grade: "C", description: "Satisfactory" },
+        { type: "jhs", minScore: 50, maxScore: 54, grade: "D+", description: "Pass" },
+        { type: "jhs", minScore: 45, maxScore: 49, grade: "D", description: "Pass" },
+        { type: "jhs", minScore: 40, maxScore: 44, grade: "E", description: "Weak Pass" },
+        { type: "jhs", minScore: 0, maxScore: 39, grade: "F", description: "Fail" },
+      ];
+
+      // Basic 1-6
+      const primaryScales = [
+        { type: "primary", minScore: 80, maxScore: 100, grade: "A", description: "Advance" },
+        { type: "primary", minScore: 75, maxScore: 79, grade: "P", description: "Proficient" },
+        { type: "primary", minScore: 70, maxScore: 74, grade: "AP", description: "Approaching Proficient" },
+        { type: "primary", minScore: 65, maxScore: 69, grade: "D", description: "Developing" },
+        { type: "primary", minScore: 0, maxScore: 64, grade: "B", description: "Beginning" },
+      ];
+
+      [...jhsScales, ...primaryScales].forEach(s => {
+        this.createGradingScale(s);
+      });
+    }
   }
 
   async getStudent(id: string): Promise<Student | undefined> {
@@ -605,7 +794,7 @@ export class MemStorage implements IStorage {
     if (!year) return undefined;
 
     // Deactivate all others
-    for (const y of this.academicYears.values()) {
+    for (const y of Array.from(this.academicYears.values())) {
       if (y.status === "Active") {
         this.academicYears.set(y.id, { ...y, status: "Inactive" });
       }
@@ -626,10 +815,10 @@ export class MemStorage implements IStorage {
   }
 
   async getAcademicTermsByYear(yearId: string): Promise<AcademicTerm[]> {
-    return Array.from(this.academicTerms.values()).filter(
-      (term) => term.academicYearId === yearId,
-    );
+    return Array.from(this.academicTerms.values()).filter(t => t.academicYearId === yearId);
   }
+
+
 
   async getAcademicTerm(id: string): Promise<AcademicTerm | undefined> {
     return this.academicTerms.get(id);
@@ -669,7 +858,7 @@ export class MemStorage implements IStorage {
     if (!term) return undefined;
 
     // Deactivate all others
-    for (const t of this.academicTerms.values()) {
+    for (const t of Array.from(this.academicTerms.values())) {
       if (t.status === "Active") {
         this.academicTerms.set(t.id, { ...t, status: "Inactive" });
       }
@@ -817,6 +1006,59 @@ export class MemStorage implements IStorage {
 
     return { teachersDeleted, studentsDeleted, usersDeleted };
   }
+
+  // Student Term Details operations
+  async getStudentTermDetails(studentId: string, termId: string): Promise<StudentTermDetails | undefined> {
+    return Array.from(this.studentTermDetails.values()).find(
+      (d) => d.studentId === studentId && d.termId === termId
+    );
+  }
+
+  async createOrUpdateStudentTermDetails(insertDetails: InsertStudentTermDetails): Promise<StudentTermDetails> {
+    const existing = await this.getStudentTermDetails(insertDetails.studentId, insertDetails.termId);
+
+    if (existing) {
+      const updated: StudentTermDetails = {
+        ...existing,
+        ...insertDetails,
+        updatedAt: new Date()
+      };
+      this.studentTermDetails.set(existing.id, updated);
+      return updated;
+    } else {
+      const id = randomUUID();
+      const created: StudentTermDetails = {
+        ...insertDetails,
+        id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        attendance: insertDetails.attendance || 0,
+        attendanceTotal: insertDetails.attendanceTotal || 0,
+        attitude: insertDetails.attitude || null,
+        conduct: insertDetails.conduct || null,
+        interest: insertDetails.interest || null,
+        classTeacherRemark: insertDetails.classTeacherRemark || null,
+        headTeacherRemark: insertDetails.headTeacherRemark || null,
+        formMaster: insertDetails.formMaster || null,
+        promotedTo: insertDetails.promotedTo || null,
+        arrears: insertDetails.arrears || null,
+        otherFees: insertDetails.otherFees || null,
+        totalBill: insertDetails.totalBill || null,
+        nextTermBegins: insertDetails.nextTermBegins || null,
+      };
+      this.studentTermDetails.set(id, created);
+      return created;
+    }
+  }
+
+  // User Password Management
+  async updateUserPassword(userId: string, newPassword: string): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user) return false;
+    this.users.set(userId, { ...user, password: newPassword });
+    return true;
+  }
+
 }
 
 export const storage = isDatabaseAvailable ? new DatabaseStorage() : new MemStorage();

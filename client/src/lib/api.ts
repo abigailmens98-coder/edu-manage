@@ -71,6 +71,20 @@ export const studentsApi = {
     });
     return handleResponse<{ message: string }>(response);
   },
+
+  getTermDetails: async (studentId: string, termId: string) => {
+    const response = await fetch(`/api/students/${studentId}/term-details?termId=${termId}`);
+    return handleResponse<any>(response);
+  },
+
+  saveTermDetails: async (studentId: string, details: any) => {
+    const response = await fetch(`/api/students/${studentId}/term-details`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(details),
+    });
+    return handleResponse<any>(response);
+  },
 };
 
 // Teachers API
@@ -106,7 +120,7 @@ export const teachersApi = {
   },
 
   getStudents: async (teacherId: string, classLevel?: string) => {
-    const url = classLevel 
+    const url = classLevel
       ? `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(classLevel)}`
       : `/api/teachers/${teacherId}/students`;
     const response = await fetch(url);
@@ -134,6 +148,15 @@ export const teachersApi = {
       body: JSON.stringify(scoreData),
     });
     return handleResponse<any>(response);
+  },
+
+  resetPassword: async (teacherId: string, password: string) => {
+    const response = await fetch(`/api/admin/teachers/${teacherId}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    return handleResponse<{ message: string }>(response);
   },
 };
 
@@ -336,6 +359,39 @@ export const teacherAssignmentsApi = {
 
   delete: async (id: string) => {
     const response = await fetch(`/api/teacher-assignments/${id}`, {
+      method: 'DELETE',
+    });
+    return handleResponse<{ message: string }>(response);
+  },
+};
+
+// Grading Scales API
+export const gradingScalesApi = {
+  getAll: async () => {
+    const response = await fetch('/api/grading-scales');
+    return handleResponse<any[]>(response);
+  },
+
+  create: async (scale: any) => {
+    const response = await fetch('/api/grading-scales', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(scale),
+    });
+    return handleResponse<any>(response);
+  },
+
+  update: async (id: string, scale: any) => {
+    const response = await fetch(`/api/grading-scales/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(scale),
+    });
+    return handleResponse<any>(response);
+  },
+
+  delete: async (id: string) => {
+    const response = await fetch(`/api/grading-scales/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);

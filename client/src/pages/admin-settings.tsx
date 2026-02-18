@@ -7,9 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Settings, Save, Calendar, Clock, BarChart3, Trash2, CheckCircle, AlertCircle } from "lucide-react";
-import { academicYearsApi, academicTermsApi } from "@/lib/api";
+import { academicYearsApi, academicTermsApi, gradingScalesApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { GES_GRADING_SCALE, BASIC_1_6_GRADING_SCALE } from "@/lib/mock-data";
+import { Plus, Pencil, X } from "lucide-react";
 
 interface AcademicYear {
   id: string;
@@ -26,16 +26,37 @@ interface AcademicTerm {
   totalAttendanceDays: number;
 }
 
+interface GradingScale {
+  id: string;
+  type: string;
+  grade: string;
+  minScore: number;
+  maxScore: number;
+  description: string;
+}
+
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState("academic");
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [terms, setTerms] = useState<AcademicTerm[]>([]);
+  const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Academic Year State
   const [newYear, setNewYear] = useState({ year: "", totalDays: "190" });
   const [deleteYearId, setDeleteYearId] = useState<string | null>(null);
+
+  // Term State
   const [deleteTermId, setDeleteTermId] = useState<string | null>(null);
   const [editingTermId, setEditingTermId] = useState<string | null>(null);
   const [editAttendanceDays, setEditAttendanceDays] = useState("");
+
+  // Grading Scale State
+  const [editingScaleId, setEditingScaleId] = useState<string | null>(null);
+  const [editScaleForm, setEditScaleForm] = useState<Partial<GradingScale>>({});
+  const [newScaleForm, setNewScaleForm] = useState<Partial<GradingScale>>({ type: "jhs", minScore: 0, maxScore: 0, grade: "", description: "" });
+  const [isAddingScale, setIsAddingScale] = useState<string | null>(null); // 'jhs' or 'primary'
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,12 +65,14 @@ export default function AdminSettings() {
 
   const fetchData = async () => {
     try {
-      const [yearsData, termsData] = await Promise.all([
+      const [yearsData, termsData, gradingData] = await Promise.all([
         academicYearsApi.getAll(),
         academicTermsApi.getAll(),
+        gradingScalesApi.getAll(),
       ]);
       setYears(yearsData);
       setTerms(termsData);
+      setGradingScales(gradingData);
     } catch (error) {
       toast({
         title: "Error",
@@ -100,7 +123,7 @@ export default function AdminSettings() {
         title: "Success",
         description: "Academic year and terms created successfully",
       });
-      
+
       setNewYear({ year: "", totalDays: "190" });
       fetchData();
     } catch (error) {
@@ -205,6 +228,169 @@ export default function AdminSettings() {
   const getActiveYear = () => years.find(y => y.status === "Active");
   const getActiveTerm = () => terms.find(t => t.status === "Active");
 
+  // Grading Scale Handlers
+  const handleAddScale = async () => {
+    if (!isAddingScale || !newScaleForm.grade || !newScaleForm.description) return;
+
+    try {
+      const scale = await gradingScalesApi.create({
+        ...newScaleForm,
+        type: isAddingScale,
+        minScore: Number(newScaleForm.minScore),
+        maxScore: Number(newScaleForm.maxScore),
+      });
+      setGradingScales([...gradingScales, scale]);
+      setIsAddingScale(null);
+      setNewScaleForm({ type: "jhs", minScore: 0, maxScore: 0, grade: "", description: "" });
+      toast({ title: "Success", description: "Grading scale added" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add grading scale", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateScale = async () => {
+    if (!editingScaleId) return;
+
+    try {
+      const updated = await gradingScalesApi.update(editingScaleId, {
+        ...editScaleForm,
+        minScore: Number(editScaleForm.minScore),
+        maxScore: Number(editScaleForm.maxScore),
+      });
+      setGradingScales(gradingScales.map(s => s.id === editingScaleId ? updated : s));
+      setEditingScaleId(null);
+      toast({ title: "Success", description: "Grading scale updated" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update grading scale", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteScale = async (id: string) => {
+    try {
+      await gradingScalesApi.delete(id);
+      setGradingScales(gradingScales.filter(s => s.id !== id));
+      toast({ title: "Success", description: "Grading scale deleted" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete grading scale", variant: "destructive" });
+    }
+  };
+
+  const renderGradingTable = (type: string, title: string) => {
+    const scales = gradingScales.filter(s => s.type === type).sort((a, b) => b.minScore - a.minScore);
+
+    return (
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-lg">{title}</h3>
+          <Button size="sm" onClick={() => { setIsAddingScale(type); setNewScaleForm({ ...newScaleForm, type }); }} className="gap-2">
+            <Plus className="h-4 w-4" /> Add Grade
+          </Button>
+        </div>
+
+        {isAddingScale === type && (
+          <div className="border rounded-lg p-4 mb-4 bg-muted/20">
+            <h4 className="text-sm font-medium mb-3">New Grade Entry</h4>
+            <div className="grid grid-cols-5 gap-4 items-end">
+              <div>
+                <Label className="text-xs">Grade</Label>
+                <Input
+                  value={newScaleForm.grade}
+                  onChange={e => setNewScaleForm({ ...newScaleForm, grade: e.target.value })}
+                  placeholder="A"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Min %</Label>
+                <Input
+                  type="number"
+                  value={newScaleForm.minScore}
+                  onChange={e => setNewScaleForm({ ...newScaleForm, minScore: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Max %</Label>
+                <Input
+                  type="number"
+                  value={newScaleForm.maxScore}
+                  onChange={e => setNewScaleForm({ ...newScaleForm, maxScore: Number(e.target.value) })}
+                />
+              </div>
+              <div className="col-span-2">
+                <Label className="text-xs">Description</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={newScaleForm.description}
+                    onChange={e => setNewScaleForm({ ...newScaleForm, description: e.target.value })}
+                    placeholder="Excellent"
+                  />
+                  <Button onClick={handleAddScale} size="icon"><Save className="h-4 w-4" /></Button>
+                  <Button onClick={() => setIsAddingScale(null)} size="icon" variant="ghost"><X className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader className="bg-muted">
+              <TableRow>
+                <TableHead>Grade</TableHead>
+                <TableHead>Min Score</TableHead>
+                <TableHead>Max Score</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scales.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">No grades defined</TableCell>
+                </TableRow>
+              ) : (
+                scales.map(scale => (
+                  <TableRow key={scale.id}>
+                    {editingScaleId === scale.id ? (
+                      <>
+                        <TableCell><Input value={editScaleForm.grade} onChange={e => setEditScaleForm({ ...editScaleForm, grade: e.target.value })} /></TableCell>
+                        <TableCell><Input type="number" value={editScaleForm.minScore} onChange={e => setEditScaleForm({ ...editScaleForm, minScore: Number(e.target.value) })} /></TableCell>
+                        <TableCell><Input type="number" value={editScaleForm.maxScore} onChange={e => setEditScaleForm({ ...editScaleForm, maxScore: Number(e.target.value) })} /></TableCell>
+                        <TableCell><Input value={editScaleForm.description} onChange={e => setEditScaleForm({ ...editScaleForm, description: e.target.value })} /></TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" onClick={handleUpdateScale}><Save className="h-4 w-4 text-green-600" /></Button>
+                            <Button size="icon" variant="ghost" onClick={() => setEditingScaleId(null)}><X className="h-4 w-4 text-red-600" /></Button>
+                          </div>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell className="font-bold">{scale.grade}</TableCell>
+                        <TableCell>{scale.minScore}%</TableCell>
+                        <TableCell>{scale.maxScore}%</TableCell>
+                        <TableCell>{scale.description}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="icon" variant="ghost" onClick={() => { setEditingScaleId(scale.id); setEditScaleForm(scale); }}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => handleDeleteScale(scale.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -279,7 +465,7 @@ export default function AdminSettings() {
                       id="year"
                       placeholder="2025/2026"
                       value={newYear.year}
-                      onChange={(e) => setNewYear({...newYear, year: e.target.value})}
+                      onChange={(e) => setNewYear({ ...newYear, year: e.target.value })}
                       data-testid="input-academic-year"
                     />
                   </div>
@@ -290,13 +476,13 @@ export default function AdminSettings() {
                       type="number"
                       placeholder="190"
                       value={newYear.totalDays}
-                      onChange={(e) => setNewYear({...newYear, totalDays: e.target.value})}
+                      onChange={(e) => setNewYear({ ...newYear, totalDays: e.target.value })}
                       data-testid="input-total-days"
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button 
-                      onClick={handleAddYear} 
+                    <Button
+                      onClick={handleAddYear}
                       className="w-full gap-2"
                       disabled={!newYear.year || !newYear.totalDays}
                       data-testid="button-add-year"
@@ -335,11 +521,10 @@ export default function AdminSettings() {
                             <TableCell className="font-medium" data-testid={`text-year-${y.id}`}>{y.year}</TableCell>
                             <TableCell data-testid={`text-days-${y.id}`}>{y.totalDays} days</TableCell>
                             <TableCell>
-                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                                y.status === "Active" ? "bg-green-100 text-green-800" :
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${y.status === "Active" ? "bg-green-100 text-green-800" :
                                 y.status === "Completed" ? "bg-blue-100 text-blue-800" :
-                                "bg-gray-100 text-gray-800"
-                              }`} data-testid={`badge-status-${y.id}`}>
+                                  "bg-gray-100 text-gray-800"
+                                }`} data-testid={`badge-status-${y.id}`}>
                                 {y.status}
                               </span>
                             </TableCell>
@@ -349,8 +534,8 @@ export default function AdminSettings() {
                             <TableCell>
                               <div className="flex gap-2">
                                 {y.status !== "Active" && (
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={() => handleSetActiveYear(y.id)}
                                     data-testid={`button-activate-${y.id}`}
@@ -360,8 +545,8 @@ export default function AdminSettings() {
                                 )}
                                 <Dialog open={deleteYearId === y.id} onOpenChange={(open) => !open && setDeleteYearId(null)}>
                                   <DialogTrigger asChild>
-                                    <Button 
-                                      size="sm" 
+                                    <Button
+                                      size="sm"
                                       variant="destructive"
                                       onClick={() => setDeleteYearId(y.id)}
                                       data-testid={`button-delete-year-${y.id}`}
@@ -419,9 +604,8 @@ export default function AdminSettings() {
                   <div key={y.id} className="border rounded-lg p-4">
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="font-semibold text-lg">{y.year}</h3>
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        y.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                      }`}>
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${y.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                        }`}>
                         {y.status}
                       </span>
                     </div>
@@ -449,24 +633,23 @@ export default function AdminSettings() {
                                     data-testid={`input-attendance-${term.id}`}
                                   />
                                   <Button size="sm" onClick={() => handleUpdateTermAttendance(term.id)}>Save</Button>
-                                  <Button size="sm" variant="outline" onClick={() => {setEditingTermId(null); setEditAttendanceDays("");}}>Cancel</Button>
+                                  <Button size="sm" variant="outline" onClick={() => { setEditingTermId(null); setEditAttendanceDays(""); }}>Cancel</Button>
                                 </div>
                               ) : (
                                 <span className="font-mono">{term.totalAttendanceDays || 60} days</span>
                               )}
                             </TableCell>
                             <TableCell>
-                              <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                                term.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                              }`}>
+                              <span className={`px-2 py-1 rounded text-xs font-semibold ${term.status === "Active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                                }`}>
                                 {term.status}
                               </span>
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-2">
                                 {term.status !== "Active" && (
-                                  <Button 
-                                    size="sm" 
+                                  <Button
+                                    size="sm"
                                     variant="outline"
                                     onClick={() => handleSetActiveTerm(term.id)}
                                     data-testid={`button-activate-term-${term.id}`}
@@ -474,18 +657,18 @@ export default function AdminSettings() {
                                     Set Active
                                   </Button>
                                 )}
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="secondary"
-                                  onClick={() => {setEditingTermId(term.id); setEditAttendanceDays(String(term.totalAttendanceDays || 60));}}
+                                  onClick={() => { setEditingTermId(term.id); setEditAttendanceDays(String(term.totalAttendanceDays || 60)); }}
                                   data-testid={`button-edit-attendance-${term.id}`}
                                 >
                                   Edit Days
                                 </Button>
                                 <Dialog open={deleteTermId === term.id} onOpenChange={(open) => !open && setDeleteTermId(null)}>
                                   <DialogTrigger asChild>
-                                    <Button 
-                                      size="sm" 
+                                    <Button
+                                      size="sm"
                                       variant="destructive"
                                       onClick={() => setDeleteTermId(term.id)}
                                       data-testid={`button-delete-term-${term.id}`}
@@ -530,56 +713,11 @@ export default function AdminSettings() {
           <Card>
             <CardHeader>
               <CardTitle>Grading Scales</CardTitle>
-              <CardDescription>View the GES grading system used for assessment</CardDescription>
+              <CardDescription>Configure the grading systems used for assessment. These settings will be reflected in student reports.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-3">Basic 1-6 Grading Scale</h3>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted">
-                      <TableRow>
-                        <TableHead>Grade</TableHead>
-                        <TableHead>Range</TableHead>
-                        <TableHead>Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {BASIC_1_6_GRADING_SCALE.map((scale, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-bold text-primary">{scale.grade}</TableCell>
-                          <TableCell className="font-medium">{scale.range[0]}-{scale.range[1]}%</TableCell>
-                          <TableCell>{scale.description}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-semibold mb-3">Basic 7-9 Grading Scale (GES)</h3>
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-muted">
-                      <TableRow>
-                        <TableHead>Grade</TableHead>
-                        <TableHead>Range</TableHead>
-                        <TableHead>Description</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {GES_GRADING_SCALE.map((scale, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell className="font-bold text-primary">{scale.grade}</TableCell>
-                          <TableCell className="font-medium">{scale.range[0]}-{scale.range[1]}%</TableCell>
-                          <TableCell>{scale.description}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+            <CardContent>
+              {renderGradingTable("jhs", "Basic 7-9 (JHS)")}
+              {renderGradingTable("primary", "Basic 1-6 (Primary)")}
             </CardContent>
           </Card>
         </TabsContent>

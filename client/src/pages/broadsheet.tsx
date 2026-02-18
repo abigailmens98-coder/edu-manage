@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { FileDown } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { studentsApi, subjectsApi, academicTermsApi, scoresApi } from "@/lib/api";
+import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Broadsheet() {
@@ -16,9 +17,14 @@ export default function Broadsheet() {
   const [terms, setTerms] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
   const { toast } = useToast();
+  const { role, userId } = useAuth();
+
+  const isTeacher = role === "teacher";
+  const isAdmin = role === "admin";
 
   useEffect(() => {
     fetchData();
@@ -26,17 +32,22 @@ export default function Broadsheet() {
 
   const fetchData = async () => {
     try {
-      const [studentsData, subjectsData, termsData] = await Promise.all([
+      const [studentsData, subjectsData, termsData, assignmentsData] = await Promise.all([
         studentsApi.getAll(),
         subjectsApi.getAll(),
         academicTermsApi.getAll(),
+        teacherAssignmentsApi.getAll(),
       ]);
       setStudents(studentsData);
       setSubjects(subjectsData);
       setTerms(termsData);
-      
+
+      // In a real app, we would fetch only assignments for this teacher from the backend if not admin,
+      // but here we filter on the frontend for simplicity as per existing patterns.
+      setTeacherAssignments(assignmentsData);
+
       // Auto-select first active term
-      const activeTerm = termsData.find(t => t.status === "Active");
+      const activeTerm = termsData.find((t: any) => t.status === "Active");
       if (activeTerm) {
         setSelectedTerm(activeTerm.id);
       }
@@ -70,7 +81,56 @@ export default function Broadsheet() {
     }
   };
 
+  // Filter logic
+  // We need to find the teacherId associated with the current userId
+  // Since we don't have the teacher list loaded, we rely on filtering assignments by userId if possible,
+  // or we need to assume the assignment object has userId.
+  // Looking at the API, teacherAssignments has `teacherId`.
+  // `useAuth` returns `userId`. We need to map `userId` to `teacherId`.
+  // However, I see `teacher-dashboard.tsx` fetches `teacherAssignmentsApi.getByTeacher(teacherId)`.
+  // It gets `teacherId` from `teacherInfo?.id`. 
+  // Let's see if `useAuth` provides `teacherInfo`.
+  // In `teacher-dashboard.tsx`: `const { username, logout, teacherInfo } = useAuth();`
+  // So `teacherInfo` IS available.
+
+  // @ts-ignore
+  const { teacherInfo } = useAuth();
+
+  const myAssignments = isTeacher && teacherInfo
+    ? teacherAssignments.filter((a: any) => a.teacherId === teacherInfo.id)
+    : [];
+
+  const myClasses = isTeacher
+    ? Array.from(new Set(myAssignments.map((a: any) => a.classLevel)))
+    : ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"];
+
+  // Sort classes logically
+  const availableClasses = myClasses.sort((a: any, b: any) => {
+    const getOrder = (grade: string) => {
+      if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
+      if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
+      return 100;
+    };
+    return getOrder(a) - getOrder(b);
+  });
+
   const classStudents = students.filter(s => s.grade === selectedClass);
+
+  // Determine displayed subjects
+  const isClassTeacher = isTeacher && myAssignments.some((a: any) => a.classLevel === selectedClass && a.isClassTeacher);
+
+  const displaySubjects = (() => {
+    if (isAdmin || isClassTeacher) {
+      return subjects;
+    }
+    if (isTeacher) {
+      const assignedSubjectIds = myAssignments
+        .filter((a: any) => a.classLevel === selectedClass)
+        .map((a: any) => a.subjectId);
+      return subjects.filter(s => assignedSubjectIds.includes(s.id));
+    }
+    return subjects;
+  })();
 
   const getScore = (studentId: string, subjectId: string) => {
     const score = scores.find(s => s.studentId === studentId && s.subjectId === subjectId);
@@ -78,15 +138,15 @@ export default function Broadsheet() {
   };
 
   const calculateTotal = (studentId: string) => {
-    return subjects.reduce((sum, sub) => sum + getScore(studentId, sub.id), 0);
+    return displaySubjects.reduce((sum, sub) => sum + getScore(studentId, sub.id), 0);
   };
 
   const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b.id) - calculateTotal(a.id));
 
   const downloadPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" });
-    const termName = terms.find(t => t.id === selectedTerm)?.name || "Term 1";
-    
+    const termName = terms.find((t: any) => t.id === selectedTerm)?.name || "Term 1";
+
     doc.setFontSize(18);
     doc.text("UNIVERSITY BASIC SCHOOL - TARKWA", 14, 15);
     doc.setFontSize(12);
@@ -94,14 +154,14 @@ export default function Broadsheet() {
     doc.text(`Academic Year: 2024/2025 - ${termName}`, 14, 28);
 
     const tableHead = [
-      ["Pos", "Student ID", "Name", ...subjects.map(s => s.code), "Total"]
+      ["Pos", "Student ID", "Name", ...displaySubjects.map(s => s.code), "Total"]
     ];
 
     const tableBody = rankedStudents.map((student, index) => [
       index + 1,
       student.studentId,
       student.name,
-      ...subjects.map(s => getScore(student.id, s.id) || "-"),
+      ...displaySubjects.map(s => getScore(student.id, s.id) || "-"),
       calculateTotal(student.id)
     ]);
 
@@ -145,7 +205,7 @@ export default function Broadsheet() {
                   <SelectValue placeholder="Select Term" />
                 </SelectTrigger>
                 <SelectContent>
-                  {terms.map(t => (
+                  {terms.map((t: any) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name} {t.status === "Active" && "(Active)"}
                     </SelectItem>
@@ -160,23 +220,15 @@ export default function Broadsheet() {
                   <SelectValue placeholder="Select Class" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="KG 1">KG 1</SelectItem>
-                  <SelectItem value="KG 2">KG 2</SelectItem>
-                  <SelectItem value="Basic 1">Basic 1</SelectItem>
-                  <SelectItem value="Basic 2">Basic 2</SelectItem>
-                  <SelectItem value="Basic 3">Basic 3</SelectItem>
-                  <SelectItem value="Basic 4">Basic 4</SelectItem>
-                  <SelectItem value="Basic 5">Basic 5</SelectItem>
-                  <SelectItem value="Basic 6">Basic 6</SelectItem>
-                  <SelectItem value="Basic 7">Basic 7</SelectItem>
-                  <SelectItem value="Basic 8">Basic 8</SelectItem>
-                  <SelectItem value="Basic 9">Basic 9</SelectItem>
+                  {availableClasses.map((cls: any) => (
+                    <SelectItem key={cls} value={cls}>{cls}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <Button 
-              onClick={downloadPDF} 
-              disabled={!selectedClass || !selectedTerm} 
+            <Button
+              onClick={downloadPDF}
+              disabled={!selectedClass || !selectedTerm}
               className="gap-2"
               data-testid="button-download-pdf"
             >
@@ -195,7 +247,7 @@ export default function Broadsheet() {
                   <TableRow>
                     <TableHead className="w-[50px]">Pos</TableHead>
                     <TableHead className="w-[200px]">Student</TableHead>
-                    {subjects.map(s => (
+                    {displaySubjects.map(s => (
                       <TableHead key={s.id} className="text-center min-w-[80px] text-xs">
                         {s.code}
                       </TableHead>
@@ -213,7 +265,7 @@ export default function Broadsheet() {
                         <div className="font-medium">{student.name}</div>
                         <div className="text-xs text-muted-foreground">{student.studentId}</div>
                       </TableCell>
-                      {subjects.map(s => (
+                      {displaySubjects.map(s => (
                         <TableCell key={s.id} className="text-center" data-testid={`text-score-${student.id}-${s.id}`}>
                           {getScore(student.id, s.id) || "-"}
                         </TableCell>

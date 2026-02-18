@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, ArrowLeft, Users, GraduationCap, Eye } from "lucide-react";
+import { Plus, Search, MoreHorizontal, FileDown, Upload, AlertCircle, CheckCircle, ArrowLeft, Users, GraduationCap, Eye, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { studentsApi } from "@/lib/api";
@@ -25,7 +25,7 @@ interface Student {
 }
 
 const GRADES = [
-  "KG 1", "KG 2", 
+  "KG 1", "KG 2",
   "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6",
   "Basic 7", "Basic 8", "Basic 9"
 ];
@@ -55,8 +55,10 @@ export default function Students() {
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [classToDelete, setClassToDelete] = useState<string | null>(null);
+  const [isDeletingClass, setIsDeletingClass] = useState(false);
   const { toast } = useToast();
-  
+
   const [importStep, setImportStep] = useState<"upload" | "preview">("upload");
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvData, setCsvData] = useState<string[][]>([]);
@@ -100,7 +102,7 @@ export default function Students() {
     try {
       const studentId = `S${String(students.length + 1).padStart(3, "0")}`;
       const gradeToUse = selectedClass || formData.grade;
-      
+
       await studentsApi.create({
         studentId,
         name: formData.name,
@@ -145,6 +147,35 @@ export default function Students() {
     }
   };
 
+  const handleDeleteClass = async () => {
+    if (!classToDelete) return;
+
+    setIsDeletingClass(true);
+    try {
+      const response = await fetch(`/api/students/class/${encodeURIComponent(classToDelete)}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error("Failed to delete class");
+
+      const result = await response.json();
+      toast({
+        title: "Success",
+        description: result.message || `Successfully deleted ${classToDelete}`,
+      });
+      setClassToDelete(null);
+      fetchStudents();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete class. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingClass(false);
+    }
+  };
+
   const detectColumnMapping = (headers: string[]): ColumnMapping => {
     const mapping: ColumnMapping = {
       name: null,
@@ -153,10 +184,10 @@ export default function Students() {
       otherName: null,
       grade: null,
     };
-    
+
     headers.forEach((h, idx) => {
       const header = h.toUpperCase().trim();
-      
+
       if (/^(FULL\s*NAME|STUDENT\s*NAME|NAME|NAMES|PUPIL)$/.test(header)) {
         mapping.name = idx;
       }
@@ -179,7 +210,7 @@ export default function Students() {
         mapping.grade = idx;
       }
     });
-    
+
     if (mapping.name === null && mapping.firstName === null) {
       const possibleNameIdx = headers.findIndex((h, i) => {
         const upper = h.toUpperCase();
@@ -189,14 +220,14 @@ export default function Students() {
         mapping.name = possibleNameIdx;
       }
     }
-    
+
     return mapping;
   };
-  
+
   const normalizeGrade = (grade: string): string => {
     if (!grade) return "";
     const g = grade.trim();
-    
+
     if (/^(kg|kindergarten)\s*[12]$/i.test(g)) {
       const num = g.replace(/[^0-9]/g, "");
       return `KG ${num}`;
@@ -213,21 +244,21 @@ export default function Students() {
     if (/^[1-9]$/.test(g)) {
       return `Basic ${g}`;
     }
-    
+
     const matched = GRADES.find(gr => gr.toLowerCase() === g.toLowerCase());
     if (matched) return matched;
-    
+
     return g;
   };
-  
+
   const parseStudentsFromCSV = (data: string[][], mapping: ColumnMapping, gradeOverride?: string): ParsedStudent[] => {
     const existingNames = new Set(students.map(s => s.name.toLowerCase().trim()));
     const seen = new Set<string>();
-    
+
     return data.map(row => {
       let name = "";
       let grade = "";
-      
+
       if (mapping.name !== null && row[mapping.name]) {
         name = row[mapping.name].trim();
       } else {
@@ -243,20 +274,20 @@ export default function Students() {
         }
         name = parts.filter(p => p).join(" ");
       }
-      
+
       if (mapping.grade !== null && row[mapping.grade]) {
         grade = normalizeGrade(row[mapping.grade]);
       }
       if (!grade && gradeOverride) {
         grade = gradeOverride;
       }
-      
+
       const normalizedName = name.toLowerCase();
       const isDuplicate = existingNames.has(normalizedName) || seen.has(normalizedName);
       if (normalizedName) seen.add(normalizedName);
-      
+
       const isValid = name.length > 0 && grade.length > 0 && !isDuplicate;
-      
+
       return { name, grade, isValid, isDuplicate };
     });
   };
@@ -273,7 +304,7 @@ export default function Students() {
       try {
         const text = e.target?.result as string;
         const lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line);
-        
+
         if (lines.length < 2) {
           throw new Error("CSV file must have at least a header and one data row");
         }
@@ -283,10 +314,10 @@ export default function Students() {
           let current = "";
           let inQuotes = false;
           let i = 0;
-          
+
           while (i < line.length) {
             const char = line[i];
-            
+
             if (inQuotes) {
               if (char === '"') {
                 if (i + 1 < line.length && line[i + 1] === '"') {
@@ -319,22 +350,22 @@ export default function Students() {
 
         const headers = parseCSVLine(lines[0]);
         const data = lines.slice(1).map(line => parseCSVLine(line));
-        
+
         const mapping = detectColumnMapping(headers);
-        
+
         const hasNameColumn = mapping.name !== null || mapping.firstName !== null;
         if (!hasNameColumn) {
           throw new Error("Could not detect a name column. Please ensure your CSV has a column with 'Name', 'First Name', 'Student Name', or similar header.");
         }
-        
+
         setCsvHeaders(headers);
         setCsvData(data);
         setColumnMapping(mapping);
-        
+
         const parsed = parseStudentsFromCSV(data, mapping, selectedClass || undefined);
         setParsedStudents(parsed);
         setImportStep("preview");
-        
+
       } catch (err) {
         setCsvError(err instanceof Error ? err.message : "Failed to parse CSV file");
       } finally {
@@ -343,15 +374,15 @@ export default function Students() {
     };
     reader.readAsText(file);
   };
-  
+
   const handleConfirmImport = async () => {
     setIsImporting(true);
     setCsvError("");
-    
+
     try {
       const validStudents = parsedStudents.filter(s => s.isValid);
       let importCount = 0;
-      
+
       for (const student of validStudents) {
         const studentId = `S${String(students.length + importCount + 1).padStart(3, "0")}`;
         await studentsApi.create({
@@ -364,27 +395,27 @@ export default function Students() {
         });
         importCount++;
       }
-      
+
       const duplicates = parsedStudents.filter(s => s.isDuplicate).length;
       let message = `Successfully imported ${importCount} student(s)`;
       if (duplicates > 0) {
         message += `. ${duplicates} duplicate(s) were skipped.`;
       }
-      
+
       setCsvSuccess(message);
       setImportStep("upload");
       setParsedStudents([]);
       setCsvData([]);
       setCsvHeaders([]);
       fetchStudents();
-      
+
     } catch (err) {
       setCsvError(err instanceof Error ? err.message : "Failed to import students");
     } finally {
       setIsImporting(false);
     }
   };
-  
+
   const resetImportDialog = () => {
     setImportStep("upload");
     setCsvError("");
@@ -396,17 +427,17 @@ export default function Students() {
   };
 
   const exportToCSV = () => {
-    const studentsToExport = selectedClass 
+    const studentsToExport = selectedClass
       ? students.filter(s => s.grade === selectedClass)
       : students;
-      
+
     const headers = ["FIRSTNAME", "SURNAME", "OTHER NAME", "LEVEL"];
     const rows = studentsToExport.map(s => {
       const nameParts = s.name.split(" ").filter(p => p.length > 0);
       let firstName = "";
       let surname = "";
       let otherName = "";
-      
+
       if (nameParts.length === 1) {
         firstName = nameParts[0];
       } else if (nameParts.length === 2) {
@@ -417,7 +448,7 @@ export default function Students() {
         surname = nameParts[nameParts.length - 1];
         otherName = nameParts.slice(1, -1).join(" ");
       }
-      
+
       return [firstName, surname, otherName, s.grade];
     });
 
@@ -426,7 +457,7 @@ export default function Students() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    const fileName = selectedClass 
+    const fileName = selectedClass
       ? `students_${selectedClass.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`
       : `students_all_${new Date().toISOString().split("T")[0]}.csv`;
     a.download = fileName;
@@ -456,12 +487,12 @@ export default function Students() {
     });
   })();
 
-  const classStudents = selectedClass 
+  const classStudents = selectedClass
     ? students.filter(s => s.grade === selectedClass)
     : [];
 
-  const filteredClassStudents = classStudents.filter(student => 
-    student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredClassStudents = classStudents.filter(student =>
+    student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     student.studentId.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -492,16 +523,29 @@ export default function Students() {
           {sortedClasses.map((grade) => {
             const count = classCounts[grade] || 0;
             const isKG = grade.startsWith("KG");
-            
+
             return (
-              <Card 
-                key={grade} 
-                className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] ${
-                  isKG ? 'border-l-4 border-l-pink-500' : 'border-l-4 border-l-blue-500'
-                }`}
+              <Card
+                key={grade}
+                className={`cursor-pointer transition-all hover:shadow-lg hover:scale-[1.02] relative group ${isKG ? 'border-l-4 border-l-pink-500' : 'border-l-4 border-l-blue-500'
+                  }`}
                 onClick={() => setSelectedClass(grade)}
                 data-testid={`card-class-${grade.replace(/\s+/g, "-")}`}
               >
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-white hover:bg-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setClassToDelete(grade);
+                    }}
+                    title="Delete Class"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">{grade}</CardTitle>
@@ -553,6 +597,34 @@ export default function Students() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Delete Class Confirmation Dialog */}
+        <Dialog open={!!classToDelete} onOpenChange={(open) => !open && setClassToDelete(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                Delete Class: {classToDelete}
+              </DialogTitle>
+              <DialogDescription className="py-2">
+                This action will permanently delete <strong>all {classCounts[classToDelete || ""] || 0} students</strong> in this class and all their associated records. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setClassToDelete(null)} disabled={isDeletingClass}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteClass}
+                className="gap-2"
+                disabled={isDeletingClass}
+              >
+                {isDeletingClass ? "Deleting..." : "Yes, Delete All Students"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -561,9 +633,9 @@ export default function Students() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setSelectedClass(null)}
             data-testid="button-back-to-classes"
           >
@@ -578,7 +650,7 @@ export default function Students() {
           <Button variant="outline" className="gap-2" onClick={exportToCSV} data-testid="button-export-class-csv">
             <FileDown className="h-4 w-4" /> Export Class
           </Button>
-          
+
           <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) resetImportDialog(); }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2" data-testid="button-import-csv">
@@ -591,13 +663,13 @@ export default function Students() {
                   {importStep === "upload" ? `Import Students to ${selectedClass}` : "Preview Import"}
                 </DialogTitle>
                 <DialogDescription>
-                  {importStep === "upload" 
+                  {importStep === "upload"
                     ? "Upload any CSV file with student names. The system will automatically detect columns."
                     : `Review ${parsedStudents.filter(s => s.isValid).length} students to import to ${selectedClass}`
                   }
                 </DialogDescription>
               </DialogHeader>
-              
+
               {csvError && (
                 <Alert variant="destructive" className="bg-red-50 border-red-200">
                   <AlertCircle className="h-4 w-4 text-red-600" />
@@ -610,7 +682,7 @@ export default function Students() {
                   <AlertDescription className="text-green-800 ml-2">{csvSuccess}</AlertDescription>
                 </Alert>
               )}
-              
+
               {importStep === "upload" && (
                 <div className="space-y-4 py-4">
                   <div className="border-2 border-dashed border-primary/30 rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
@@ -637,7 +709,7 @@ export default function Students() {
                   </div>
                 </div>
               )}
-              
+
               {importStep === "preview" && (
                 <div className="space-y-4">
                   <div className="flex flex-wrap gap-2 text-xs">
@@ -645,7 +717,7 @@ export default function Students() {
                       Detected: {csvHeaders.join(", ")}
                     </Badge>
                   </div>
-                  
+
                   <div className="flex gap-4 text-sm">
                     <span className="text-green-600 font-medium">
                       {parsedStudents.filter(s => s.isValid).length} valid
@@ -657,7 +729,7 @@ export default function Students() {
                       {parsedStudents.filter(s => !s.isValid && !s.isDuplicate).length} invalid
                     </span>
                   </div>
-                  
+
                   <ScrollArea className="h-[300px] border rounded-md">
                     <Table>
                       <TableHeader>
@@ -669,11 +741,11 @@ export default function Students() {
                       </TableHeader>
                       <TableBody>
                         {parsedStudents.map((student, idx) => (
-                          <TableRow 
-                            key={idx} 
+                          <TableRow
+                            key={idx}
                             className={
-                              student.isDuplicate ? "bg-yellow-50" : 
-                              !student.isValid ? "bg-red-50" : ""
+                              student.isDuplicate ? "bg-yellow-50" :
+                                !student.isValid ? "bg-red-50" : ""
                             }
                           >
                             <TableCell>
@@ -696,13 +768,13 @@ export default function Students() {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                  
+
                   <DialogFooter className="gap-2">
                     <Button variant="outline" onClick={resetImportDialog} data-testid="button-cancel-import">
                       Cancel
                     </Button>
-                    <Button 
-                      onClick={handleConfirmImport} 
+                    <Button
+                      onClick={handleConfirmImport}
                       disabled={isImporting || parsedStudents.filter(s => s.isValid).length === 0}
                       data-testid="button-confirm-import"
                     >
@@ -730,9 +802,9 @@ export default function Students() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">Full Name</Label>
-                  <Input 
-                    id="name" 
-                    placeholder="Kofi Mensah" 
+                  <Input
+                    id="name"
+                    placeholder="Kofi Mensah"
                     className="col-span-3"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -741,7 +813,7 @@ export default function Students() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="grade" className="text-right">Class</Label>
-                  <Input 
+                  <Input
                     id="grade"
                     value={selectedClass}
                     disabled
@@ -751,9 +823,9 @@ export default function Students() {
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="email" className="text-right">Email</Label>
-                  <Input 
-                    id="email" 
-                    placeholder="Optional" 
+                  <Input
+                    id="email"
+                    placeholder="Optional"
                     className="col-span-3"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -762,8 +834,8 @@ export default function Students() {
                 </div>
               </div>
               <DialogFooter>
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   onClick={handleAddStudent}
                   disabled={!formData.name}
                   data-testid="button-submit-student"
@@ -782,8 +854,8 @@ export default function Students() {
             <CardTitle>Students in {selectedClass} ({filteredClassStudents.length})</CardTitle>
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search by name or ID..." 
+              <Input
+                placeholder="Search by name or ID..."
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -834,7 +906,7 @@ export default function Students() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => setDeleteConfirm(student.id)}
                             className="text-destructive"
                             data-testid={`button-delete-student-${student.id}`}
@@ -867,14 +939,14 @@ export default function Students() {
               </p>
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setDeleteConfirm(null)}
                 data-testid="button-cancel-delete-student"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 variant="destructive"
                 onClick={() => handleDeleteStudent(deleteConfirm)}
                 data-testid="button-confirm-delete-student"

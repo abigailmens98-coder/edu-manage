@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, isDatabaseAvailable } from "./storage";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema, insertTeacherAssignmentSchema } from "@shared/schema";
 import { seedDatabase } from "./seed";
 import "./types"; // Import session type declarations

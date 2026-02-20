@@ -166,72 +166,11 @@ export default function TeacherBroadsheet() {
         }
     };
 
-    const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel)));
-
-    // Determine if teacher is class teacher for the selected class
-    const isClassTeacherForSelectedClass = assignments.some(
-        a => a.classLevel === selectedClass && a.isClassTeacher
-    );
-
-    // Get subjects to display based on role
-    const getDisplaySubjects = () => {
-        if (isClassTeacherForSelectedClass) {
-            // Class teacher sees subjects for this class
-            return getSubjectsForClass(selectedClass);
-        }
-        // Subject teacher sees ONLY their assigned subjects
-        const assignedSubjectIds = assignments
-            .filter(a => a.classLevel === selectedClass)
-            .map(a => a.subjectId);
-        return subjects.filter(s => assignedSubjectIds.includes(s.id));
-    };
-
-    const displaySubjects = getDisplaySubjects();
-
-    useEffect(() => {
-        if (selectedClass && selectedTerm && teacherId) {
-            loadBroadsheetData();
-        }
-    }, [selectedClass, selectedTerm, teacherId]);
-
-    const loadBroadsheetData = async () => {
-        if (!teacherId || !selectedClass || !selectedTerm) return;
-        setLoadingScores(true);
-
-        try {
-            // Fetch students for this class
-            const studentsResponse = await fetch(
-                `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(selectedClass)}`
-            );
-            if (studentsResponse.ok) {
-                const studentsData = await studentsResponse.json();
-                setStudents(studentsData);
-            }
-
-            // Fetch broadsheet scores (all subjects for the class)
-            const scoresResponse = await fetch(
-                `/api/teachers/${teacherId}/broadsheet-scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}`
-            );
-            if (scoresResponse.ok) {
-                const scoresData = await scoresResponse.json();
-                setScores(scoresData);
-            }
-        } catch (error) {
-            toast({
-                title: "Error",
-                description: "Failed to load broadsheet data",
-                variant: "destructive",
-            });
-        } finally {
-            setLoadingScores(false);
-        }
-    };
-
+    // Helper functions moved to top to avoid ReferenceError
     const getSubjectsForClass = (classLevel: string) => {
-        return subjects.filter(s => s.classLevels?.includes(classLevel));
+        if (!classLevel || !subjects) return [];
+        return subjects.filter(s => Array.isArray(s.classLevels) && s.classLevels.includes(classLevel));
     };
-
-    const classStudents = students.filter(s => s.grade === selectedClass);
 
     const getScore = (studentId: string, subjectId: string) => {
         const score = scores.find(s => s.studentId === studentId && s.subjectId === subjectId);
@@ -245,13 +184,11 @@ export default function TeacherBroadsheet() {
             : { classScore: 0, examScore: 0, total: 0 };
     };
 
-    // For class teacher: total across ALL class subjects
     const calculateTotal = (studentId: string) => {
         const classSubjects = getSubjectsForClass(selectedClass);
         return classSubjects.reduce((sum: number, sub: any) => sum + getScore(studentId, sub.id), 0);
     };
 
-    // For class teacher: average across ALL subjects
     const calculateAverage = (studentId: string) => {
         const classSubjects = getSubjectsForClass(selectedClass);
         if (classSubjects.length === 0) return 0;
@@ -259,7 +196,7 @@ export default function TeacherBroadsheet() {
         return parseFloat((total / classSubjects.length).toFixed(1));
     };
 
-    const getNumericGrade = (score: number): number => {
+    const getNumericGrade = (score: number): any => {
         if (score === 0) return 0;
         return getGradeFromScales(score, selectedClass, gradingScales).grade;
     };
@@ -269,8 +206,8 @@ export default function TeacherBroadsheet() {
         return getGradeFromScales(score, selectedClass, gradingScales).description;
     };
 
-    // For class teacher: overall position
     const getOverallRankedStudents = () => {
+        const classStudents = students.filter(s => s.grade === selectedClass);
         return [...classStudents]
             .filter(s => subjects.some(sub => getScore(s.id, sub.id) > 0))
             .sort((a, b) => calculateAverage(b.id) - calculateAverage(a.id));
@@ -282,8 +219,8 @@ export default function TeacherBroadsheet() {
         return index >= 0 ? index + 1 : null;
     };
 
-    // For subject teacher: rank students by a specific subject's score
     const getSubjectRankedStudents = (subjectId: string) => {
+        const classStudents = students.filter(s => s.grade === selectedClass);
         return [...classStudents]
             .filter(s => getScore(s.id, subjectId) > 0)
             .sort((a, b) => getScore(b.id, subjectId) - getScore(a.id, subjectId));
@@ -317,8 +254,6 @@ export default function TeacherBroadsheet() {
         return rank >= 0 ? rank + 1 : null;
     };
 
-    const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b.id) - calculateTotal(a.id));
-
     const getGradeInfo = (studentId: string) => {
         const subjectsWithScores = subjects.filter(sub => getScore(studentId, sub.id) > 0);
         if (subjectsWithScores.length === 0) return { grade: "-", description: "-" };
@@ -326,6 +261,34 @@ export default function TeacherBroadsheet() {
         const avg = Math.round(total / subjectsWithScores.length);
         return getGradeFromScales(avg, selectedClass, gradingScales);
     };
+
+    const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel)));
+
+    // Determine if teacher is class teacher for the selected class
+    const isClassTeacherForSelectedClass = assignments.some(
+        a => a.classLevel === selectedClass && a.isClassTeacher
+    );
+
+    // Get subjects to display based on role
+    const getDisplaySubjects = () => {
+        if (isClassTeacherForSelectedClass) {
+            // Class teacher sees subjects for this class
+            return getSubjectsForClass(selectedClass);
+        }
+        // Subject teacher sees ONLY their assigned subjects
+        const assignedSubjectIds = assignments
+            .filter(a => a.classLevel === selectedClass)
+            .map(a => a.subjectId);
+        return subjects.filter(s => assignedSubjectIds.includes(s.id));
+    };
+
+    const displaySubjects = getDisplaySubjects();
+
+    const classStudents = students.filter(s => s.grade === selectedClass);
+    const currentTerm = terms.find(t => t.id === selectedTerm);
+    const totalStudentsInClass = classStudents.length;
+    const studentsWithScoresCount = classStudents.filter(s => calculateTotal(s.id) > 0).length;
+
 
     // ===== PDF Export for Class Teacher (admin-style) =====
     const exportClassTeacherPDF = () => {
@@ -760,6 +723,45 @@ export default function TeacherBroadsheet() {
         setLocation("/login");
     };
 
+    useEffect(() => {
+        if (selectedClass && selectedTerm && teacherId) {
+            loadBroadsheetData();
+        }
+    }, [selectedClass, selectedTerm, teacherId]);
+
+    const loadBroadsheetData = async () => {
+        if (!teacherId || !selectedClass || !selectedTerm) return;
+        setLoadingScores(true);
+
+        try {
+            // Fetch students for this class
+            const studentsResponse = await fetch(
+                `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(selectedClass)}`
+            );
+            if (studentsResponse.ok) {
+                const studentsData = await studentsResponse.json();
+                setStudents(studentsData);
+            }
+
+            // Fetch broadsheet scores (all subjects for the class)
+            const scoresResponse = await fetch(
+                `/api/teachers/${teacherId}/broadsheet-scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}`
+            );
+            if (scoresResponse.ok) {
+                const scoresData = await scoresResponse.json();
+                setScores(scoresData);
+            }
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to load broadsheet data",
+                variant: "destructive",
+            });
+        } finally {
+            setLoadingScores(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
@@ -770,12 +772,6 @@ export default function TeacherBroadsheet() {
             </div>
         );
     }
-
-    const currentTerm = terms.find(t => t.id === selectedTerm);
-
-    // Stats
-    const totalStudentsInClass = classStudents.length;
-    const studentsWithScores = classStudents.filter(s => calculateTotal(s.id) > 0).length;
 
     // ===========================================
     // CLASS TEACHER VIEW — Admin-style broadsheet
@@ -889,7 +885,7 @@ export default function TeacherBroadsheet() {
 
                         <div className="p-4 bg-gray-50 border-t flex justify-between items-center flex-wrap gap-4">
                             <div className="text-sm text-gray-600">
-                                <span className="font-medium">{studentsWithScores}</span> of {classStudents.length} students have scores entered
+                                <span className="font-medium">{studentsWithScoresCount}</span> of {totalStudentsInClass} students have scores entered
                             </div>
                         </div>
                     </CardContent>
@@ -1312,9 +1308,16 @@ export default function TeacherBroadsheet() {
                                         <div className="flex gap-2">
                                             <span className="font-semibold text-blue-700">Next Term Begins :</span>
                                             <span className="text-blue-600">
-                                                {reportFormData.nextTermBegins
-                                                    ? new Date(reportFormData.nextTermBegins).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
-                                                    : "TBD"}
+                                                {(() => {
+                                                    if (!reportFormData.nextTermBegins) return "TBD";
+                                                    try {
+                                                        const date = new Date(reportFormData.nextTermBegins);
+                                                        if (isNaN(date.getTime())) return "TBD";
+                                                        return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+                                                    } catch (e) {
+                                                        return "TBD";
+                                                    }
+                                                })()}
                                             </span>
                                         </div>
                                     </div>

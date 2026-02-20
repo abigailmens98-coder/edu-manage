@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Save, CheckCircle, User, Phone, MapPin, Calendar, Mail } from "lucide-react";
+import { FileText, Save, CheckCircle, User, Phone, MapPin, Calendar, Mail, ArrowLeft } from "lucide-react";
 import { MOCK_TEACHERS } from "@/lib/mock-data";
+import { useLocation } from "wouter";
 
 interface TeacherProfile {
   id: string;
@@ -27,8 +28,9 @@ interface TeacherProfile {
 
 export default function TeacherProfile() {
   const { username } = useAuth();
+  const [, setLocation] = useLocation();
   const teacher = MOCK_TEACHERS.find(t => t.username === username);
-  
+
   const [profile, setProfile] = useState<TeacherProfile>({
     id: teacher?.id || "",
     name: teacher?.name || "",
@@ -61,13 +63,25 @@ export default function TeacherProfile() {
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b bg-white/80 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-            <User className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Teacher Portal</p>
-            <p className="font-semibold text-foreground">Profile Settings</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setLocation("/")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+              <User className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Teacher Portal</p>
+              <p className="font-semibold text-foreground">Profile Settings</p>
+            </div>
           </div>
         </div>
       </header>
@@ -105,7 +119,7 @@ export default function TeacherProfile() {
                     <FileText className="h-4 w-4" />
                     Basic Information
                   </h3>
-                  
+
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
@@ -181,7 +195,7 @@ export default function TeacherProfile() {
                     <MapPin className="h-4 w-4" />
                     Address Information
                   </h3>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="address">Residential Address</Label>
                     <Textarea
@@ -207,7 +221,7 @@ export default function TeacherProfile() {
                 {/* Professional Information */}
                 <div className="space-y-4 border-b pb-6">
                   <h3 className="font-semibold">Professional Information</h3>
-                  
+
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="qualifications">Qualifications</Label>

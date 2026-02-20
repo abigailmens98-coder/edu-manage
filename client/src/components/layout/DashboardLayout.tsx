@@ -1,9 +1,9 @@
-import { 
-  Users, 
-  GraduationCap, 
-  BookOpen, 
-  FileBarChart, 
-  LayoutDashboard, 
+import {
+  Users,
+  GraduationCap,
+  BookOpen,
+  FileBarChart,
+  LayoutDashboard,
   Settings,
   Bell,
   Search,
@@ -17,13 +17,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect, useRef } from "react";
@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const { logout } = useAuth();
   const [, setLocation] = useLocation();
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ students: Student[]; subjects: Subject[] }>({ students: [], subjects: [] });
   const [showResults, setShowResults] = useState(false);
@@ -74,40 +74,40 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   useEffect(() => {
     const controller = new AbortController();
     const currentQuery = searchQuery.trim();
-    
+
     if (currentQuery.length < 2) {
       setSearchResults({ students: [], subjects: [] });
       setShowResults(false);
       setIsSearching(false);
       return;
     }
-    
+
     setIsSearching(true);
     setShowResults(true);
-    
+
     const searchData = async () => {
       try {
         const [studentsRes, subjectsRes] = await Promise.all([
           fetch("/api/students", { signal: controller.signal }),
           fetch("/api/subjects", { signal: controller.signal })
         ]);
-        
+
         if (controller.signal.aborted) return;
-        
+
         const students: Student[] = await studentsRes.json();
         const subjects: Subject[] = await subjectsRes.json();
-        
+
         const query = currentQuery.toLowerCase();
-        
-        const filteredStudents = students.filter(s => 
-          s.name.toLowerCase().includes(query) || 
+
+        const filteredStudents = students.filter(s =>
+          s.name.toLowerCase().includes(query) ||
           s.classLevel.toLowerCase().includes(query)
         ).slice(0, 5);
-        
-        const filteredSubjects = subjects.filter(s => 
+
+        const filteredSubjects = subjects.filter(s =>
           s.name.toLowerCase().includes(query)
         ).slice(0, 5);
-        
+
         if (!controller.signal.aborted) {
           setSearchResults({ students: filteredStudents, subjects: filteredSubjects });
           setIsSearching(false);
@@ -153,7 +153,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: "Subjects", href: "/subjects", icon: BookOpen },
     { name: "Terms", href: "/terms", icon: BookOpen },
     { name: "Reports", href: "/reports", icon: FileBarChart },
-    { name: "Remarks", href: "/remarks", icon: FileBarChart },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
@@ -161,9 +160,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border">
       <div className="p-4 space-y-6">
         <div className="flex flex-col items-center gap-3 pb-4 border-b border-sidebar-border">
-          <img 
-            src="/school-logo.png" 
-            alt="UBS Logo" 
+          <img
+            src="/school-logo.png"
+            alt="UBS Logo"
             className="h-16 w-16 object-contain"
           />
           <div className="text-center">
@@ -171,13 +170,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="text-xs text-sidebar-foreground/70">TARKWA</div>
           </div>
         </div>
-        
+
         <nav className="space-y-1">
           {navigation.map((item) => {
             const isActive = location === item.href;
             return (
-              <Link 
-                key={item.name} 
+              <Link
+                key={item.name}
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors block",
@@ -230,11 +229,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <SidebarContent />
               </SheetContent>
             </Sheet>
-            
+
             <div className="hidden md:flex relative w-96" ref={searchRef}>
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Quick search students or subjects..." 
+              <Input
+                placeholder="Quick search students or subjects..."
                 className="pl-9 pr-9 bg-muted/50 border-none focus-visible:ring-1"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -242,9 +241,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 data-testid="input-quick-search"
               />
               {searchQuery && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="absolute right-1 top-1 h-6 w-6"
                   onClick={clearSearch}
                   data-testid="button-clear-search"
@@ -252,7 +251,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   <X className="h-3 w-3" />
                 </Button>
               )}
-              
+
               {showResults && (searchResults.students.length > 0 || searchResults.subjects.length > 0) && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg max-h-80 overflow-y-auto z-50" data-testid="dropdown-search-results">
                   {searchResults.students.length > 0 && (
@@ -274,7 +273,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                       ))}
                     </div>
                   )}
-                  
+
                   {searchResults.subjects.length > 0 && (
                     <div className="p-2 border-t">
                       <div className="text-xs font-semibold text-muted-foreground px-2 py-1 flex items-center gap-2">
@@ -298,13 +297,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   )}
                 </div>
               )}
-              
+
               {showResults && isSearching && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg p-4 text-center text-sm text-muted-foreground z-50">
                   Searching...
                 </div>
               )}
-              
+
               {showResults && !isSearching && searchQuery.length >= 2 && searchResults.students.length === 0 && searchResults.subjects.length === 0 && (
                 <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg p-4 text-center text-sm text-muted-foreground z-50" data-testid="text-no-results">
                   No results found for "{searchQuery}"
@@ -318,7 +317,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Bell className="h-5 w-5 text-muted-foreground" />
               <span className="absolute top-2 right-2 h-2 w-2 bg-destructive rounded-full" />
             </Button>
-            
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">

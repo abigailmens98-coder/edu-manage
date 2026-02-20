@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Save, CheckCircle, Info, Download, BookOpen, Loader2, User } from "lucide-react";
+import { FileText, Save, CheckCircle, Info, Download, BookOpen, Loader2, User, ArrowLeft } from "lucide-react";
 import { studentsApi, academicTermsApi, teacherAssignmentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface StudentTermDetails {
   id?: string;
@@ -28,6 +29,7 @@ interface StudentTermDetails {
 export default function TeacherRemarks() {
   const { username, role } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const [terms, setTerms] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -203,18 +205,30 @@ export default function TeacherRemarks() {
   }
 
   const uniqueClasses = getUniqueClasses();
-  const isClassTeacher = role === "admin" || (role === "teacher" && uniqueClasses.length > 0);
+  const isClassTeacher = role === "teacher" && uniqueClasses.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
       <header className="h-16 border-b bg-white/80 backdrop-blur flex items-center justify-between px-6 sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
-            <FileText className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Class Teacher</p>
-            <p className="font-semibold text-foreground">{username}</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground"
+            onClick={() => setLocation("/")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div className="w-px h-6 bg-border mx-1" />
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
+              <FileText className="h-4 w-4 text-primary-foreground" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Class Teacher</p>
+              <p className="font-semibold text-foreground">{username}</p>
+            </div>
           </div>
         </div>
       </header>
@@ -226,11 +240,13 @@ export default function TeacherRemarks() {
             <p className="text-muted-foreground mt-1">Enter qualitative reports, attendance, and conduct for students</p>
           </div>
 
-          {!isClassTeacher && role === "teacher" && (
+          {!isClassTeacher && (
             <Alert className="bg-yellow-50 border-yellow-200">
               <Info className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-800">
-                Only class teachers can enter student remarks. You are currently not assigned as a class teacher to any class.
+                {role === "admin"
+                  ? "Administrators cannot enter remarks directly. Please use the Reports section for administrative tasks."
+                  : "Only class teachers can enter student remarks. You are currently not assigned as a class teacher to any class."}
               </AlertDescription>
             </Alert>
           )}

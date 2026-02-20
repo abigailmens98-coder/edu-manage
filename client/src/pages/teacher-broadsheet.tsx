@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
     BookOpen, LogOut, User, FileDown, Loader2, FileSpreadsheet,
     MessageSquare, ClipboardList, BarChart3, GraduationCap, TrendingUp, Printer, FileText, Search, Save
@@ -77,7 +79,7 @@ const NUMERIC_GRADE_SCALE = [
 ];
 
 export default function TeacherBroadsheet() {
-    const { username, logout, teacherInfo } = useAuth();
+    const { username, role, logout, teacherInfo } = useAuth();
     const teacherId = teacherInfo?.id;
     const [, setLocation] = useLocation();
     const { toast } = useToast();
@@ -174,8 +176,8 @@ export default function TeacherBroadsheet() {
     // Get subjects to display based on role
     const getDisplaySubjects = () => {
         if (isClassTeacherForSelectedClass) {
-            // Class teacher sees ALL subjects
-            return subjects;
+            // Class teacher sees subjects for this class
+            return getSubjectsForClass(selectedClass);
         }
         // Subject teacher sees ONLY their assigned subjects
         const assignedSubjectIds = assignments
@@ -225,6 +227,10 @@ export default function TeacherBroadsheet() {
         }
     };
 
+    const getSubjectsForClass = (classLevel: string) => {
+        return subjects.filter(s => s.classLevels?.includes(classLevel));
+    };
+
     const classStudents = students.filter(s => s.grade === selectedClass);
 
     const getScore = (studentId: string, subjectId: string) => {
@@ -239,16 +245,18 @@ export default function TeacherBroadsheet() {
             : { classScore: 0, examScore: 0, total: 0 };
     };
 
-    // For class teacher: total across ALL subjects
+    // For class teacher: total across ALL class subjects
     const calculateTotal = (studentId: string) => {
-        return subjects.reduce((sum, sub) => sum + getScore(studentId, sub.id), 0);
+        const classSubjects = getSubjectsForClass(selectedClass);
+        return classSubjects.reduce((sum: number, sub: Subject) => sum + getScore(studentId, sub.id), 0);
     };
 
     // For class teacher: average across ALL subjects
     const calculateAverage = (studentId: string) => {
-        if (subjects.length === 0) return 0;
-        const total = subjects.reduce((sum, s) => sum + getScore(studentId, s.id), 0);
-        return parseFloat((total / subjects.length).toFixed(1));
+        const classSubjects = getSubjectsForClass(selectedClass);
+        if (classSubjects.length === 0) return 0;
+        const total = classSubjects.reduce((sum: number, s: Subject) => sum + getScore(studentId, s.id), 0);
+        return parseFloat((total / classSubjects.length).toFixed(1));
     };
 
     const getNumericGrade = (score: number): number => {
@@ -1229,8 +1237,9 @@ export default function TeacherBroadsheet() {
             <Dialog open={!!previewStudent} onOpenChange={(open) => !open && setPreviewStudent(null)}>
                 <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
                     {previewStudent && (() => {
-                        const studentTotal = subjects.reduce((sum, sub) => sum + getScore(previewStudent.id, sub.id), 0);
-                        const subjectsWithScores = subjects.filter(sub => getScore(previewStudent.id, sub.id) > 0);
+                        const classSubjects = getSubjectsForClass(selectedClass);
+                        const studentTotal = classSubjects.reduce((sum: number, sub: Subject) => sum + getScore(previewStudent.id, sub.id), 0);
+                        const subjectsWithScores = classSubjects.filter(sub => getScore(previewStudent.id, sub.id) > 0);
                         const studentAvg = subjectsWithScores.length > 0 ? parseFloat((studentTotal / subjectsWithScores.length).toFixed(1)) : 0;
                         const studentPosition = getStudentOverallPosition(previewStudent.id);
                         const termData = terms.find(t => t.id === selectedTerm);
@@ -1331,7 +1340,7 @@ export default function TeacherBroadsheet() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {subjects.map(s => {
+                                            {getSubjectsForClass(selectedClass).map(s => {
                                                 const details = getScoreDetails(previewStudent.id, s.id);
                                                 const grade = details.total > 0 ? getNumericGrade(details.total) : "-";
                                                 const remark = getGradeRemark(details.total);

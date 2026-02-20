@@ -1078,12 +1078,16 @@ if (isDatabaseAvailable && pool) {
     databaseSuccessfullyConnected = true;
   }).catch((err) => {
     console.error('❌ Database connection failed:', err.message);
+
+    // If we have any connection error (auth, hostname, etc.), fallback to MemStorage
+    // to keep the application usable in a preview/demo state.
+    console.warn('🔄 Falling back to in-memory storage for this session to keep the app running.');
+    storage = new MemStorage();
+
     if (err.message.includes('password authentication failed')) {
       console.error('🛑 AUTHENTICATION ERROR: Please check your DATABASE_URL password on Render!');
-      console.warn('🔄 Falling back to in-memory storage for this session to keep the app running.');
-      // Note: Replacing the storage instance after export might not work for all importers
-      // but the app logic usually uses the storage object reference.
-      storage = new MemStorage();
+    } else if (err.message.includes('ENOTFOUND')) {
+      console.error('🛑 HOSTNAME ERROR: Your DATABASE_URL hostname is invalid or incomplete. Please check for copy-paste errors!');
     }
   });
 } else {

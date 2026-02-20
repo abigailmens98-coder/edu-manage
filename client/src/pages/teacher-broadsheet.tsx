@@ -285,6 +285,10 @@ export default function TeacherBroadsheet() {
 
     const displaySubjects = getDisplaySubjects();
 
+    const classStudents = selectedClass ? students.filter(s => s.grade === selectedClass) : [];
+    const totalStudentsInClass = classStudents.length;
+    const studentsWithScores = classStudents.filter(s => calculateTotal(s?.id) > 0).length;
+
 
 
     // ===== PDF Export for Class Teacher (admin-style) =====
@@ -782,10 +786,6 @@ export default function TeacherBroadsheet() {
             const yearName = yearData?.year || "";
             const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-            const classStudents = students.filter(s => s.grade === selectedClass);
-            const totalStudentsInClass = classStudents.length;
-            const studentsWithScoresCount = classStudents.filter(s => calculateTotal(s.id) > 0).length;
-
             const sortedStudentsByRank = [...classStudents].sort((a, b) =>
                 calculateAverage(b?.id || "") - calculateAverage(a?.id || "")
             );
@@ -888,7 +888,7 @@ export default function TeacherBroadsheet() {
 
                             <div className="p-4 bg-gray-50 border-t flex justify-between items-center flex-wrap gap-4">
                                 <div className="text-sm text-gray-600">
-                                    <span className="font-medium">{studentsWithScoresCount}</span> of {totalStudentsInClass} students have scores entered
+                                    <span className="font-medium">{studentsWithScores}</span> of {totalStudentsInClass} students have scores entered
                                 </div>
                             </div>
                         </CardContent>
@@ -913,7 +913,6 @@ export default function TeacherBroadsheet() {
                 return subjectsWithScores > 0 ? totalScore / subjectsWithScores : 0;
             };
 
-            const classStudents = students.filter(s => s.grade === selectedClass);
             const currentTerm = terms.find(t => t.id === selectedTerm);
             const sortedStudents = [...classStudents].sort((a, b) => getSubjectAvg(b.id) - getSubjectAvg(a.id));
             const rankedIds = sortedStudents.filter(s => getSubjectAvg(s.id) > 0).map(s => s.id);

@@ -248,27 +248,25 @@ export default function TeacherBroadsheet() {
     // For class teacher: total across ALL class subjects
     const calculateTotal = (studentId: string) => {
         const classSubjects = getSubjectsForClass(selectedClass);
-        return classSubjects.reduce((sum: number, sub: Subject) => sum + getScore(studentId, sub.id), 0);
+        return classSubjects.reduce((sum: number, sub: any) => sum + getScore(studentId, sub.id), 0);
     };
 
     // For class teacher: average across ALL subjects
     const calculateAverage = (studentId: string) => {
         const classSubjects = getSubjectsForClass(selectedClass);
         if (classSubjects.length === 0) return 0;
-        const total = classSubjects.reduce((sum: number, s: Subject) => sum + getScore(studentId, s.id), 0);
+        const total = classSubjects.reduce((sum: number, s: any) => sum + getScore(studentId, s.id), 0);
         return parseFloat((total / classSubjects.length).toFixed(1));
     };
 
     const getNumericGrade = (score: number): number => {
         if (score === 0) return 0;
-        const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
-        return entry ? entry.grade : 9;
+        return getGradeFromScales(score, selectedClass, gradingScales).grade;
     };
 
     const getGradeRemark = (score: number): string => {
         if (score === 0) return "-";
-        const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
-        return entry ? entry.remark : "Fail";
+        return getGradeFromScales(score, selectedClass, gradingScales).description;
     };
 
     // For class teacher: overall position
@@ -1237,14 +1235,22 @@ export default function TeacherBroadsheet() {
             <Dialog open={!!previewStudent} onOpenChange={(open) => !open && setPreviewStudent(null)}>
                 <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
                     {previewStudent && (() => {
+                        if (loadingReport) {
+                            return (
+                                <div className="p-20 flex flex-col items-center justify-center space-y-4">
+                                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                                    <p className="text-muted-foreground animate-pulse">Loading student report...</p>
+                                </div>
+                            );
+                        }
+
                         const classSubjects = getSubjectsForClass(selectedClass);
-                        const studentTotal = classSubjects.reduce((sum: number, sub: Subject) => sum + getScore(previewStudent.id, sub.id), 0);
+                        const studentTotal = classSubjects.reduce((sum: number, sub: any) => sum + getScore(previewStudent.id, sub.id), 0);
                         const subjectsWithScores = classSubjects.filter(sub => getScore(previewStudent.id, sub.id) > 0);
                         const studentAvg = subjectsWithScores.length > 0 ? parseFloat((studentTotal / subjectsWithScores.length).toFixed(1)) : 0;
                         const studentPosition = getStudentOverallPosition(previewStudent.id);
                         const termData = terms.find(t => t.id === selectedTerm);
                         const termName = termData?.name || "";
-                        const termNumber = termData?.termNumber || "";
                         const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
                         const yearName = yearData?.year || "";
                         const termAttendance = termData?.totalAttendanceDays || 60;
@@ -1294,7 +1300,7 @@ export default function TeacherBroadsheet() {
                                             <span className="text-blue-600">{previewStudent.grade}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <span className="font-semibold">{yearName}</span>
+                                            <span className="font-semibold text-slate-700">{yearName}</span>
                                             <span className="text-blue-600 font-medium">{termName}</span>
                                         </div>
                                     </div>
@@ -1306,8 +1312,8 @@ export default function TeacherBroadsheet() {
                                         <div className="flex gap-2">
                                             <span className="font-semibold text-blue-700">Next Term Begins :</span>
                                             <span className="text-blue-600">
-                                                {studentTermDetails?.nextTermBegins
-                                                    ? new Date(studentTermDetails.nextTermBegins).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                                                {reportFormData.nextTermBegins
+                                                    ? new Date(reportFormData.nextTermBegins).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
                                                     : "TBD"}
                                             </span>
                                         </div>
@@ -1340,7 +1346,7 @@ export default function TeacherBroadsheet() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {getSubjectsForClass(selectedClass).map(s => {
+                                            {classSubjects.map(s => {
                                                 const details = getScoreDetails(previewStudent.id, s.id);
                                                 const grade = details.total > 0 ? getNumericGrade(details.total) : "-";
                                                 const remark = getGradeRemark(details.total);
@@ -1384,73 +1390,82 @@ export default function TeacherBroadsheet() {
                                     </Table>
                                 </div>
 
-                                {/* Additional Info Section */}
+                                {/* Additional Info Section - Editable */}
                                 <div className="px-6 py-3 space-y-3 text-sm border-t">
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold w-24 text-slate-700">Attendance:</span>
-                                        <div className="flex items-center gap-2">
-                                            <Input
-                                                className="w-16 h-7 text-xs"
-                                                value={reportFormData.attendance}
-                                                onChange={(e) => setReportFormData({ ...reportFormData, attendance: e.target.value })}
-                                            />
-                                            <span className="text-slate-400">/</span>
-                                            <Input
-                                                className="w-16 h-7 text-xs"
-                                                value={reportFormData.attendanceTotal}
-                                                onChange={(e) => setReportFormData({ ...reportFormData, attendanceTotal: e.target.value })}
-                                            />
-                                        </div>
+                                        <span className="font-semibold w-24">Attendance:</span>
+                                        <Input
+                                            type="number"
+                                            className="w-16 h-7 text-center"
+                                            value={reportFormData.attendance || String(previewStudent.attendance || termAttendance)}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, attendance: e.target.value })}
+                                        />
+                                        <span>Out Of</span>
+                                        <Input
+                                            type="number"
+                                            className="w-16 h-7 text-center"
+                                            value={reportFormData.attendanceTotal}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, attendanceTotal: e.target.value })}
+                                        />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold w-24 text-slate-700">Attitude:</span>
+                                        <span className="font-semibold w-24">Attitude:</span>
                                         <Input
-                                            className="flex-1 h-7 text-xs uppercase"
+                                            className="flex-1 h-7"
                                             value={reportFormData.attitude}
                                             onChange={(e) => setReportFormData({ ...reportFormData, attitude: e.target.value })}
+                                            placeholder="e.g., RESPECTFUL"
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold w-24 text-slate-700">Conduct:</span>
+                                        <span className="font-semibold w-24">Conduct:</span>
                                         <Input
-                                            className="flex-1 h-7 text-xs uppercase"
+                                            className="flex-1 h-7"
                                             value={reportFormData.conduct}
                                             onChange={(e) => setReportFormData({ ...reportFormData, conduct: e.target.value })}
+                                            placeholder="e.g., GOOD"
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold w-24 text-slate-700">Interest:</span>
+                                        <span className="font-semibold w-24">Interest:</span>
                                         <Input
-                                            className="flex-1 h-7 text-xs uppercase"
+                                            className="flex-1 h-7"
                                             value={reportFormData.interest}
                                             onChange={(e) => setReportFormData({ ...reportFormData, interest: e.target.value })}
+                                            placeholder="e.g., HOLDS VARIED INTERESTS"
                                         />
                                     </div>
                                 </div>
 
-                                {/* Class Teacher's Remarks */}
+                                {/* Class Teacher's Remarks - Editable */}
                                 <div className="px-6 py-3 space-y-3 text-sm border-t">
                                     <div className="space-y-2">
-                                        <span className="font-semibold text-slate-700">Class Teacher's Remarks:</span>
+                                        <span className="font-semibold">Class Teacher's Remarks:</span>
                                         <Textarea
-                                            className="w-full min-h-[4rem] text-sm"
-                                            value={reportFormData.teacherRemarks}
+                                            className="w-full h-16 text-sm"
+                                            value={reportFormData.teacherRemarks || (
+                                                studentAvg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
+                                                    studentAvg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+                                                        studentAvg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+                                                            studentAvg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+                                                                "NEEDS SIGNIFICANT IMPROVEMENT."
+                                            )}
                                             onChange={(e) => setReportFormData({ ...reportFormData, teacherRemarks: e.target.value })}
                                             placeholder="Enter class teacher's remarks..."
                                         />
                                     </div>
                                     <div className="flex gap-2">
-                                        <span className="font-semibold text-slate-700">Position:</span>
-                                        <span className="text-blue-600 font-bold">
+                                        <span className="font-semibold">Position:</span>
+                                        <span className="text-blue-600 font-medium">
                                             {studentPosition != null && studentPosition > 0 ? `${getPositionSuffix(studentPosition)} out of ${classStudents.length}` : "N/A"}
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Signatures and Next Term */}
-                                <div className="px-6 py-3 space-y-3 text-sm border-t">
+                                <div className="px-6 py-4 space-y-3 text-sm border-t">
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold w-24 text-slate-700">Teacher:</span>
+                                        <span className="font-semibold w-28 text-slate-700">Class Teacher:</span>
                                         <Input
                                             className="flex-1 h-7 text-xs"
                                             value={reportFormData.formMaster}
@@ -1459,10 +1474,10 @@ export default function TeacherBroadsheet() {
                                         />
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="font-semibold w-24 text-slate-700">Next Term:</span>
+                                        <span className="font-semibold w-28 text-slate-700">Next Term Begins:</span>
                                         <Input
                                             type="date"
-                                            className="flex-1 h-7 text-xs text-blue-600"
+                                            className="w-40 h-7 text-xs text-blue-600"
                                             value={reportFormData.nextTermBegins}
                                             onChange={(e) => setReportFormData({ ...reportFormData, nextTermBegins: e.target.value })}
                                         />
@@ -1477,14 +1492,14 @@ export default function TeacherBroadsheet() {
                                 </div>
 
                                 {/* Action Buttons */}
-                                <div className="flex justify-end gap-3 p-4 border-t bg-slate-50 sticky bottom-0">
+                                <div className="flex justify-end gap-2 p-4 border-t bg-white sticky bottom-0">
                                     <Button variant="outline" onClick={() => setPreviewStudent(null)}>
                                         Close
                                     </Button>
-                                    <Button variant="outline" onClick={handleSaveReportDetails} className="gap-2 border-green-600 text-green-700 hover:bg-green-50">
-                                        <Save className="h-4 w-4" /> Save Details
+                                    <Button onClick={handleSaveReportDetails} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+                                        <Save className="h-4 w-4" /> Save Information
                                     </Button>
-                                    <Button onClick={() => printStudentReport(previewStudent)} className="gap-2 bg-blue-700 hover:bg-blue-800 text-white shadow-md">
+                                    <Button onClick={() => printStudentReport(previewStudent)} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
                                         <Printer className="h-4 w-4" /> Print Report Card
                                     </Button>
                                 </div>

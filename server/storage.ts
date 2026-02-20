@@ -33,10 +33,14 @@ let pool: pg.Pool | null = null;
 let db: any = null;
 let databaseSuccessfullyConnected = false;
 
-const isDatabaseAvailable = !!process.env.DATABASE_URL &&
+const rawUrl = process.env.DATABASE_URL || "";
+const isDatabaseAvailable = !!rawUrl &&
   process.env.FORCE_IN_MEMORY !== "true" &&
-  !process.env.DATABASE_URL.includes("ENOTFOUND") &&
-  !process.env.DATABASE_URL.includes("@base");
+  !rawUrl.includes("ENOTFOUND") &&
+  !rawUrl.includes("@base") &&
+  !rawUrl.startsWith("psql") &&
+  !rawUrl.startsWith("'") &&
+  rawUrl.includes("://");
 
 if (isDatabaseAvailable) {
   try {

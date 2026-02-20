@@ -46,9 +46,10 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Username and password required" });
       }
 
-      const user = await storage.getUserByUsername(username);
+      const user = await storage.getUserByUsername(username.toLowerCase());
 
       if (!user) {
+        console.log(`Login failure: User not found - ${username}`);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 

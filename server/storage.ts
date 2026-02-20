@@ -156,7 +156,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(schema.users).where(eq(schema.users.username, username));
+    const [user] = await db
+      .select()
+      .from(schema.users)
+      .where(sql`lower(${schema.users.username}) = lower(${username})`);
     return user;
   }
 
@@ -632,7 +635,7 @@ export class MemStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+      (user) => user.username.toLowerCase() === username.toLowerCase(),
     );
   }
 

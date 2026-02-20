@@ -5,7 +5,7 @@ export async function seedDatabase() {
   try {
     console.log("🌱 Setting up database...");
 
-    // Only create admin user - no demo data
+    // 1. Ensure Admin User
     const existingAdmin = await storage.getUserByUsername("admin");
     if (!existingAdmin) {
       const adminPassword = await bcrypt.hash("admin123", 10);
@@ -17,12 +17,15 @@ export async function seedDatabase() {
       });
       console.log("✅ Admin user created (username: admin, password: admin123)");
     } else {
-      console.log("✅ Admin user already exists");
+      console.log("✅ Admin user already exists (ensuring password is up to date)");
+      // Force reset admin password for this fix push to ensure they can get in
+      const adminPassword = await bcrypt.hash("admin123", 10);
+      await storage.updateUserPassword(existingAdmin.id, adminPassword);
     }
 
-    // Create default teacher user
-    const existingTeacher = await storage.getUserByUsername("teacher_001");
-    if (!existingTeacher) {
+    // 2. Ensure Default Teacher User (teacher_001)
+    const existingTeacher1 = await storage.getUserByUsername("teacher_001");
+    if (!existingTeacher1) {
       const teacherPassword = await bcrypt.hash("teacher123", 10);
       const teacherUser = await storage.createUser({
         username: "teacher_001",
@@ -31,7 +34,6 @@ export async function seedDatabase() {
         secretWord: "teaching",
       });
 
-      // Create associated teacher record
       await storage.createTeacher({
         userId: teacherUser.id,
         teacherId: "T001",
@@ -42,9 +44,11 @@ export async function seedDatabase() {
       });
 
       console.log("✅ Teacher user created (username: teacher_001, password: teacher123)");
+    } else {
+      console.log("✅ Teacher user teacher_001 already exists");
     }
 
-    // Create another default teacher user
+    // 3. Ensure Sarah Teacher User (sarah@academia.edu)
     const existingSarah = await storage.getUserByUsername("sarah@academia.edu");
     if (!existingSarah) {
       const sarahPassword = await bcrypt.hash("teacher123", 10);
@@ -65,78 +69,38 @@ export async function seedDatabase() {
       });
 
       console.log("✅ Sarah teacher user created (username: sarah@academia.edu, password: teacher123)");
+    } else {
+      console.log("✅ Teacher user sarah@academia.edu already exists");
     }
 
-    // Create default subjects if none exist
+    // 4. Create default subjects if none exist
     const subjects = await storage.getSubjects();
     if (subjects.length === 0) {
-      await storage.createSubject({
-        subjectId: "SUB001",
-        name: "English Language",
-        code: "ENG101",
-        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
+      const defaultSubjects = [
+        { name: "English Language", code: "ENG101", levels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Mathematics", code: "MAT101", levels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Science", code: "SCI101", levels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Social Studies", code: "SOC101", levels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "French", code: "FRE101", levels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Religious and Moral Education", code: "RME101", levels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Creative Arts", code: "CRA101", levels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Ghanaian Language (Twi)", code: "TWI101", levels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+        { name: "Information and Communication Technology", code: "ICT101", levels: ["Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"] },
+      ];
 
-      await storage.createSubject({
-        subjectId: "SUB002",
-        name: "Mathematics",
-        code: "MAT101",
-        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB003",
-        name: "Science",
-        code: "SCI101",
-        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB004",
-        name: "Social Studies",
-        code: "SOC101",
-        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB005",
-        name: "French",
-        code: "FRE101",
-        classLevels: ["Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB006",
-        name: "Religious and Moral Education",
-        code: "RME101",
-        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB007",
-        name: "Creative Arts",
-        code: "CRA101",
-        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB008",
-        name: "Ghanaian Language (Twi)",
-        code: "TWI101",
-        classLevels: ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
-      await storage.createSubject({
-        subjectId: "SUB009",
-        name: "Information and Communication Technology",
-        code: "ICT101",
-        classLevels: ["Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"],
-      });
-
+      for (let i = 0; i < defaultSubjects.length; i++) {
+        const s = defaultSubjects[i];
+        await storage.createSubject({
+          subjectId: `SUB${(i + 1).toString().padStart(3, '0')}`,
+          name: s.name,
+          code: s.code,
+          classLevels: s.levels,
+        });
+      }
       console.log("✅ Default subjects created");
     }
 
-    // Create default academic year if none exists
+    // 5. Create default academic year if none exists
     const years = await storage.getAcademicYears();
     if (years.length === 0) {
       const academicYear = await storage.createAcademicYear({

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Save, CheckCircle, Info, Download, BookOpen, Loader2 } from "lucide-react";
+import { FileText, Save, CheckCircle, Info, Download, BookOpen, Loader2, User } from "lucide-react";
 import { studentsApi, academicTermsApi, teacherAssignmentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 
@@ -242,179 +242,235 @@ export default function TeacherRemarks() {
             </TabsList>
 
             <TabsContent value="remarks" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Class Teacher Remarks</CardTitle>
-                  <CardDescription>Select a student to enter their term details</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label>Academic Term</Label>
-                      <Select value={selectedTerm} onValueChange={setSelectedTerm}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Term" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {terms.map((t: any) => (
-                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+              <div className="grid md:grid-cols-12 gap-6 h-[calc(100vh-200px)]">
+                {/* Left Panel: Student List */}
+                <Card className="md:col-span-4 lg:col-span-3 flex flex-col overflow-hidden h-full">
+                  <CardHeader className="py-4 border-b bg-muted/30">
+                    <CardTitle className="text-base">Students</CardTitle>
+                    <CardDescription className="text-xs">
+                      {selectedClass ? `${getStudentsByClass(selectedClass).length} students in ${selectedClass}` : "Select a class"}
+                    </CardDescription>
+                  </CardHeader>
 
-                    <div className="space-y-2">
-                      <Label>Class</Label>
-                      <Select value={selectedClass} onValueChange={handleClassSelect}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {uniqueClasses.map((c: any) => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="p-4 border-b bg-white">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Academic Term</Label>
+                        <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Term" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {terms.map((t: any) => (
+                              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                    <div className="space-y-2">
-                      <Label>Student</Label>
-                      <Select value={selectedStudent} onValueChange={setSelectedStudent} disabled={!selectedClass}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select Student" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getStudentsByClass(selectedClass).map((s: any) => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-2">
+                        <Label>Class</Label>
+                        <Select value={selectedClass} onValueChange={handleClassSelect}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Class" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {uniqueClasses.map((c: any) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 
-                  {selectedStudent && (
-                    <div className="border-t pt-6 space-y-6 animate-in fade-in-50">
-                      {loadingDetails ? (
-                        <div className="flex justify-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                        </div>
-                      ) : (
-                        <>
-                          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                            <p className="text-sm font-semibold">{activeStudent?.name}</p>
-                            <p className="text-xs text-muted-foreground">{activeStudent?.grade} • {activeStudent?.gender}</p>
+                  <CardContent className="flex-1 overflow-y-auto p-0">
+                    {!selectedClass ? (
+                      <div className="p-8 text-center text-muted-foreground text-sm">
+                        Please select a class to view students.
+                      </div>
+                    ) : (
+                      <div className="divide-y">
+                        {getStudentsByClass(selectedClass).map((s: any) => (
+                          <div
+                            key={s.id}
+                            onClick={() => setSelectedStudent(s.id)}
+                            className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between ${selectedStudent === s.id ? "bg-blue-50 border-l-4 border-blue-600" : ""
+                              }`}
+                          >
+                            <div className="overflow-hidden">
+                              <p className={`text-sm font-medium truncate ${selectedStudent === s.id ? "text-blue-700" : "text-foreground"}`}>
+                                {s.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground truncate">{s.studentId}</p>
+                            </div>
+                            {selectedStudent === s.id && <CheckCircle className="h-4 w-4 text-blue-600 flex-shrink-0" />}
                           </div>
+                        ))}
+                        {getStudentsByClass(selectedClass).length === 0 && (
+                          <div className="p-8 text-center text-muted-foreground text-sm">
+                            No students found in this class.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-                          <div className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-4">
-                              <div className="space-y-2">
-                                <Label>Attendance (Days Present)</Label>
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={currentRemark.attendance}
-                                    onChange={(e) => handleRemarkChange("attendance", parseInt(e.target.value) || 0)}
-                                  />
-                                  <span className="text-sm text-muted-foreground">out of</span>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    className="w-24"
-                                    value={currentRemark.attendanceTotal}
-                                    onChange={(e) => handleRemarkChange("attendanceTotal", parseInt(e.target.value) || 100)}
-                                  />
+                {/* Right Panel: Remarks Form */}
+                <Card className="md:col-span-8 lg:col-span-9 flex flex-col h-full overflow-hidden">
+                  <CardHeader className="py-4 border-b bg-muted/30">
+                    <CardTitle className="text-base">
+                      {selectedStudent ? "Enter Remarks" : "Student Details"}
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      {selectedStudent
+                        ? `Recording for: ${students.find((s: any) => s.id === selectedStudent)?.name}`
+                        : "Select a student from the list to enter remarks"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1 overflow-y-auto p-6">
+                    {selectedStudent && selectedTerm ? (
+                      <div className="space-y-6 animate-in fade-in-50">
+                        {loadingDetails ? (
+                          <div className="flex justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <>
+                            <div className="grid md:grid-cols-2 gap-6">
+                              <div className="space-y-6">
+                                <div className="p-4 bg-slate-50 rounded-lg border">
+                                  <h3 className="font-semibold text-sm mb-3">Attendance & Conduct</h3>
+                                  <div className="space-y-4">
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Attendance (Days Present)</Label>
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          className="h-9"
+                                          value={currentRemark.attendance}
+                                          onChange={(e) => handleRemarkChange("attendance", parseInt(e.target.value) || 0)}
+                                        />
+                                        <span className="text-xs text-muted-foreground">/</span>
+                                        <Input
+                                          type="number"
+                                          min="1"
+                                          className="w-20 h-9"
+                                          value={currentRemark.attendanceTotal}
+                                          onChange={(e) => handleRemarkChange("attendanceTotal", parseInt(e.target.value) || 100)}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Conduct</Label>
+                                      <Select
+                                        value={currentRemark.conduct || ""}
+                                        onValueChange={(val) => handleRemarkChange("conduct", val)}
+                                      >
+                                        <SelectTrigger className="h-9">
+                                          <SelectValue placeholder="Select Conduct" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="EXCELLENT">Excellent</SelectItem>
+                                          <SelectItem value="GOOD">Good</SelectItem>
+                                          <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
+                                          <SelectItem value="NEEDS IMPROVEMENT">Needs Improvement</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="space-y-2">
-                                <Label>Select Attitude</Label>
-                                <Select
-                                  value={currentRemark.attitude || ""}
-                                  onValueChange={(val) => handleRemarkChange("attitude", val)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select Attitude" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="EXCELLENT">Excellent</SelectItem>
-                                    <SelectItem value="VERY GOOD">Very Good</SelectItem>
-                                    <SelectItem value="GOOD">Good</SelectItem>
-                                    <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
-                                    <SelectItem value="NEEDS IMPROVEMENT">Needs Improvement</SelectItem>
-                                  </SelectContent>
-                                </Select>
+                              <div className="space-y-6">
+                                <div className="p-4 bg-slate-50 rounded-lg border">
+                                  <h3 className="font-semibold text-sm mb-3">Attitude & Interest</h3>
+                                  <div className="space-y-4">
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Attitude</Label>
+                                      <Select
+                                        value={currentRemark.attitude || ""}
+                                        onValueChange={(val) => handleRemarkChange("attitude", val)}
+                                      >
+                                        <SelectTrigger className="h-9">
+                                          <SelectValue placeholder="Select Attitude" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="EXCELLENT">Excellent</SelectItem>
+                                          <SelectItem value="VERY GOOD">Very Good</SelectItem>
+                                          <SelectItem value="GOOD">Good</SelectItem>
+                                          <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
+                                          <SelectItem value="NEEDS IMPROVEMENT">Needs Improvement</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <Label className="text-xs">Interest in Studies</Label>
+                                      <Select
+                                        value={currentRemark.interest || ""}
+                                        onValueChange={(val) => handleRemarkChange("interest", val)}
+                                      >
+                                        <SelectTrigger className="h-9">
+                                          <SelectValue placeholder="Select Interest" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="VERY KEEN">Very Keen</SelectItem>
+                                          <SelectItem value="KEEN">Keen</SelectItem>
+                                          <SelectItem value="MODERATE">Moderate</SelectItem>
+                                          <SelectItem value="MINIMAL">Minimal</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="space-y-4">
-                              <div className="space-y-2">
-                                <Label>Select Conduct</Label>
-                                <Select
-                                  value={currentRemark.conduct || ""}
-                                  onValueChange={(val) => handleRemarkChange("conduct", val)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select Conduct" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="EXCELLENT">Excellent</SelectItem>
-                                    <SelectItem value="GOOD">Good</SelectItem>
-                                    <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
-                                    <SelectItem value="NEEDS IMPROVEMENT">Needs Improvement</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              <div className="space-y-2">
-                                <Label>Interest in Studies</Label>
-                                <Select
-                                  value={currentRemark.interest || ""}
-                                  onValueChange={(val) => handleRemarkChange("interest", val)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select Interest" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="VERY KEEN">Very Keen</SelectItem>
-                                    <SelectItem value="KEEN">Keen</SelectItem>
-                                    <SelectItem value="MODERATE">Moderate</SelectItem>
-                                    <SelectItem value="MINIMAL">Minimal</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                            <div className="space-y-2">
+                              <Label>Class Teacher's Remarks</Label>
+                              <Textarea
+                                className="min-h-[120px] resize-none"
+                                placeholder="Enter detailed comments about the student's performance and behavior..."
+                                value={currentRemark.classTeacherRemark || ""}
+                                onChange={(e) => handleRemarkChange("classTeacherRemark", e.target.value)}
+                              />
+                              <p className="text-xs text-muted-foreground text-right">
+                                Min. 10 characters recommended
+                              </p>
                             </div>
-                          </div>
-
-                          <div className="space-y-2">
-                            <Label>Class Teacher's Remarks</Label>
-                            <Textarea
-                              className="min-h-[100px]"
-                              placeholder="Enter detailed comments about the student's performance and behavior..."
-                              value={currentRemark.classTeacherRemark || ""}
-                              onChange={(e) => handleRemarkChange("classTeacherRemark", e.target.value)}
-                            />
-                          </div>
-
-                          <div className="flex justify-end pt-4">
-                            <Button onClick={handleSave} disabled={saving} className="min-w-[150px]">
-                              {saving ? (
-                                <>
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="mr-2 h-4 w-4" /> Save Remarks
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </>
-                      )}
-                    </div>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-4">
+                        <div className="p-4 rounded-full bg-muted">
+                          <User className="h-8 w-8 opacity-50" />
+                        </div>
+                        <p>Select a student from the left list to begin entering remarks.</p>
+                      </div>
+                    )}
+                  </CardContent>
+                  {selectedStudent && (
+                    <CardFooter className="border-t py-4 bg-muted/10 flex justify-end">
+                      <Button onClick={handleSave} disabled={saving || loadingDetails} className="min-w-[150px]">
+                        {saving ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" /> Save Remarks
+                          </>
+                        )}
+                      </Button>
+                    </CardFooter>
                   )}
-                </CardContent>
-              </Card>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="preview">

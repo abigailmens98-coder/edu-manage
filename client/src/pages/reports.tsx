@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Printer, ArrowLeft, Users, GraduationCap, FileDown, User, FileSpreadsheet } from "lucide-react";
+import { Printer, ArrowLeft, Users, GraduationCap, FileDown, User, FileSpreadsheet, Save, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,9 +27,6 @@ interface ReportFormData {
   interest: string;
   teacherRemarks: string;
   formMaster: string;
-  arrears: string;
-  otherFees: string;
-  totalBill: string;
   nextTermBegins: string;
 }
 
@@ -81,13 +78,11 @@ export default function Reports() {
     interest: "HOLDS VARIED INTERESTS",
     teacherRemarks: "",
     formMaster: "",
-    arrears: "",
-    otherFees: "",
-    totalBill: "",
     nextTermBegins: "",
   });
   const [loadingReportDetails, setLoadingReportDetails] = useState(false);
   const [schoolLogoBase64, setSchoolLogoBase64] = useState<string>("");
+  const [generatingBulk, setGeneratingBulk] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { role, userId } = useAuth();
@@ -107,7 +102,7 @@ export default function Reports() {
           setSchoolLogoBase64(reader.result as string);
         };
         reader.readAsDataURL(blob);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to load school logo", e);
       }
     };
@@ -324,6 +319,11 @@ export default function Reports() {
   };
 
   const studentsRankedByAverage = getStudentsRankedByAverage();
+  const sortedStudentsByRank = [...classStudents].sort((a, b) => {
+    const avgA = calculateAverage(a.id, allSubjects);
+    const avgB = calculateAverage(b.id, allSubjects);
+    return avgB - avgA;
+  });
 
   const getStudentPosition = (studentId: string) => {
     const ranked = getStudentsRankedByAverage();
@@ -339,6 +339,18 @@ export default function Reports() {
     if (j === 2 && k !== 12) return pos + "nd";
     if (j === 3 && k !== 13) return pos + "rd";
     return pos + "th";
+  };
+
+  const getSubjectPosition = (studentId: string, subjectId: string) => {
+    const classScores = classStudents.map(s => {
+      const details = getScoreDetails(s.id, subjectId);
+      return { id: s.id, total: details.total };
+    })
+      .filter(s => s.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    const rank = classScores.findIndex(s => s.id === studentId);
+    return rank >= 0 ? rank + 1 : null;
   };
 
   const hasScoresEntered = (studentId: string) => {
@@ -362,9 +374,6 @@ export default function Reports() {
       interest: "HOLDS VARIED INTERESTS",
       teacherRemarks: defaultRemark,
       formMaster: "",
-      arrears: "",
-      otherFees: "",
-      totalBill: "",
       nextTermBegins: "",
     });
     setShowStudentReport(student);
@@ -384,7 +393,7 @@ export default function Reports() {
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 100, 0);
-    doc.text("UNIVERSITY BASIC SCHOOL", 148.5, 18, { align: "center" });
+    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -528,7 +537,7 @@ export default function Reports() {
     });
 
     const wsData = [
-      ["UNIVERSITY BASIC SCHOOL - TARKWA"],
+      ["UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL"],
       [`${yearName} - ${termName} BROADSHEET FOR ${selectedClass}`],
       [`Number on Roll: ${classStudents.length}`],
       [],
@@ -558,11 +567,10 @@ export default function Reports() {
     });
   };
 
-  const printStudentReport = (student: any) => {
-    const doc = new jsPDF();
+  const generateReportPDF = (doc: jsPDF, student: any, studentTermDetails: any) => {
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
     const termName = terms.find(t => t.id === selectedTerm)?.name || "";
-    const termAttendance = termData?.totalAttendanceDays || 60;
+    const termAttendance = terms.find(t => t.id === selectedTerm)?.totalAttendanceDays || 60;
     const position = getStudentPosition(student.id);
     const total = calculateTotal(student.id, allSubjects);
     const avg = calculateAverage(student.id, allSubjects);
@@ -575,7 +583,7 @@ export default function Reports() {
     if (schoolLogoBase64) {
       try {
         doc.addImage(schoolLogoBase64, "PNG", 14, 10, 28, 28);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to add school logo to PDF", e);
       }
     }
@@ -584,7 +592,7 @@ export default function Reports() {
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...blueColor);
-    doc.text("UNIVERSITY BASIC SCHOOL", 105, 18, { align: "center" });
+    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
@@ -645,23 +653,27 @@ export default function Reports() {
     doc.setFont("helvetica", "bold");
     doc.text("Next Term Begins :", 120, 82);
     doc.setFont("helvetica", "normal");
-    doc.text("TBD", 165, 82);
+    const nextTermBegins = studentTermDetails?.nextTermBegins
+      ? new Date(studentTermDetails.nextTermBegins).toLocaleDateString('en-GB')
+      : "TBD";
+    doc.text(nextTermBegins, 165, 82);
 
     // Score Table
-    const tableHead = [["SUBJECTS", "CLASS\nSCORE\n30%", "EXAMS\nSCORE\n70%", "TOTAL\n(100%)", "GRADES", "REMARKS"]];
+    const tableHead = [["SUBJECTS", "CLASS\nSCORE\n30%", "EXAMS\nSCORE\n70%", "TOTAL\n(100%)", "GRADES", "POS", "REMARKS"]];
     const tableBody = allSubjects.map(s => {
       const scoreData = scores.find(sc => sc.studentId === student.id && sc.subjectId === s.id);
       const classScore = scoreData?.classScore || 0;
       const examScore = scoreData?.examScore || 0;
       const totalScore = classScore + examScore;
       const grade = totalScore > 0 ? getNumericGrade(totalScore) : "-";
+      const subjectPos = getSubjectPosition(student.id, s.id);
       const remark = getGradeRemark(totalScore);
-      return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, remark.toUpperCase()];
+      return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, getPositionSuffix(subjectPos), remark.toUpperCase()];
     });
 
     // Add Grand Total and Average rows
-    tableBody.push(["Grand Total", "", "", total, "", ""]);
-    tableBody.push(["Average", "", "", avg, "", ""]);
+    tableBody.push(["Grand Total", "", "", total, "", "", ""]);
+    tableBody.push(["Average", "", "", avg, "", "", ""]);
 
     autoTable(doc, {
       head: tableHead,
@@ -702,17 +714,14 @@ export default function Reports() {
 
     const finalY = (doc as any).lastAutoTable.finalY || 180;
 
-    // Additional Info - using form data
-    const attendanceVal = reportFormData.attendance || String(student.attendance || termAttendance);
-    const attendanceTotalVal = reportFormData.attendanceTotal || "60";
-    const attitudeVal = reportFormData.attitude || "RESPECTFUL";
-    const conductVal = reportFormData.conduct || "GOOD";
-    const interestVal = reportFormData.interest || "HOLDS VARIED INTERESTS";
-    const formMasterVal = reportFormData.formMaster || "_________________________";
-    const nextTermVal = reportFormData.nextTermBegins ? new Date(reportFormData.nextTermBegins).toLocaleDateString('en-GB') : "TBD";
-    const arrearsVal = reportFormData.arrears || "___________";
-    const otherFeesVal = reportFormData.otherFees || "___________";
-    const totalBillVal = reportFormData.totalBill || "___________";
+    // Additional Info - using term details
+    const attendanceVal = String(studentTermDetails?.attendance !== undefined ? studentTermDetails.attendance : (student.attendance || termAttendance));
+    const attendanceTotalVal = String(studentTermDetails?.attendanceTotal || "60");
+    const attitudeVal = studentTermDetails?.attitude || "RESPECTFUL";
+    const conductVal = studentTermDetails?.conduct || "GOOD";
+    const interestVal = studentTermDetails?.interest || "HOLDS VARIED INTERESTS";
+    const formMasterVal = studentTermDetails?.formMaster || "_________________________";
+    const nextTermVal = studentTermDetails?.nextTermBegins ? new Date(studentTermDetails.nextTermBegins).toLocaleDateString('en-GB') : "TBD";
 
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(9);
@@ -736,13 +745,13 @@ export default function Reports() {
     doc.setFont("helvetica", "italic");
     doc.text(interestVal.toUpperCase(), 35, finalY + 31);
 
-    // Class Teacher's Remarks - using form data or auto-generated
+    // Class Teacher's Remarks - using term details or auto-generated
     const defaultRemark = avg >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
       avg >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
         avg >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
           avg >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
             "NEEDS SIGNIFICANT IMPROVEMENT.";
-    const teacherRemark = reportFormData.teacherRemarks || defaultRemark;
+    const teacherRemark = studentTermDetails?.classTeacherRemark || defaultRemark;
 
     doc.setFont("helvetica", "bold");
     doc.text("Class Teacher's Remarks:", 14, finalY + 42);
@@ -775,43 +784,66 @@ export default function Reports() {
     doc.setFont("helvetica", "normal");
     doc.text("_________________________", 50, finalY + 73);
 
-    // Student Bill Section
-    const billY = finalY + 82;
-    doc.setFillColor(...blueColor);
-    doc.rect(14, billY, 182, 8, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("STUDENT'S BILL FOR NEXT ACADEMIC TERM", 105, billY + 6, { align: "center" });
-
-    // Bill table
-    doc.setDrawColor(...blueColor);
-    doc.setLineWidth(0.3);
-    doc.rect(14, billY + 8, 182, 25);
-
-    doc.setTextColor(0, 0, 0);
+    // Marketing Footer
+    const pageHeight = doc.internal.pageSize.getHeight();
     doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text("Arrears:", 18, billY + 16);
+    doc.setTextColor(100, 100, 100);
     doc.setFont("helvetica", "normal");
-    doc.text(arrearsVal, 40, billY + 16);
+    doc.text("Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com", 105, pageHeight - 5, { align: "center" });
+  };
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Other Fees:", 100, billY + 16);
-    doc.setFont("helvetica", "normal");
-    doc.text(otherFeesVal, 130, billY + 16);
+  const printStudentReport = async (student: any) => {
+    const doc = new jsPDF();
+    const termDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+    generateReportPDF(doc, student, termDetails);
 
-    doc.setFont("helvetica", "bold");
-    doc.text("Total Bill:", 100, billY + 26);
-    doc.setFont("helvetica", "normal");
-    doc.text(totalBillVal, 130, billY + 26);
-
+    const termName = terms.find(t => t.id === selectedTerm)?.name || "";
     doc.save(`Terminal_Report_${student.name.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
 
     toast({
       title: "Success",
       description: "Terminal report PDF exported successfully",
     });
+  };
+
+  const printBulkReports = async () => {
+    if (!selectedClass || !selectedTerm) return;
+
+    setGeneratingBulk(true);
+    try {
+      const doc = new jsPDF();
+      const termName = terms.find(t => t.id === selectedTerm)?.name || "";
+
+      // Process students one by one
+      for (let i = 0; i < classStudents.length; i++) {
+        const student = classStudents[i];
+
+        // Add new page if not the first student
+        if (i > 0) {
+          doc.addPage();
+        }
+
+        // Fetch term details for this student
+        const termDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+        generateReportPDF(doc, student, termDetails);
+      }
+
+      doc.save(`Bulk_Reports_${selectedClass.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
+
+      toast({
+        title: "Success",
+        description: `Bulk reports for ${classStudents.length} students exported successfully`,
+      });
+    } catch (error) {
+      console.error("Bulk export failed", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate bulk reports",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingBulk(false);
+    }
   };
 
   if (loading) {
@@ -951,12 +983,6 @@ export default function Reports() {
   const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const sortedStudentsByRank = [...classStudents].sort((a, b) => {
-    const avgA = calculateAverage(a.id, allSubjects);
-    const avgB = calculateAverage(b.id, allSubjects);
-    return avgB - avgA;
-  });
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -993,6 +1019,20 @@ export default function Reports() {
           >
             <FileSpreadsheet className="h-4 w-4" /> Export Excel
           </Button>
+          <Button
+            variant="default"
+            className="gap-2 bg-blue-600 hover:bg-blue-700"
+            onClick={printBulkReports}
+            disabled={classStudents.length === 0 || generatingBulk}
+            data-testid="button-bulk-reports"
+          >
+            {generatingBulk ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Printer className="h-4 w-4" />
+            )}
+            Bulk Reports
+          </Button>
         </div>
       </div>
 
@@ -1008,7 +1048,7 @@ export default function Reports() {
       <Card className="border-green-200">
         <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
           <div className="text-center">
-            <CardTitle className="text-lg font-bold">UNIVERSITY BASIC SCHOOL</CardTitle>
+            <CardTitle className="text-lg font-bold">UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
             <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {selectedClass?.toUpperCase()}</p>
             <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
           </div>
@@ -1154,7 +1194,7 @@ export default function Reports() {
                       <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
                     </div>
                     <div className="flex-1 px-4">
-                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY BASIC SCHOOL</h1>
+                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
                       <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
                     </div>
                     <div className="flex-shrink-0 w-20" />
@@ -1230,7 +1270,8 @@ export default function Reports() {
                           <div>TOTAL</div>
                           <div>(100%)</div>
                         </TableHead>
-                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[70px]">GRADES</TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[60px]">GRADES</TableHead>
+                        <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[60px]">POS</TableHead>
                         <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center">REMARKS</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1246,6 +1287,9 @@ export default function Reports() {
                             <TableCell className="border-2 border-blue-600 text-center text-blue-600">{details.examScore || "-"}</TableCell>
                             <TableCell className="border-2 border-blue-600 text-center font-semibold text-blue-600">{details.total || "-"}</TableCell>
                             <TableCell className="border-2 border-blue-600 text-center font-semibold">{grade}</TableCell>
+                            <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">
+                              {getPositionSuffix(getSubjectPosition(showStudentReport.id, s.id))}
+                            </TableCell>
                             <TableCell className={`border-2 border-blue-600 text-center font-medium ${remark === "Excellent" ? "text-green-600" : remark === "Fail" ? "text-red-600" : "text-blue-600"}`}>
                               {remark.toUpperCase()}
                             </TableCell>
@@ -1260,6 +1304,7 @@ export default function Reports() {
                         <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">{studentTotal}</TableCell>
                         <TableCell className="border-2 border-blue-600"></TableCell>
                         <TableCell className="border-2 border-blue-600"></TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
                       </TableRow>
                       {/* Average Row */}
                       <TableRow className="bg-blue-50">
@@ -1267,6 +1312,7 @@ export default function Reports() {
                         <TableCell className="border-2 border-blue-600"></TableCell>
                         <TableCell className="border-2 border-blue-600"></TableCell>
                         <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">{studentAvg}</TableCell>
+                        <TableCell className="border-2 border-blue-600"></TableCell>
                         <TableCell className="border-2 border-blue-600"></TableCell>
                         <TableCell className="border-2 border-blue-600"></TableCell>
                       </TableRow>
@@ -1374,20 +1420,60 @@ export default function Reports() {
                       data-testid="input-next-term"
                     />
                   </div>
-                  <div className="flex justify-end">
-                    <div>
-                      <span className="font-semibold">Head's Signature:</span>
-                      <span className="ml-2 text-gray-600 italic">_________________________</span>
-                    </div>
-                  </div>
+
                 </div>
 
                 {/* Student Bill Section - Editable */}
+
+                {/* Marketing Footer */}
+                <div className="px-6 py-2 text-center border-t bg-slate-50">
+                  <p className="text-[10px] text-gray-400 font-medium">
+                    Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com
+                  </p>
+                </div>
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-2 p-4 border-t bg-white sticky bottom-0">
                   <Button variant="outline" onClick={() => setShowStudentReport(null)}>
                     Close
+                  </Button>
+                  <Button onClick={() => {
+                    const loadingToast = toast({
+                      title: "Saving...",
+                      description: "Updating report details",
+                    });
+
+                    // Construct the update payload
+                    const payload = {
+                      studentId: showStudentReport.id,
+                      termId: selectedTerm,
+                      attendance: parseInt(reportFormData.attendance) || 0,
+                      attendanceTotal: parseInt(reportFormData.attendanceTotal) || 60,
+                      attitude: reportFormData.attitude,
+                      conduct: reportFormData.conduct,
+                      interest: reportFormData.interest,
+                      classTeacherRemark: reportFormData.teacherRemarks,
+                      formMaster: reportFormData.formMaster,
+                      nextTermBegins: reportFormData.nextTermBegins,
+                    };
+
+                    studentsApi.saveTermDetails(showStudentReport.id, payload)
+                      .then(() => {
+                        toast({
+                          title: "Success",
+                          description: "Report details saved successfully",
+                        });
+                      })
+                      .catch((err: any) => {
+                        console.error(err);
+                        toast({
+                          title: "Error",
+                          description: "Failed to save report details",
+                          variant: "destructive",
+                        });
+                      });
+                  }} className="gap-2 bg-green-600 hover:bg-green-700">
+                    <Save className="h-4 w-4" /> Save Information
                   </Button>
                   <Button onClick={() => printStudentReport(showStudentReport)} className="gap-2 bg-blue-600 hover:bg-blue-700">
                     <Printer className="h-4 w-4" /> Print Report Card

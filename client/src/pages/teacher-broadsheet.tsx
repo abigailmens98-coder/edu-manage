@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
     BookOpen, LogOut, User, FileDown, Loader2, FileSpreadsheet,
-    MessageSquare, ClipboardList, BarChart3, GraduationCap, TrendingUp, Printer, FileText, Search
+    MessageSquare, ClipboardList, BarChart3, GraduationCap, TrendingUp, Printer, FileText, Search, Save
 } from "lucide-react";
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
@@ -52,6 +52,7 @@ interface Term {
     status: string;
     termNumber?: number;
     academicYearId?: string;
+    totalAttendanceDays?: number;
 }
 
 interface Score {
@@ -98,6 +99,17 @@ export default function TeacherBroadsheet() {
     const [studentTermDetails, setStudentTermDetails] = useState<any | null>(null);
     const [loadingReport, setLoadingReport] = useState(false);
     const [schoolLogoBase64, setSchoolLogoBase64] = useState<string>("");
+
+    const [reportFormData, setReportFormData] = useState({
+        attendance: "",
+        attendanceTotal: "60",
+        attitude: "RESPECTFUL",
+        conduct: "GOOD",
+        interest: "HOLDS VARIED INTERESTS",
+        teacherRemarks: "",
+        formMaster: "",
+        nextTermBegins: "",
+    });
 
     useEffect(() => {
         fetchInitialData();
@@ -287,6 +299,18 @@ export default function TeacherBroadsheet() {
         return pos + "th";
     };
 
+    const getSubjectPosition = (studentId: string, subjectId: string) => {
+        const classScores = students.map(s => {
+            const details = getScoreDetails(s.id, subjectId);
+            return { id: s.id, total: details.total };
+        })
+            .filter(s => s.total > 0)
+            .sort((a, b) => b.total - a.total);
+
+        const rank = classScores.findIndex(s => s.id === studentId);
+        return rank >= 0 ? rank + 1 : null;
+    };
+
     const rankedStudents = [...classStudents].sort((a, b) => calculateTotal(b.id) - calculateTotal(a.id));
 
     const getGradeInfo = (studentId: string) => {
@@ -452,7 +476,7 @@ export default function TeacherBroadsheet() {
         });
 
         const wsData = [
-            ["UNIVERSITY BASIC SCHOOL - TARKWA"],
+            ["UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL"],
             [`${yearName} - ${termName} BROADSHEET FOR ${selectedClass}`],
             [`Number on Roll: ${classStudents.length}`],
             [],
@@ -484,7 +508,7 @@ export default function TeacherBroadsheet() {
         const termName = terms.find(t => t.id === selectedTerm)?.name || "Term";
 
         doc.setFontSize(16);
-        doc.text("UNIVERSITY BASIC SCHOOL - TARKWA", doc.internal.pageSize.width / 2, 15, { align: "center" });
+        doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", doc.internal.pageSize.width / 2, 15, { align: "center" });
         doc.setFontSize(11);
         doc.text(`Subject Broadsheet — ${selectedClass}`, 14, 24);
         doc.text(`${termName}`, 14, 30);
@@ -549,6 +573,29 @@ export default function TeacherBroadsheet() {
                 scoresApi.getByTerm(selectedTerm)
             ]);
             setStudentTermDetails(details);
+            if (details) {
+                setReportFormData({
+                    attendance: String(details.attendance || ""),
+                    attendanceTotal: String(details.attendanceTotal || "60"),
+                    attitude: details.attitude || "RESPECTFUL",
+                    conduct: details.conduct || "GOOD",
+                    interest: details.interest || "HOLDS VARIED INTERESTS",
+                    teacherRemarks: details.classTeacherRemark || "",
+                    formMaster: details.formMaster || "",
+                    nextTermBegins: details.nextTermBegins || "",
+                });
+            } else {
+                setReportFormData({
+                    attendance: "",
+                    attendanceTotal: "60",
+                    attitude: "RESPECTFUL",
+                    conduct: "GOOD",
+                    interest: "HOLDS VARIED INTERESTS",
+                    teacherRemarks: "",
+                    formMaster: "",
+                    nextTermBegins: "",
+                });
+            }
             setLoadingReport(false);
         } catch (error) {
             console.error("Failed to fetch report details", error);
@@ -582,16 +629,27 @@ export default function TeacherBroadsheet() {
 
         // Header
         doc.setFontSize(18);
-        doc.setTextColor(0, 0, 0);
+        doc.setTextColor(30, 64, 175);
         doc.setFont("helvetica", "bold");
-        doc.text("UNIVERSITY BASIC SCHOOL", 105, 18, { align: "center" });
+        doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
+
+        // Footer
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.setFont("helvetica", "normal");
+        doc.text("Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com", 105, pageHeight - 5, { align: "center" });
 
         doc.setFontSize(10);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(37, 99, 235);
+        doc.text("Knowledge, Truth and Excellence", 105, 24, { align: "center" });
         doc.setFont("helvetica", "normal");
-        doc.text("P.O. BOX 25, WINNEBA, GHANA", 105, 24, { align: "center" });
+        doc.setTextColor(100, 100, 100);
         doc.text("Email: info@universitybasic.edu.gh", 105, 29, { align: "center" });
 
-        doc.setLineWidth(0.5);
+        doc.setDrawColor(30, 64, 175);
+        doc.setLineWidth(1.5);
         doc.line(20, 38, 190, 38);
 
         // Student Info
@@ -634,10 +692,10 @@ export default function TeacherBroadsheet() {
 
         autoTable(doc, {
             startY: 75,
-            head: [["SUBJECT", "CLASS (50%)", "EXAM (50%)", "TOTAL (100%)", "POS", "REMARK"]],
+            head: [["SUBJECT", "CLASS SCORE", "EXAM SCORE", "TOTAL", "POS", "REMARK"]],
             body: tableBody,
             theme: "grid",
-            headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            headStyles: { fillColor: [30, 64, 175], textColor: 255 },
             styles: { fontSize: 8, cellPadding: 2 }
         });
 
@@ -663,6 +721,32 @@ export default function TeacherBroadsheet() {
 
         doc.save(`${student.name.replace(/\s+/g, "_")}_Report_${termName.replace(/\s+/g, "_")}.pdf`);
         toast({ title: "Success", description: "Report PDF generated" });
+    };
+
+    const handleSaveReportDetails = async () => {
+        if (!previewStudent || !selectedTerm) return;
+        try {
+            await studentsApi.saveTermDetails(previewStudent.id, {
+                studentId: previewStudent.id,
+                termId: selectedTerm,
+                attendance: parseInt(reportFormData.attendance) || 0,
+                attendanceTotal: parseInt(reportFormData.attendanceTotal) || 60,
+                attitude: reportFormData.attitude,
+                conduct: reportFormData.conduct,
+                interest: reportFormData.interest,
+                classTeacherRemark: reportFormData.teacherRemarks,
+                formMaster: reportFormData.formMaster,
+                nextTermBegins: reportFormData.nextTermBegins,
+            });
+            toast({ title: "Success", description: "Report details saved successfully" });
+            fetchStudentScores(previewStudent.id);
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to save report details",
+                variant: "destructive",
+            });
+        }
     };
 
     const handleLogout = () => {
@@ -708,7 +792,7 @@ export default function TeacherBroadsheet() {
                 <Card className="border-green-200">
                     <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
                         <div className="text-center">
-                            <CardTitle className="text-lg font-bold">UNIVERSITY BASIC SCHOOL</CardTitle>
+                            <CardTitle className="text-lg font-bold">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
                             <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {selectedClass?.toUpperCase()}</p>
                             <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
                         </div>
@@ -1143,188 +1227,261 @@ export default function TeacherBroadsheet() {
 
             {/* Student Report Preview Dialog */}
             <Dialog open={!!previewStudent} onOpenChange={(open) => !open && setPreviewStudent(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 border-none bg-slate-100 shadow-2xl">
-                    <DialogHeader className="p-6 bg-white border-b sticky top-0 z-20 flex flex-row items-center justify-between space-y-0">
-                        <div>
-                            <DialogTitle className="text-2xl font-serif font-bold text-slate-800">Student Terminal Report</DialogTitle>
-                            <DialogDescription>
-                                Previewing report for {previewStudent?.name} ({selectedClass})
-                            </DialogDescription>
-                        </div>
-                        <Button
-                            className="bg-blue-700 hover:bg-blue-800 text-white gap-2 shadow-lg"
-                            onClick={() => printStudentReport(previewStudent)}
-                            disabled={loadingReport}
-                        >
-                            <Printer className="h-4 w-4" /> Print PDF Report
-                        </Button>
-                    </DialogHeader>
+                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
+                    {previewStudent && (() => {
+                        const studentTotal = subjects.reduce((sum, sub) => sum + getScore(previewStudent.id, sub.id), 0);
+                        const subjectsWithScores = subjects.filter(sub => getScore(previewStudent.id, sub.id) > 0);
+                        const studentAvg = subjectsWithScores.length > 0 ? parseFloat((studentTotal / subjectsWithScores.length).toFixed(1)) : 0;
+                        const studentPosition = getStudentOverallPosition(previewStudent.id);
+                        const termData = terms.find(t => t.id === selectedTerm);
+                        const termName = termData?.name || "";
+                        const termNumber = termData?.termNumber || "";
+                        const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
+                        const yearName = yearData?.year || "";
+                        const termAttendance = termData?.totalAttendanceDays || 60;
 
-                    {loadingReport ? (
-                        <div className="flex flex-col items-center justify-center py-20 bg-white">
-                            <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
-                            <p className="text-slate-500 font-medium">Loading report details...</p>
-                        </div>
-                    ) : (
-                        <div className="p-8">
-                            <div className="bg-white shadow-xl rounded-lg border border-slate-200 overflow-hidden mx-auto max-w-3xl">
-                                {/* Report Header (Similar to printed PDF) */}
-                                <div className="p-8 border-b-2 border-slate-100 flex items-center justify-between">
-                                    <div className="flex items-center gap-6">
-                                        {schoolLogoBase64 ? (
-                                            <div className="h-24 w-24 flex-shrink-0 bg-slate-50 rounded-xl p-2 border border-slate-100 flex items-center justify-center">
-                                                <img src={schoolLogoBase64} alt="School Badge" className="h-full object-contain" />
-                                            </div>
-                                        ) : (
-                                            <div className="h-24 w-24 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
-                                                < GraduationCap className="h-10 w-10" />
-                                            </div>
-                                        )}
-                                        <div>
-                                            <h3 className="text-xl font-bold text-slate-900 tracking-tight uppercase">University Basic School</h3>
-                                            <p className="text-sm text-slate-500 font-medium tracking-wide uppercase mt-1">P.O. BOX 25, WINNEBA, GHANA</p>
-                                            <p className="text-xs text-slate-400 mt-0.5 font-semibold">TERMINAL REPORT CARD</p>
+                        return (
+                            <div className="bg-white">
+                                {/* School Header with Badge */}
+                                <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-shrink-0 w-20">
+                                            <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
+                                        </div>
+                                        <div className="flex-1 px-4">
+                                            <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
+                                            <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
+                                        </div>
+                                        <div className="flex-shrink-0 w-20" />
+                                    </div>
+                                    <div className="flex justify-between text-xs mt-2 text-gray-600">
+                                        <div className="text-left">
+                                            <p>Email: info@universitybasic.edu.gh</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p><strong>ADDRESS</strong></p>
+                                            <p>P.O. BOX 237, TARKWA</p>
+                                            <p>WESTERN REGION, GHANA</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200 px-3 py-1 font-bold">
-                                            {selectedTerm && terms.find(t => t.id === selectedTerm)?.name}
-                                        </Badge>
-                                        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">{new Date().toLocaleDateString()}</p>
+                                    <div className="mt-3">
+                                        <span className="bg-red-600 text-white px-4 py-1 text-sm font-bold rounded">TERMINAL REPORT</span>
                                     </div>
                                 </div>
 
-                                <div className="p-8 space-y-8">
-                                    {/* Student Info Bar */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Student Name</p>
-                                            <p className="text-sm font-bold text-slate-800 line-clamp-1">{previewStudent?.name}</p>
+                                {/* Student Info Section */}
+                                <div className="px-6 py-4 space-y-2 text-sm border-b">
+                                    <div className="flex gap-2">
+                                        <span className="font-semibold text-blue-700">Name of Student :</span>
+                                        <span className="text-blue-600 font-medium">{previewStudent.name.toUpperCase()}</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <span className="font-semibold text-blue-700">Student ID:</span>
+                                        <span className="text-blue-600">{previewStudent.studentId}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <div className="flex gap-2">
+                                            <span className="font-semibold text-blue-700">Class:</span>
+                                            <span className="text-blue-600">{previewStudent.grade}</span>
                                         </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Student ID</p>
-                                            <p className="text-sm font-mono font-bold text-blue-700">{previewStudent?.studentId}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Current Grade</p>
-                                            <p className="text-sm font-bold text-slate-800">{selectedClass}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Number on Roll</p>
-                                            <p className="text-sm font-bold text-slate-800">{classStudents.length}</p>
+                                        <div className="flex gap-2">
+                                            <span className="font-semibold">{yearName}</span>
+                                            <span className="text-blue-600 font-medium">{termName}</span>
                                         </div>
                                     </div>
+                                    <div className="flex justify-between">
+                                        <div className="flex gap-2">
+                                            <span className="font-semibold text-blue-700">Number On Roll :</span>
+                                            <span className="text-blue-600">{classStudents.length}</span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <span className="font-semibold text-blue-700">Next Term Begins :</span>
+                                            <span className="text-blue-600">
+                                                {studentTermDetails?.nextTermBegins
+                                                    ? new Date(studentTermDetails.nextTermBegins).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                                                    : "TBD"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                    {/* Academic Scores table */}
-                                    <div className="space-y-4">
-                                        <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 uppercase tracking-wider px-1">
-                                            <ClipboardList className="h-4 w-4 text-blue-600" />
-                                            Subject Performance
-                                        </h4>
-                                        <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                                            <Table>
-                                                <TableHeader className="bg-slate-50">
-                                                    <TableRow>
-                                                        <TableHead className="font-bold text-slate-600">SUBJECT</TableHead>
-                                                        <TableHead className="text-center font-bold text-slate-600">CLASS (50%)</TableHead>
-                                                        <TableHead className="text-center font-bold text-slate-600">EXAM (50%)</TableHead>
-                                                        <TableHead className="text-center font-bold text-slate-600">TOTAL</TableHead>
-                                                        <TableHead className="text-center font-bold text-slate-600">POS</TableHead>
-                                                        <TableHead className="font-bold text-slate-600">REMARK</TableHead>
+                                {/* Score Table */}
+                                <div className="px-6 py-4">
+                                    <Table className="border-2 border-blue-600">
+                                        <TableHeader>
+                                            <TableRow className="bg-blue-50">
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[180px]">SUBJECTS</TableHead>
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
+                                                    <div>CLASS</div>
+                                                    <div>SCORE</div>
+                                                    <div className="text-xs font-normal">30 %</div>
+                                                </TableHead>
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
+                                                    <div>EXAMS</div>
+                                                    <div>SCORE</div>
+                                                    <div className="text-xs font-normal">70 %</div>
+                                                </TableHead>
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
+                                                    <div>TOTAL</div>
+                                                    <div>(100%)</div>
+                                                </TableHead>
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[60px]">GRADES</TableHead>
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[60px]">POS</TableHead>
+                                                <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center">REMARKS</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {subjects.map(s => {
+                                                const details = getScoreDetails(previewStudent.id, s.id);
+                                                const grade = details.total > 0 ? getNumericGrade(details.total) : "-";
+                                                const remark = getGradeRemark(details.total);
+                                                return (
+                                                    <TableRow key={s.id}>
+                                                        <TableCell className="border-2 border-blue-600 text-blue-700 font-medium">{s.name.toUpperCase()}</TableCell>
+                                                        <TableCell className="border-2 border-blue-600 text-center text-blue-600">{details.classScore || "-"}</TableCell>
+                                                        <TableCell className="border-2 border-blue-600 text-center text-blue-600">{details.examScore || "-"}</TableCell>
+                                                        <TableCell className="border-2 border-blue-600 text-center font-semibold text-blue-600">{details.total || "-"}</TableCell>
+                                                        <TableCell className="border-2 border-blue-600 text-center font-semibold">{grade}</TableCell>
+                                                        <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">
+                                                            {getPositionSuffix(getSubjectPosition(previewStudent.id, s.id))}
+                                                        </TableCell>
+                                                        <TableCell className={`border-2 border-blue-600 text-center font-medium ${remark === "Excellent" ? "text-green-600" : remark === "Fail" ? "text-red-600" : "text-blue-600"}`}>
+                                                            {remark.toUpperCase()}
+                                                        </TableCell>
                                                     </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {displaySubjects.map(sub => {
-                                                        const { classScore, examScore } = getScoreDetails(previewStudent?.id, sub.id);
-                                                        const total = classScore + examScore;
+                                                );
+                                            })}
+                                            {/* Grand Total Row */}
+                                            <TableRow className="bg-blue-50">
+                                                <TableCell className="border-2 border-blue-600 font-bold text-blue-700">Grand Total</TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">{studentTotal}</TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                            </TableRow>
+                                            {/* Average Row */}
+                                            <TableRow className="bg-blue-50">
+                                                <TableCell className="border-2 border-blue-600 font-bold text-blue-700">Average</TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600 text-center font-bold text-blue-700">{studentAvg}</TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                                <TableCell className="border-2 border-blue-600"></TableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </div>
 
-                                                        // Per-subject rank
-                                                        const classTotalScores = students
-                                                            .filter(s => s.grade === selectedClass)
-                                                            .map(s => {
-                                                                const sScores = scores.filter(sc => sc.studentId === s.id && sc.subjectId === sub.id);
-                                                                return sScores.reduce((sum, sc) => sum + sc.totalScore, 0);
-                                                            })
-                                                            .sort((a, b) => b - a);
-
-                                                        const position = classTotalScores.indexOf(total) + 1;
-                                                        const g = getGradeFromScales(total, selectedClass, gradingScales);
-
-                                                        return (
-                                                            <TableRow key={sub.id} className="hover:bg-slate-50/50">
-                                                                <TableCell className="font-semibold text-slate-700">{sub.name}</TableCell>
-                                                                <TableCell className="text-center font-medium text-slate-500">{classScore.toFixed(1)}</TableCell>
-                                                                <TableCell className="text-center font-medium text-slate-500">{examScore.toFixed(1)}</TableCell>
-                                                                <TableCell className="text-center">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${total >= 80 ? 'bg-green-100 text-green-700' :
-                                                                        total >= 60 ? 'bg-blue-100 text-blue-700' :
-                                                                            total >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                                                                'bg-red-100 text-red-700'
-                                                                        }`}>
-                                                                        {total.toFixed(1)}%
-                                                                    </span>
-                                                                </TableCell>
-                                                                <TableCell className="text-center font-bold text-slate-400">
-                                                                    {position}
-                                                                </TableCell>
-                                                                <TableCell className="text-xs font-bold text-slate-600">{g.description}</TableCell>
-                                                            </TableRow>
-                                                        );
-                                                    })}
-                                                </TableBody>
-                                            </Table>
+                                {/* Additional Info Section */}
+                                <div className="px-6 py-3 space-y-3 text-sm border-t">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold w-24 text-slate-700">Attendance:</span>
+                                        <div className="flex items-center gap-2">
+                                            <Input
+                                                className="w-16 h-7 text-xs"
+                                                value={reportFormData.attendance}
+                                                onChange={(e) => setReportFormData({ ...reportFormData, attendance: e.target.value })}
+                                            />
+                                            <span className="text-slate-400">/</span>
+                                            <Input
+                                                className="w-16 h-7 text-xs"
+                                                value={reportFormData.attendanceTotal}
+                                                onChange={(e) => setReportFormData({ ...reportFormData, attendanceTotal: e.target.value })}
+                                            />
                                         </div>
                                     </div>
-
-                                    {/* Remarks section */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                        <div className="space-y-6">
-                                            <div className="space-y-3">
-                                                <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 uppercase tracking-wider px-1">
-                                                    <TrendingUp className="h-4 w-4 text-blue-600" />
-                                                    Overall Summary
-                                                </h4>
-                                                <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
-                                                    <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                                                        <span className="text-sm text-slate-500 font-medium">Average Score</span>
-                                                        <span className="text-lg font-bold text-slate-900">{calculateAverage(previewStudent?.id).toFixed(1)}%</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-sm text-slate-500 font-medium">Class Position</span>
-                                                        <span className="text-lg font-bold text-blue-700">{getStudentOverallPosition(previewStudent?.id)} / {classStudents.length}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="p-5 bg-blue-50 border border-blue-100 rounded-2xl space-y-2">
-                                                <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Attendance Profile</p>
-                                                <div className="flex items-end gap-1">
-                                                    <span className="text-2xl font-bold text-blue-800">{studentTermDetails?.attendance || 0}</span>
-                                                    <span className="text-sm text-blue-400 pb-1 font-bold">/ {studentTermDetails?.attendanceTotal || 60} days present</span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 uppercase tracking-wider px-1">
-                                                <MessageSquare className="h-4 w-4 text-blue-600" />
-                                                Class Teacher's Remarks
-                                            </h4>
-                                            <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl min-h-[160px] relative">
-                                                <p className="text-slate-600 leading-relaxed italic text-sm">
-                                                    "{studentTermDetails?.classTeacherRemark || "The teacher has not yet entered remarks for this student for the current term."}"
-                                                </p>
-                                                <div className="absolute bottom-4 right-6 text-[10px] font-bold text-slate-300 uppercase tracking-widest">Official Report</div>
-                                            </div>
-                                        </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold w-24 text-slate-700">Attitude:</span>
+                                        <Input
+                                            className="flex-1 h-7 text-xs uppercase"
+                                            value={reportFormData.attitude}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, attitude: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold w-24 text-slate-700">Conduct:</span>
+                                        <Input
+                                            className="flex-1 h-7 text-xs uppercase"
+                                            value={reportFormData.conduct}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, conduct: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold w-24 text-slate-700">Interest:</span>
+                                        <Input
+                                            className="flex-1 h-7 text-xs uppercase"
+                                            value={reportFormData.interest}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, interest: e.target.value })}
+                                        />
                                     </div>
                                 </div>
-                                <div className="bg-slate-50 border-t border-slate-100 p-4 text-center">
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">University Basic School Winneba • Academic Management System</p>
+
+                                {/* Class Teacher's Remarks */}
+                                <div className="px-6 py-3 space-y-3 text-sm border-t">
+                                    <div className="space-y-2">
+                                        <span className="font-semibold text-slate-700">Class Teacher's Remarks:</span>
+                                        <Textarea
+                                            className="w-full min-h-[4rem] text-sm"
+                                            value={reportFormData.teacherRemarks}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, teacherRemarks: e.target.value })}
+                                            placeholder="Enter class teacher's remarks..."
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <span className="font-semibold text-slate-700">Position:</span>
+                                        <span className="text-blue-600 font-bold">
+                                            {studentPosition != null && studentPosition > 0 ? `${getPositionSuffix(studentPosition)} out of ${classStudents.length}` : "N/A"}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Signatures and Next Term */}
+                                <div className="px-6 py-3 space-y-3 text-sm border-t">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold w-24 text-slate-700">Teacher:</span>
+                                        <Input
+                                            className="flex-1 h-7 text-xs"
+                                            value={reportFormData.formMaster}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, formMaster: e.target.value })}
+                                            placeholder="Enter teacher name"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold w-24 text-slate-700">Next Term:</span>
+                                        <Input
+                                            type="date"
+                                            className="flex-1 h-7 text-xs text-blue-600"
+                                            value={reportFormData.nextTermBegins}
+                                            onChange={(e) => setReportFormData({ ...reportFormData, nextTermBegins: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Marketing Footer */}
+                                <div className="px-6 py-2 text-center border-t bg-slate-50">
+                                    <p className="text-[10px] text-gray-400 font-medium">
+                                        Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com
+                                    </p>
+                                </div>
+
+                                {/* Action Buttons */}
+                                <div className="flex justify-end gap-3 p-4 border-t bg-slate-50 sticky bottom-0">
+                                    <Button variant="outline" onClick={() => setPreviewStudent(null)}>
+                                        Close
+                                    </Button>
+                                    <Button variant="outline" onClick={handleSaveReportDetails} className="gap-2 border-green-600 text-green-700 hover:bg-green-50">
+                                        <Save className="h-4 w-4" /> Save Details
+                                    </Button>
+                                    <Button onClick={() => printStudentReport(previewStudent)} className="gap-2 bg-blue-700 hover:bg-blue-800 text-white shadow-md">
+                                        <Printer className="h-4 w-4" /> Print Report Card
+                                    </Button>
                                 </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
                 </DialogContent>
             </Dialog>
         </div>

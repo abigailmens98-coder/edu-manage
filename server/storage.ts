@@ -1064,32 +1064,95 @@ export class MemStorage implements IStorage {
 }
 
 // Determine which storage to use. 
-// We default to MemStorage if DB init fails or if we encounter an auth error.
-export let storage: IStorage;
+// We use a simple object wrapper to allow swapping the implementation at runtime.
+class StorageManager implements IStorage {
+  private current: IStorage;
 
-if (isDatabaseAvailable && pool) {
-  // We'll use DatabaseStorage, but it might still fail at runtime if the password is wrong.
-  // Ideally, we'd wait for the test query, but for now we'll export it and let it log.
-  storage = new DatabaseStorage();
-
-  // Refined connection test
-  pool.query('SELECT NOW()').then(() => {
-    console.log('✅ Database connected successfully');
-    databaseSuccessfullyConnected = true;
-  }).catch((err) => {
-    console.error('❌ Database connection failed:', err.message);
-
-    // If we have any connection error (auth, hostname, etc.), fallback to MemStorage
-    // to keep the application usable in a preview/demo state.
-    console.warn('🔄 Falling back to in-memory storage for this session to keep the app running.');
-    storage = new MemStorage();
-
-    if (err.message.includes('password authentication failed')) {
-      console.error('🛑 AUTHENTICATION ERROR: Please check your DATABASE_URL password on Render!');
-    } else if (err.message.includes('ENOTFOUND')) {
-      console.error('🛑 HOSTNAME ERROR: Your DATABASE_URL hostname is invalid or incomplete. Please check for copy-paste errors!');
+  constructor() {
+    if (isDatabaseAvailable && pool) {
+      this.current = new DatabaseStorage();
+      this.testConnection();
+    } else {
+      this.current = new MemStorage();
     }
-  });
-} else {
-  storage = new MemStorage();
+  }
+
+  private async testConnection() {
+    if (!pool) return;
+    try {
+      await pool.query('SELECT NOW()');
+      console.log('✅ Database connected successfully');
+      databaseSuccessfullyConnected = true;
+    } catch (err: any) {
+      console.error('❌ Database connection failed:', err.message);
+      console.warn('🔄 Falling back to in-memory storage for this session to keep the app running.');
+      this.current = new MemStorage();
+
+      if (err.message.includes('password authentication failed')) {
+        console.error('🛑 AUTHENTICATION ERROR: Please check your DATABASE_URL password on Render!');
+      } else if (err.message.includes('ENOTFOUND')) {
+        console.error('🛑 HOSTNAME ERROR: Your DATABASE_URL hostname is invalid or incomplete. Please check for copy-paste errors!');
+      }
+    }
+  }
+
+  // Delegate all methods to current storage
+  getUser(id: string) { return this.current.getUser(id); }
+  getUserByUsername(username: string) { return this.current.getUserByUsername(username); }
+  createUser(user: any) { return this.current.createUser(user); }
+  getStudents() { return this.current.getStudents(); }
+  getStudent(id: string) { return this.current.getStudent(id); }
+  createStudent(student: any) { return this.current.createStudent(student); }
+  updateStudent(id: string, student: any) { return this.current.updateStudent(id, student); }
+  deleteStudent(id: string) { return this.current.deleteStudent(id); }
+  getTeachers() { return this.current.getTeachers(); }
+  getTeacher(id: string) { return this.current.getTeacher(id); }
+  createTeacher(teacher: any) { return this.current.createTeacher(teacher); }
+  updateTeacher(id: string, teacher: any) { return this.current.updateTeacher(id, teacher); }
+  deleteTeacher(id: string) { return this.current.deleteTeacher(id); }
+  getSubjects() { return this.current.getSubjects(); }
+  getSubject(id: string) { return this.current.getSubject(id); }
+  createSubject(subject: any) { return this.current.createSubject(subject); }
+  updateSubject(id: string, subject: any) { return this.current.updateSubject(id, subject); }
+  deleteSubject(id: string) { return this.current.deleteSubject(id); }
+  getAcademicYears() { return this.current.getAcademicYears(); }
+  getAcademicYear(id: string) { return this.current.getAcademicYear(id); }
+  getActiveAcademicYear() { return this.current.getActiveAcademicYear(); }
+  createAcademicYear(year: any) { return this.current.createAcademicYear(year); }
+  updateAcademicYear(id: string, year: any) { return this.current.updateAcademicYear(id, year); }
+  setActiveAcademicYear(id: string) { return this.current.setActiveAcademicYear(id); }
+  deleteAcademicYear(id: string) { return this.current.deleteAcademicYear(id); }
+  getAcademicTerms() { return this.current.getAcademicTerms(); }
+  getAcademicTermsByYear(id: string) { return this.current.getAcademicTermsByYear(id); }
+  getAcademicTerm(id: string) { return this.current.getAcademicTerm(id); }
+  getActiveAcademicTerm() { return this.current.getActiveAcademicTerm(); }
+  createAcademicTerm(term: any) { return this.current.createAcademicTerm(term); }
+  updateAcademicTerm(id: string, term: any) { return this.current.updateAcademicTerm(id, term); }
+  setActiveAcademicTerm(id: string) { return this.current.setActiveAcademicTerm(id); }
+  deleteAcademicTerm(id: string) { return this.current.deleteAcademicTerm(id); }
+  getGradingScales() { return this.current.getGradingScales(); }
+  getGradingScale(id: string) { return this.current.getGradingScale(id); }
+  createGradingScale(scale: any) { return this.current.createGradingScale(scale); }
+  updateGradingScale(id: string, scale: any) { return this.current.updateGradingScale(id, scale); }
+  deleteGradingScale(id: string) { return this.current.deleteGradingScale(id); }
+  initializeGradingScales() { return this.current.initializeGradingScales(); }
+  getScores() { return this.current.getScores(); }
+  getScoresByStudent(id: string) { return this.current.getScoresByStudent(id); }
+  getScoresByTerm(id: string) { return this.current.getScoresByTerm(id); }
+  getScore(id: string) { return this.current.getScore(id); }
+  createScore(score: any) { return this.current.createScore(score); }
+  updateScore(id: string, score: any) { return this.current.updateScore(id, score); }
+  deleteScore(id: string) { return this.current.deleteScore(id); }
+  getTeacherAssignments() { return this.current.getTeacherAssignments(); }
+  getTeacherAssignmentsByTeacher(id: string) { return this.current.getTeacherAssignmentsByTeacher(id); }
+  createTeacherAssignment(assign: any) { return this.current.createTeacherAssignment(assign); }
+  deleteTeacherAssignment(id: string) { return this.current.deleteTeacherAssignment(id); }
+  deleteTeacherAssignmentsByTeacher(id: string) { return this.current.deleteTeacherAssignmentsByTeacher(id); }
+  getStudentTermDetails(sid: string, tid: string) { return this.current.getStudentTermDetails(sid, tid); }
+  createOrUpdateStudentTermDetails(details: any) { return this.current.createOrUpdateStudentTermDetails(details); }
+  updateUserPassword(uid: string, pass: string) { return this.current.updateUserPassword(uid, pass); }
+  cleanupDemoData() { return this.current.cleanupDemoData(); }
+  deleteUserByUsername(u: string) { return this.current.deleteUserByUsername(u); }
 }
+
+export const storage = new StorageManager();

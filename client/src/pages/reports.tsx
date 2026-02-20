@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, gradingScalesApi } from "@/lib/api";
+import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, gradingScalesApi, assessmentConfigsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getGradeFromScales, GradingScale } from "@/lib/grading";
@@ -63,6 +63,7 @@ export default function Reports() {
   const [terms, setTerms] = useState<any[]>([]);
   const [scores, setScores] = useState<any[]>([]);
   const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
+  const [assessmentConfigs, setAssessmentConfigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState("");
@@ -111,13 +112,14 @@ export default function Reports() {
 
   const fetchData = async () => {
     try {
-      const [studentsData, subjectsData, yearsData, termsData, assignmentsData, gradingData] = await Promise.all([
+      const [studentsData, subjectsData, yearsData, termsData, assignmentsData, gradingData, configData] = await Promise.all([
         studentsApi.getAll(),
         subjectsApi.getAll(),
         academicYearsApi.getAll(),
         academicTermsApi.getAll(),
         teacherAssignmentsApi.getAll(),
         gradingScalesApi.getAll(),
+        assessmentConfigsApi.getAll(),
       ]);
       setStudents(studentsData);
       setSubjects(subjectsData);
@@ -125,6 +127,7 @@ export default function Reports() {
       setTerms(termsData);
       setTeacherAssignments(assignmentsData);
       setGradingScales(gradingData);
+      setAssessmentConfigs(configData);
 
       const activeYear = yearsData.find((y: any) => y.status === "Active");
       if (activeYear) {
@@ -207,6 +210,12 @@ export default function Reports() {
     if (score === 0) return "-";
     const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
     return entry ? entry.remark : "Fail";
+  };
+
+  const getAssessmentWeights = (className: string) => {
+    const classNum = parseInt(className.replace(/[^0-9]/g, "") || "0");
+    const config = assessmentConfigs.find(c => classNum >= c.minClassLevel && classNum <= c.maxClassLevel);
+    return config ? { class: config.classScoreWeight, exam: config.examScoreWeight } : { class: 40, exam: 60 };
   };
 
   const getClassCounts = () => {
@@ -659,7 +668,16 @@ export default function Reports() {
     doc.text(nextTermBegins, 165, 82);
 
     // Score Table
-    const tableHead = [["SUBJECTS", "CLASS\nSCORE\n40%", "EXAMS\nSCORE\n60%", "TOTAL\n(100%)", "GRADES", "POS", "REMARKS"]];
+    const weights = getAssessmentWeights(student.grade);
+    const tableHead = [[
+      "SUBJECTS",
+      `CLASS\nSCORE\n${weights.class}%`,
+      `EXAMS\nSCORE\n${weights.exam}%`,
+      "TOTAL\n(100%)",
+      "GRADES",
+      "POS",
+      "REMARKS"
+    ]];
     const tableBody = allSubjects.map(s => {
       const scoreData = scores.find(sc => sc.studentId === student.id && sc.subjectId === s.id);
       const classScore = scoreData?.classScore || 0;

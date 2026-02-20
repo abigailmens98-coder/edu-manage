@@ -197,3 +197,21 @@ export const insertGradingScaleSchema = createInsertSchema(gradingScales).omit({
 });
 export type InsertGradingScale = z.infer<typeof insertGradingScaleSchema>;
 export type GradingScale = typeof gradingScales.$inferSelect;
+
+// Assessment Configurations (Class Groups & Weightings)
+export const assessmentConfigs = pgTable("assessment_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classGroup: text("class_group").notNull(), // e.g., "Basic 1-6"
+  minClassLevel: integer("min_class_level").notNull(), // e.g., 1
+  maxClassLevel: integer("max_class_level").notNull(), // e.g., 6
+  classScoreWeight: integer("class_score_weight").notNull().default(40),
+  examScoreWeight: integer("exam_score_weight").notNull().default(60),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAssessmentConfigSchema = createInsertSchema(assessmentConfigs).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertAssessmentConfig = z.infer<typeof insertAssessmentConfigSchema>;
+export type AssessmentConfig = typeof assessmentConfigs.$inferSelect;

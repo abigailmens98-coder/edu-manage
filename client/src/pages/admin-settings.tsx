@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Settings, Save, Calendar, Clock, BarChart3, Trash2, CheckCircle, AlertCircle } from "lucide-react";
-import { academicYearsApi, academicTermsApi, gradingScalesApi } from "@/lib/api";
+import { academicYearsApi, academicTermsApi, gradingScalesApi, assessmentConfigsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, X } from "lucide-react";
 
@@ -35,11 +35,19 @@ interface GradingScale {
   description: string;
 }
 
+interface AssessmentConfig {
+  id: string;
+  classGroup: string;
+  classScoreWeight: number;
+  examScoreWeight: number;
+}
+
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState("academic");
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [terms, setTerms] = useState<AcademicTerm[]>([]);
   const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
+  const [assessmentConfigs, setAssessmentConfigs] = useState<AssessmentConfig[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Academic Year State
@@ -65,14 +73,16 @@ export default function AdminSettings() {
 
   const fetchData = async () => {
     try {
-      const [yearsData, termsData, gradingData] = await Promise.all([
+      const [yearsData, termsData, gradingData, assessmentData] = await Promise.all([
         academicYearsApi.getAll(),
         academicTermsApi.getAll(),
         gradingScalesApi.getAll(),
+        assessmentConfigsApi.getAll(),
       ]);
       setYears(yearsData);
       setTerms(termsData);
       setGradingScales(gradingData);
+      setAssessmentConfigs(assessmentData);
     } catch (error) {
       toast({
         title: "Error",
@@ -275,6 +285,26 @@ export default function AdminSettings() {
     }
   };
 
+  const handleUpdateAssessmentConfig = async (id: string, field: 'class' | 'exam', value: number) => {
+    const config = assessmentConfigs.find(c => c.id === id);
+    if (!config) return;
+
+    if (value < 0 || value > 100) return;
+
+    const newConfig = {
+      classScoreWeight: field === 'class' ? value : 100 - value,
+      examScoreWeight: field === 'exam' ? value : 100 - value,
+    };
+
+    try {
+      const updated = await assessmentConfigsApi.update(id, newConfig);
+      setAssessmentConfigs(assessmentConfigs.map(c => c.id === id ? updated : c));
+      toast({ title: "Success", description: "Assessment weights updated" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update weights", variant: "destructive" });
+    }
+  };
+
   const renderGradingTable = (type: string, title: string) => {
     const scales = gradingScales.filter(s => s.type === type).sort((a, b) => b.minScore - a.minScore);
 
@@ -434,7 +464,7 @@ export default function AdminSettings() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full md:w-[600px] grid-cols-3">
+        <TabsList className="grid w-full md:w-[600px] grid-cols-4">
           <TabsTrigger value="academic" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Academic Years
@@ -446,6 +476,10 @@ export default function AdminSettings() {
           <TabsTrigger value="grading" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Grading
+          </TabsTrigger>
+          <TabsTrigger value="assessments" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Assessments
           </TabsTrigger>
         </TabsList>
 
@@ -718,6 +752,66 @@ export default function AdminSettings() {
             <CardContent>
               {renderGradingTable("jhs", "Basic 7-9 (JHS)")}
               {renderGradingTable("primary", "Basic 1-6 (Primary)")}
+              {renderGradingTable("primary", "Basic 1-6 (Primary)")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="assessments" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assessment Configuration</CardTitle>
+              <CardDescription>Configure the weighting of Class Scores vs Exam Scores for different class groups.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {assessmentConfigs.map(config => (
+                  <div key={config.id} className="border rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-lg">{config.classGroup}</h3>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-8">
+                      <div className="bg-muted/30 p-4 rounded-md">
+                        <div className="flex justify-between mb-2">
+                          <Label>Class Score Weight</Label>
+                          <span className="font-bold">{config.classScoreWeight}%</span>
+                        </div>
+                        <Input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={config.classScoreWeight}
+                          onChange={(e) => handleUpdateAssessmentConfig(config.id, 'class', parseInt(e.target.value))}
+                          className="accent-primary"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Assignments, Class Tests, Projects, etc.
+                        </p>
+                      </div>
+
+                      <div className="bg-muted/30 p-4 rounded-md">
+                        <div className="flex justify-between mb-2">
+                          <Label>Exam Score Weight</Label>
+                          <span className="font-bold">{config.examScoreWeight}%</span>
+                        </div>
+                        <Input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={config.examScoreWeight}
+                          onChange={(e) => handleUpdateAssessmentConfig(config.id, 'exam', parseInt(e.target.value))}
+                          className="accent-primary"
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          End of Term Examination
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

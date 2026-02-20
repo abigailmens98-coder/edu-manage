@@ -9,7 +9,7 @@ import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
 import { Save, Upload, FileDown, AlertCircle, CheckCircle, Lock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi } from "@/lib/api";
+import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, assessmentConfigsApi } from "@/lib/api";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,6 +35,7 @@ export default function ScoreEntry() {
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
+  const [assessmentConfigs, setAssessmentConfigs] = useState<any[]>([]);
   const [currentTeacherId, setCurrentTeacherId] = useState<string | null>(null);
   const { toast } = useToast();
   const { role, userId, teacherInfo } = useAuth();
@@ -47,14 +48,16 @@ export default function ScoreEntry() {
 
   const fetchData = async () => {
     try {
-      const [studentsData, subjectsData, termsData] = await Promise.all([
+      const [studentsData, subjectsData, termsData, configData] = await Promise.all([
         studentsApi.getAll(),
         subjectsApi.getAll(),
         academicTermsApi.getAll(),
+        assessmentConfigsApi.getAll(),
       ]);
       setStudents(studentsData);
       setSubjects(subjectsData);
       setTerms(termsData);
+      setAssessmentConfigs(configData);
 
       const activeTerm = termsData.find(t => t.status === "Active");
       if (activeTerm) {
@@ -150,9 +153,16 @@ export default function ScoreEntry() {
     }
   };
 
+  const getAssessmentConfig = (className: string) => {
+    const classNum = parseInt(className.replace(/[^0-9]/g, "") || "0");
+    return assessmentConfigs.find(c => classNum >= c.minClassLevel && classNum <= c.maxClassLevel);
+  };
+
   const getMaxScore = (type: 'class' | 'exam') => {
-    if (type === 'class') return 40;
-    return 60;
+    const config = getAssessmentConfig(selectedClass);
+    if (!config) return type === 'class' ? 40 : 60; // Default fallback
+
+    return type === 'class' ? config.classScoreWeight : config.examScoreWeight;
   };
 
   const handleScoreChange = (studentId: string, type: 'class' | 'exam', value: string) => {
@@ -597,7 +607,7 @@ export default function ScoreEntry() {
             <div>
               <CardTitle>{selectedClass} - Score Entry</CardTitle>
               <CardDescription>
-                Continuous Assessment (40% Class + 60% Exam)
+                Continuous Assessment ({getMaxScore('class')}% Class + {getMaxScore('exam')}% Exam)
               </CardDescription>
               {classStats.entered !== undefined && classStats.entered > 0 && (
                 <div className="flex gap-4 mt-3 text-sm">
@@ -676,8 +686,8 @@ export default function ScoreEntry() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[300px]">Student Name</TableHead>
-                  <TableHead>Class Score (40%)</TableHead>
-                  <TableHead>Exam Score (60%)</TableHead>
+                  <TableHead>Class Score ({getMaxScore('class')}%)</TableHead>
+                  <TableHead>Exam Score ({getMaxScore('exam')}%)</TableHead>
                   <TableHead>Total (100%)</TableHead>
                   <TableHead>Grade</TableHead>
                 </TableRow>

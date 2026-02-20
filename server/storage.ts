@@ -25,6 +25,8 @@ import type {
   InsertStudentTermDetails,
   GradingScale,
   InsertGradingScale,
+  AssessmentConfig,
+  InsertAssessmentConfig,
 } from "@shared/schema";
 import { and } from "drizzle-orm";
 
@@ -139,6 +141,11 @@ export interface IStorage {
   // Admin operations
   cleanupDemoData(): Promise<{ teachersDeleted: number; studentsDeleted: number; usersDeleted: number }>;
   deleteUserByUsername(username: string): Promise<boolean>;
+
+  // Assessment Config operations
+  getAssessmentConfigs(): Promise<AssessmentConfig[]>;
+  updateAssessmentConfig(id: string, config: Partial<InsertAssessmentConfig>): Promise<AssessmentConfig | undefined>;
+  seedAssessmentConfigs(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -325,6 +332,43 @@ export class DatabaseStorage implements IStorage {
   async deleteGradingScale(id: string): Promise<boolean> {
     const [deleted] = await db.delete(schema.gradingScales).where(eq(schema.gradingScales.id, id)).returning();
     return !!deleted;
+  }
+
+  // Assessment Config operations
+  async getAssessmentConfigs(): Promise<AssessmentConfig[]> {
+    return await db.select().from(schema.assessmentConfigs);
+  }
+
+  async updateAssessmentConfig(id: string, config: Partial<InsertAssessmentConfig>): Promise<AssessmentConfig | undefined> {
+    const [updated] = await db
+      .update(schema.assessmentConfigs)
+      .set(config)
+      .where(eq(schema.assessmentConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async seedAssessmentConfigs(): Promise<void> {
+    const existing = await this.getAssessmentConfigs();
+    if (existing.length === 0) {
+      await db.insert(schema.assessmentConfigs).values([
+        {
+          classGroup: "Basic 1-6 (Lower/Upper Primary)",
+          minClassLevel: 1,
+          maxClassLevel: 6,
+          classScoreWeight: 50,
+          examScoreWeight: 50,
+        },
+        {
+          classGroup: "Basic 7-9 (JHS)",
+          minClassLevel: 7,
+          maxClassLevel: 9,
+          classScoreWeight: 40,
+          examScoreWeight: 60,
+        },
+      ]);
+      console.log("Seeded default assessment configurations");
+    }
   }
 
   async initializeGradingScales(): Promise<void> {
@@ -558,6 +602,7 @@ export class MemStorage implements IStorage {
   private scores: Map<string, Score>;
   private teacherAssignments: Map<string, TeacherAssignment>;
   private studentTermDetails: Map<string, StudentTermDetails>;
+  private assessmentConfigs: Map<string, AssessmentConfig>;
   private currentId: number;
 
   constructor() {
@@ -568,10 +613,16 @@ export class MemStorage implements IStorage {
     this.academicYears = new Map();
     this.academicTerms = new Map();
     this.gradingScales = new Map();
+    this.assessmentConfigs = new Map();
     this.scores = new Map();
     this.teacherAssignments = new Map();
     this.studentTermDetails = new Map();
     this.currentId = 1;
+
+    // Seed default assessment configs
+    if (this.assessmentConfigs.size === 0) {
+      this.seedAssessmentConfigs();
+    }
   }
 
   // User operations
@@ -1057,6 +1108,46 @@ export class MemStorage implements IStorage {
     return true;
   }
 
+  // Assessment Config operations
+  async getAssessmentConfigs(): Promise<AssessmentConfig[]> {
+    return Array.from(this.assessmentConfigs.values());
+  }
+
+  async updateAssessmentConfig(id: string, config: Partial<InsertAssessmentConfig>): Promise<AssessmentConfig | undefined> {
+    const existing = this.assessmentConfigs.get(id);
+    if (!existing) return undefined;
+
+    const updated: AssessmentConfig = { ...existing, ...config };
+    this.assessmentConfigs.set(id, updated);
+    return updated;
+  }
+
+  async seedAssessmentConfigs(): Promise<void> {
+    if (this.assessmentConfigs.size > 0) return;
+
+    const defaults: InsertAssessmentConfig[] = [
+      {
+        classGroup: "Basic 1-6 (Lower/Upper Primary)",
+        minClassLevel: 1,
+        maxClassLevel: 6,
+        classScoreWeight: 50,
+        examScoreWeight: 50,
+      },
+      {
+        classGroup: "Basic 7-9 (JHS)",
+        minClassLevel: 7,
+        maxClassLevel: 9,
+        classScoreWeight: 40,
+        examScoreWeight: 60,
+      },
+    ];
+
+    defaults.forEach(c => {
+      const id = randomUUID();
+      this.assessmentConfigs.set(id, { ...c, id, createdAt: new Date() });
+    });
+    console.log("Seeded default assessment configurations (Memory)");
+  }
 }
 
 // Determine which storage to use. 
@@ -1168,6 +1259,12 @@ class StorageManager implements IStorage {
   getStudentTermDetails(sid: string, tid: string) { return this.exec(() => this.current.getStudentTermDetails(sid, tid)); }
   createOrUpdateStudentTermDetails(details: any) { return this.exec(() => this.current.createOrUpdateStudentTermDetails(details)); }
   updateUserPassword(uid: string, pass: string) { return this.exec(() => this.current.updateUserPassword(uid, pass)); }
+
+  // Assessment Config operations
+  getAssessmentConfigs() { return this.exec(() => this.current.getAssessmentConfigs()); }
+  updateAssessmentConfig(id: string, config: any) { return this.exec(() => this.current.updateAssessmentConfig(id, config)); }
+  seedAssessmentConfigs() { return this.exec(() => this.current.seedAssessmentConfigs()); }
+
   cleanupDemoData() { return this.exec(() => this.current.cleanupDemoData()); }
   deleteUserByUsername(u: string) { return this.exec(() => this.current.deleteUserByUsername(u)); }
 }

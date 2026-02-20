@@ -1034,5 +1034,35 @@ export async function registerRoutes(
     }
   });
 
+  // Assessment Config Routes
+  app.get("/api/assessment-configs", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const configs = await storage.getAssessmentConfigs();
+      res.json(configs);
+    } catch (error) {
+      console.error("Failed to fetch assessment configs:", error);
+      res.status(500).json({ error: "Failed to fetch assessment configs" });
+    }
+  });
+
+  app.patch("/api/assessment-configs/:id", async (req, res) => {
+    try {
+      if (!req.session.userId || req.session.role !== "admin") {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+      const updated = await storage.updateAssessmentConfig(req.params.id, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Config not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      console.error("Failed to update assessment config:", error);
+      res.status(500).json({ error: "Failed to update assessment config" });
+    }
+  });
+
   return httpServer;
 }

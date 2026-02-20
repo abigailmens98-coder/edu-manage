@@ -18,7 +18,7 @@ import {
 import { useLocation } from "wouter";
 import {
     subjectsApi, academicTermsApi, teacherAssignmentsApi,
-    gradingScalesApi, studentsApi, scoresApi, academicYearsApi
+    gradingScalesApi, studentsApi, scoresApi, academicYearsApi, assessmentConfigsApi
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { getGradeFromScales, GradingScale } from "@/lib/grading";
@@ -93,6 +93,7 @@ export default function TeacherBroadsheet() {
     const [scores, setScores] = useState<Score[]>([]);
     const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
     const [academicYears, setAcademicYears] = useState<any[]>([]);
+    const [assessmentConfigs, setAssessmentConfigs] = useState<any[]>([]);
 
     const [selectedClass, setSelectedClass] = useState("");
     const [selectedTerm, setSelectedTerm] = useState("");
@@ -135,17 +136,19 @@ export default function TeacherBroadsheet() {
 
     const fetchInitialData = async () => {
         try {
-            const [subjectsData, termsData, gradingData, yearsData] = await Promise.all([
+            const [subjectsData, termsData, gradingData, yearsData, configData] = await Promise.all([
                 subjectsApi.getAll(),
                 academicTermsApi.getAll(),
                 gradingScalesApi.getAll(),
                 academicYearsApi.getAll(),
+                assessmentConfigsApi.getAll(),
             ]);
 
             setSubjects(subjectsData);
             setTerms(termsData);
             setGradingScales(gradingData);
             setAcademicYears(yearsData);
+            setAssessmentConfigs(configData);
 
             const active = termsData.find((t: Term) => t.status === "Active");
             if (active) {
@@ -165,6 +168,12 @@ export default function TeacherBroadsheet() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const getAssessmentWeights = (className: string) => {
+        const classNum = parseInt(className.replace(/[^0-9]/g, "") || "0");
+        const config = assessmentConfigs.find(c => classNum >= c.minClassLevel && classNum <= c.maxClassLevel);
+        return config ? { class: config.classScoreWeight, exam: config.examScoreWeight } : { class: 40, exam: 60 };
     };
 
     // Helper functions moved to top to avoid ReferenceError
@@ -656,9 +665,18 @@ export default function TeacherBroadsheet() {
             ];
         });
 
+        const weights = getAssessmentWeights(selectedClass);
+
         autoTable(doc, {
             startY: 75,
-            head: [["SUBJECT", "CLASS\nSCORE\n40%", "EXAMS\nSCORE\n60%", "TOTAL\n(100%)", "POS", "REMARK"]],
+            head: [[
+                "SUBJECT",
+                `CLASS\nSCORE\n${weights.class}%`,
+                `EXAMS\nSCORE\n${weights.exam}%`,
+                "TOTAL\n(100%)",
+                "POS",
+                "REMARK"
+            ]],
             body: tableBody,
             theme: "grid",
             headStyles: { fillColor: [30, 64, 175], textColor: 255 },

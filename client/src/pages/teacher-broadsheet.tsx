@@ -109,7 +109,7 @@ export default function TeacherBroadsheet() {
         conduct: "GOOD",
         interest: "HOLDS VARIED INTERESTS",
         teacherRemarks: "",
-        formMaster: username || "",
+        formMaster: teacherInfo?.name || username || "",
         nextTermBegins: "",
     });
 
@@ -560,7 +560,7 @@ export default function TeacherBroadsheet() {
                     conduct: "GOOD",
                     interest: "HOLDS VARIED INTERESTS",
                     teacherRemarks: "",
-                    formMaster: username || "",
+                    formMaster: teacherInfo?.name || username || "",
                     nextTermBegins: "",
                 });
             }

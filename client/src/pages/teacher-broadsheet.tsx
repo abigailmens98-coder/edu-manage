@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -173,8 +173,9 @@ export default function TeacherBroadsheet() {
     };
 
     const getScore = (studentId: string, subjectId: string) => {
+        if (!scores) return 0;
         const score = scores.find(s => s.studentId === studentId && s.subjectId === subjectId);
-        return score ? score.totalScore : 0;
+        return (score && typeof score.totalScore === 'number') ? score.totalScore : 0;
     };
 
     const getScoreDetails = (studentId: string, subjectId: string) => {
@@ -262,7 +263,7 @@ export default function TeacherBroadsheet() {
         return getGradeFromScales(avg, selectedClass, gradingScales);
     };
 
-    const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel)));
+    const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel))).filter(Boolean);
 
     // Determine if teacher is class teacher for the selected class
     const isClassTeacherForSelectedClass = assignments.some(
@@ -284,10 +285,6 @@ export default function TeacherBroadsheet() {
 
     const displaySubjects = getDisplaySubjects();
 
-    const classStudents = students.filter(s => s.grade === selectedClass);
-    const currentTerm = terms.find(t => t.id === selectedTerm);
-    const totalStudentsInClass = classStudents.length;
-    const studentsWithScoresCount = classStudents.filter(s => calculateTotal(s.id) > 0).length;
 
 
     // ===== PDF Export for Class Teacher (admin-style) =====
@@ -777,279 +774,296 @@ export default function TeacherBroadsheet() {
     // CLASS TEACHER VIEW — Admin-style broadsheet
     // ===========================================
     const renderClassTeacherBroadsheet = () => {
-        const termData = terms.find(t => t.id === selectedTerm);
-        const termName = termData?.name || "";
-        const termNumber = termData?.termNumber || "";
-        const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
-        const yearName = yearData?.year || "";
-        const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+        try {
+            const termData = terms.find(t => t.id === selectedTerm);
+            const termName = termData?.name || "";
+            const termNumber = termData?.termNumber || "";
+            const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
+            const yearName = yearData?.year || "";
+            const today = new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-        const sortedStudentsByRank = [...classStudents].sort((a, b) =>
-            calculateAverage(b.id) - calculateAverage(a.id)
-        );
+            const classStudents = students.filter(s => s.grade === selectedClass);
+            const totalStudentsInClass = classStudents.length;
+            const studentsWithScoresCount = classStudents.filter(s => calculateTotal(s.id) > 0).length;
 
-        return (
-            <>
-                {/* Admin-style broadsheet header */}
-                <Card className="border-green-200">
-                    <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
-                        <div className="text-center">
-                            <CardTitle className="text-lg font-bold">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
-                            <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {selectedClass?.toUpperCase()}</p>
-                            <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border-b text-sm">
-                            <div className="flex gap-6">
-                                <span><strong>Number on Roll:</strong> {classStudents.length}</span>
-                                <span><strong>Term:</strong> {termNumber}</span>
+            const sortedStudentsByRank = [...classStudents].sort((a, b) =>
+                calculateAverage(b?.id || "") - calculateAverage(a?.id || "")
+            );
+
+            return (
+                <>
+                    {/* Admin-style broadsheet header */}
+                    <Card className="border-green-200">
+                        <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
+                            <div className="text-center">
+                                <CardTitle className="text-lg font-bold">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
+                                <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {(selectedClass || "").toUpperCase()}</p>
+                                <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
                             </div>
-                            <span className="text-gray-600">{today}</span>
-                        </div>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="flex justify-between items-center px-4 py-2 bg-gray-50 border-b text-sm">
+                                <div className="flex gap-6">
+                                    <span><strong>Number on Roll:</strong> {classStudents.length}</span>
+                                    <span><strong>Term:</strong> {termNumber}</span>
+                                </div>
+                                <span className="text-gray-600">{today}</span>
+                            </div>
 
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader className="bg-green-50">
-                                    <TableRow>
-                                        <TableHead className="w-[200px] sticky left-0 bg-green-50 font-bold border-r">NAME OF STUDENTS</TableHead>
-                                        {displaySubjects.map(s => (
-                                            <TableHead key={s.id} colSpan={2} className="text-center min-w-[80px] border-x text-xs font-bold">
-                                                {s.name}
-                                            </TableHead>
-                                        ))}
-                                        <TableHead className="text-center font-bold min-w-[50px] border-x">TOT</TableHead>
-                                        <TableHead className="text-center font-bold min-w-[50px] border-x">AVG</TableHead>
-                                        <TableHead className="text-center font-bold min-w-[50px]">POS</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sortedStudentsByRank.map((student) => {
-                                        const total = calculateTotal(student.id);
-                                        const avg = calculateAverage(student.id);
-                                        const position = getStudentOverallPosition(student.id);
-                                        const hasScores = subjects.some(sub => getScore(student.id, sub.id) > 0);
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader className="bg-green-50">
+                                        <TableRow>
+                                            <TableHead className="w-[200px] sticky left-0 bg-green-50 font-bold border-r">NAME OF STUDENTS</TableHead>
+                                            {displaySubjects.map(s => (
+                                                <TableHead key={s.id} colSpan={2} className="text-center min-w-[80px] border-x text-xs font-bold">
+                                                    {s.name}
+                                                </TableHead>
+                                            ))}
+                                            <TableHead className="text-center font-bold min-w-[50px] border-x">TOT</TableHead>
+                                            <TableHead className="text-center font-bold min-w-[50px] border-x">AVG</TableHead>
+                                            <TableHead className="text-center font-bold min-w-[50px]">POS</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {sortedStudentsByRank.map((student) => {
+                                            if (!student) return null;
+                                            const total = calculateTotal(student.id);
+                                            const avg = calculateAverage(student.id);
+                                            const position = getStudentOverallPosition(student.id);
+                                            const hasScores = subjects.some(sub => getScore(student.id, sub.id) > 0);
 
-                                        return (
-                                            <TableRow
-                                                key={student.id}
-                                                className={`${!hasScores ? "opacity-50" : ""} ${avg < 50 && avg > 0 ? "bg-red-50" : ""} hover:bg-gray-50 cursor-pointer group transition-colors`}
-                                                data-testid={`row-broadsheet-${student.id}`}
-                                                onClick={() => handleStudentClick(student)}
-                                            >
-                                                <TableCell className="sticky left-0 bg-white font-medium border-r">
-                                                    {student.name.toUpperCase()}
-                                                </TableCell>
-                                                {displaySubjects.map(s => {
-                                                    const score = getScore(student.id, s.id);
-                                                    const grade = score > 0 ? getNumericGrade(score) : "";
-                                                    return (
-                                                        <>
-                                                            <TableCell
-                                                                key={`${s.id}-score`}
-                                                                className={`text-center border-l ${score === 0 ? 'text-muted-foreground' : score < 50 ? 'text-red-600 font-semibold' : ''}`}
-                                                            >
-                                                                {score || ""}
-                                                            </TableCell>
-                                                            <TableCell
-                                                                key={`${s.id}-grade`}
-                                                                className={`text-center bg-gray-50 text-xs border-r ${score < 50 && score > 0 ? 'text-red-600' : ''}`}
-                                                            >
-                                                                {grade}
-                                                            </TableCell>
-                                                        </>
-                                                    );
-                                                })}
-                                                <TableCell className="text-center font-bold border-x">
-                                                    {total || ""}
-                                                </TableCell>
-                                                <TableCell className={`text-center border-x ${avg < 50 && avg > 0 ? 'text-red-600 font-semibold' : ''}`}>
-                                                    {avg > 0 ? avg : ""}
-                                                </TableCell>
-                                                <TableCell className="text-center font-semibold">
-                                                    {getPositionSuffix(position)}
+                                            return (
+                                                <TableRow
+                                                    key={student.id}
+                                                    className={`${!hasScores ? "opacity-50" : ""} ${avg < 50 && avg > 0 ? "bg-red-50" : ""} hover:bg-gray-50 cursor-pointer group transition-colors`}
+                                                    data-testid={`row-broadsheet-${student.id}`}
+                                                    onClick={() => handleStudentClick(student)}
+                                                >
+                                                    <TableCell className="sticky left-0 bg-white font-medium border-r">
+                                                        {(student.name || "Unknown").toUpperCase()}
+                                                    </TableCell>
+                                                    {displaySubjects.map(s => {
+                                                        const score = getScore(student.id, s.id);
+                                                        const grade = score > 0 ? getNumericGrade(score) : "";
+                                                        return (
+                                                            <React.Fragment key={`${student.id}-${s.id}`}>
+                                                                <TableCell
+                                                                    key={`${s.id}-score`}
+                                                                    className={`text-center border-l ${score === 0 ? 'text-muted-foreground' : score < 50 ? 'text-red-600 font-semibold' : ''}`}
+                                                                >
+                                                                    {score || ""}
+                                                                </TableCell>
+                                                                <TableCell
+                                                                    key={`${s.id}-grade`}
+                                                                    className={`text-center bg-gray-50 text-xs border-r ${score < 50 && score > 0 ? 'text-red-600' : ''}`}
+                                                                >
+                                                                    {grade}
+                                                                </TableCell>
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+                                                    <TableCell className="text-center font-bold border-x">
+                                                        {total || ""}
+                                                    </TableCell>
+                                                    <TableCell className={`text-center border-x ${avg < 50 && avg > 0 ? 'text-red-600 font-semibold' : ''}`}>
+                                                        {avg > 0 ? avg : ""}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-semibold">
+                                                        {getPositionSuffix(position)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        {classStudents.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={displaySubjects.length * 2 + 4} className="text-center py-8 text-muted-foreground">
+                                                    No students enrolled in this class
                                                 </TableCell>
                                             </TableRow>
-                                        );
-                                    })}
-                                    {classStudents.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={displaySubjects.length * 2 + 4} className="text-center py-8 text-muted-foreground">
-                                                No students enrolled in this class
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-
-                        <div className="p-4 bg-gray-50 border-t flex justify-between items-center flex-wrap gap-4">
-                            <div className="text-sm text-gray-600">
-                                <span className="font-medium">{studentsWithScoresCount}</span> of {totalStudentsInClass} students have scores entered
+                                        )}
+                                    </TableBody>
+                                </Table>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            </>
-        );
+
+                            <div className="p-4 bg-gray-50 border-t flex justify-between items-center flex-wrap gap-4">
+                                <div className="text-sm text-gray-600">
+                                    <span className="font-medium">{studentsWithScoresCount}</span> of {totalStudentsInClass} students have scores entered
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </>
+            );
+        } catch (error) {
+            console.error("Rendering error in class broadsheet:", error);
+            return <div className="p-8 text-red-600 font-medium border border-red-200 bg-red-50 rounded-lg">An error occurred while loading the broadsheet. Please try selecting a different class or refreshing the page.</div>;
+        }
     };
 
     // ===========================================
     // SUBJECT TEACHER VIEW — Only assigned subjects with rank
     // ===========================================
     const renderSubjectTeacherBroadsheet = () => {
-        // Rank students by average of their assigned subjects
-        const getSubjectAvg = (studentId: string) => {
-            const totalScore = displaySubjects.reduce((sum, s) => sum + getScore(studentId, s.id), 0);
-            const subjectsWithScores = displaySubjects.filter(s => getScore(studentId, s.id) > 0).length;
-            return subjectsWithScores > 0 ? totalScore / subjectsWithScores : 0;
-        };
+        try {
+            // Rank students by average of their assigned subjects
+            const getSubjectAvg = (studentId: string) => {
+                const totalScore = displaySubjects.reduce((sum, s) => sum + getScore(studentId, s.id), 0);
+                const subjectsWithScores = displaySubjects.filter(s => getScore(studentId, s.id) > 0).length;
+                return subjectsWithScores > 0 ? totalScore / subjectsWithScores : 0;
+            };
 
-        const sortedStudents = [...classStudents].sort((a, b) => getSubjectAvg(b.id) - getSubjectAvg(a.id));
-        const rankedIds = sortedStudents.filter(s => getSubjectAvg(s.id) > 0).map(s => s.id);
+            const classStudents = students.filter(s => s.grade === selectedClass);
+            const currentTerm = terms.find(t => t.id === selectedTerm);
+            const sortedStudents = [...classStudents].sort((a, b) => getSubjectAvg(b.id) - getSubjectAvg(a.id));
+            const rankedIds = sortedStudents.filter(s => getSubjectAvg(s.id) > 0).map(s => s.id);
 
-        return (
-            <Card className="overflow-hidden border-0 shadow-lg">
-                <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-blue-50 border-b">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="text-xl">{selectedClass} — Subject Broadsheet</CardTitle>
-                            <CardDescription className="flex items-center gap-2 mt-1">
-                                <TrendingUp className="h-3.5 w-3.5" />
-                                {currentTerm?.name} • {displaySubjects.map(s => s.name).join(", ")} • Ranked by score
-                            </CardDescription>
-                        </div>
-                        <Badge variant="secondary" className="text-sm px-3 py-1">
-                            {classStudents.length} Students · {displaySubjects.length} Subject(s)
-                        </Badge>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {loadingScores ? (
-                        <div className="flex items-center justify-center py-20">
-                            <div className="text-center space-y-3">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-                                <p className="text-sm text-muted-foreground">Loading scores...</p>
+            return (
+                <Card className="overflow-hidden border-0 shadow-lg">
+                    <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-blue-50 border-b">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle className="text-xl">{(selectedClass || "").toUpperCase()} — Subject Broadsheet</CardTitle>
+                                <CardDescription className="flex items-center gap-2 mt-1">
+                                    <TrendingUp className="h-3.5 w-3.5" />
+                                    {currentTerm?.name} • {displaySubjects.map(s => s.name).join(", ")} • Ranked by score
+                                </CardDescription>
                             </div>
+                            <Badge variant="secondary" className="text-sm px-3 py-1">
+                                {classStudents.length} Students · {displaySubjects.length} Subject(s)
+                            </Badge>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/60 hover:bg-muted/60">
-                                        <TableHead className="w-[50px] font-bold text-center sticky left-0 bg-muted/60 z-10">Rank</TableHead>
-                                        <TableHead className="w-[180px] font-bold sticky left-[50px] bg-muted/60 z-10">Student</TableHead>
-                                        {displaySubjects.map(s => (
-                                            <TableHead key={s.id} className="text-center min-w-[80px] text-xs font-bold px-2">
-                                                {s.name}
-                                            </TableHead>
-                                        ))}
-                                        {displaySubjects.map(s => (
-                                            <TableHead key={`${s.id}-grade`} className="text-center min-w-[55px] font-bold bg-green-50">
-                                                Grade
-                                            </TableHead>
-                                        ))}
-                                        <TableHead className="text-center font-bold min-w-[55px] bg-amber-50">Remark</TableHead>
-                                        <TableHead className="text-center font-bold min-w-[60px] bg-blue-50">Position</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sortedStudents.map((student) => {
-                                        const rankIdx = rankedIds.indexOf(student.id);
-                                        const rank = rankIdx >= 0 ? rankIdx + 1 : null;
-                                        const isTopThree = rankIdx >= 0 && rankIdx < 3 && getSubjectAvg(student.id) > 0;
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {loadingScores ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="text-center space-y-3">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+                                    <p className="text-sm text-muted-foreground">Loading scores...</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-muted/60 hover:bg-muted/60">
+                                            <TableHead className="w-[50px] font-bold text-center sticky left-0 bg-muted/60 z-10">Rank</TableHead>
+                                            <TableHead className="w-[180px] font-bold sticky left-[50px] bg-muted/60 z-10">Student</TableHead>
+                                            {displaySubjects.map(s => (
+                                                <TableHead key={s.id} className="text-center min-w-[80px] text-xs font-bold px-2">
+                                                    {s.name}
+                                                </TableHead>
+                                            ))}
+                                            {displaySubjects.map(s => (
+                                                <TableHead key={`${s.id}-grade`} className="text-center min-w-[55px] font-bold bg-green-50">
+                                                    Grade
+                                                </TableHead>
+                                            ))}
+                                            <TableHead className="text-center font-bold min-w-[55px] bg-amber-50">Remark</TableHead>
+                                            <TableHead className="text-center font-bold min-w-[60px] bg-blue-50">Position</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {sortedStudents.map((student) => {
+                                            const rankIdx = rankedIds.indexOf(student.id);
+                                            const rank = rankIdx >= 0 ? rankIdx + 1 : null;
+                                            const isTopThree = rankIdx >= 0 && rankIdx < 3 && getSubjectAvg(student.id) > 0;
 
-                                        return (
-                                            <TableRow
-                                                key={student.id}
-                                                className={`cursor-pointer group transition-colors ${isTopThree ? "bg-yellow-50/50 hover:bg-yellow-50" : "hover:bg-slate-50"}`}
-                                                data-testid={`row-broadsheet-${student.id}`}
-                                                onClick={() => handleStudentClick(student)}
-                                            >
-                                                <TableCell className="text-center font-bold sticky left-0 bg-inherit z-10">
-                                                    {rank ? (
-                                                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold
+                                            return (
+                                                <TableRow
+                                                    key={student.id}
+                                                    className={`cursor-pointer group transition-colors ${isTopThree ? "bg-yellow-50/50 hover:bg-yellow-50" : "hover:bg-slate-50"}`}
+                                                    data-testid={`row-broadsheet-${student.id}`}
+                                                    onClick={() => handleStudentClick(student)}
+                                                >
+                                                    <TableCell className="text-center font-bold sticky left-0 bg-inherit z-10">
+                                                        {rank ? (
+                                                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold
                                                             ${rankIdx === 0 ? "bg-yellow-400 text-yellow-900" :
-                                                                rankIdx === 1 ? "bg-gray-300 text-gray-800" :
-                                                                    rankIdx === 2 ? "bg-amber-600 text-white" :
-                                                                        "text-muted-foreground"}`}>
-                                                            {rank}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-muted-foreground">-</span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="sticky left-[50px] bg-inherit z-10">
-                                                    <div className="font-medium text-sm">{student.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{student.studentId}</div>
-                                                </TableCell>
-                                                {displaySubjects.map(s => {
-                                                    const score = getScore(student.id, s.id);
-                                                    return (
-                                                        <TableCell key={s.id} className="text-center text-sm px-2">
-                                                            {score > 0 ? (
-                                                                <span className={
-                                                                    score >= 80 ? "text-green-700 font-semibold" :
-                                                                        score >= 60 ? "text-blue-700" :
-                                                                            score >= 40 ? "text-amber-700" :
-                                                                                "text-red-600"
-                                                                }>
-                                                                    {score}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-muted-foreground/40">-</span>
-                                                            )}
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                                {displaySubjects.map(s => {
-                                                    const score = getScore(student.id, s.id);
-                                                    const grade = score > 0 ? getNumericGrade(score) : "-";
-                                                    return (
-                                                        <TableCell key={`${s.id}-grade`} className="text-center bg-green-50/50">
-                                                            <Badge
-                                                                variant={
-                                                                    grade === "-" ? "outline" :
-                                                                        typeof grade === "number" && grade <= 3 ? "default" :
-                                                                            typeof grade === "number" && grade <= 5 ? "secondary" :
-                                                                                "destructive"
-                                                                }
-                                                                className="text-xs font-bold"
-                                                            >
-                                                                {grade}
-                                                            </Badge>
-                                                        </TableCell>
-                                                    );
-                                                })}
-                                                <TableCell className="text-center text-xs bg-amber-50/50 text-muted-foreground">
-                                                    {displaySubjects.length === 1
-                                                        ? getGradeRemark(getScore(student.id, displaySubjects[0].id))
-                                                        : getSubjectAvg(student.id) > 0
-                                                            ? getGradeRemark(Math.round(getSubjectAvg(student.id)))
-                                                            : "-"
-                                                    }
-                                                </TableCell>
-                                                <TableCell className="text-center font-bold text-sm bg-blue-50/50">
-                                                    {getPositionSuffix(rank)}
+                                                                    rankIdx === 1 ? "bg-gray-300 text-gray-800" :
+                                                                        rankIdx === 2 ? "bg-amber-600 text-white" :
+                                                                            "text-muted-foreground"}`}>
+                                                                {rank}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="sticky left-[50px] bg-inherit z-10">
+                                                        <div className="font-medium text-sm">{student.name || "Unknown"}</div>
+                                                        <div className="text-xs text-muted-foreground">{student.studentId}</div>
+                                                    </TableCell>
+                                                    {displaySubjects.map(s => {
+                                                        const score = getScore(student.id, s.id);
+                                                        return (
+                                                            <TableCell key={s.id} className="text-center text-sm px-2">
+                                                                {score > 0 ? (
+                                                                    <span className={
+                                                                        score >= 80 ? "text-green-700 font-semibold" :
+                                                                            score >= 60 ? "text-blue-700" :
+                                                                                score >= 40 ? "text-amber-700" :
+                                                                                    "text-red-600"
+                                                                    }>
+                                                                        {score}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground/40">-</span>
+                                                                )}
+                                                            </TableCell>
+                                                        );
+                                                    })}
+                                                    {displaySubjects.map(s => {
+                                                        const score = getScore(student.id, s.id);
+                                                        const grade = score > 0 ? getNumericGrade(score) : "-";
+                                                        return (
+                                                            <TableCell key={`${s.id}-grade`} className="text-center bg-green-50/50">
+                                                                <Badge
+                                                                    variant={
+                                                                        grade === "-" ? "outline" :
+                                                                            typeof grade === "number" && grade <= 3 ? "default" :
+                                                                                typeof grade === "number" && grade <= 5 ? "secondary" :
+                                                                                    "destructive"
+                                                                    }
+                                                                    className="text-xs font-bold"
+                                                                >
+                                                                    {grade}
+                                                                </Badge>
+                                                            </TableCell>
+                                                        );
+                                                    })}
+                                                    <TableCell className="text-center text-xs bg-amber-50/50 text-muted-foreground">
+                                                        {displaySubjects.length === 1
+                                                            ? getGradeRemark(getScore(student.id, displaySubjects[0].id))
+                                                            : getSubjectAvg(student.id) > 0
+                                                                ? getGradeRemark(Math.round(getSubjectAvg(student.id)))
+                                                                : "-"
+                                                        }
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold text-sm bg-blue-50/50">
+                                                        {getPositionSuffix(rank)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        {sortedStudents.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={displaySubjects.length * 2 + 4} className="text-center py-16">
+                                                    <BookOpen className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+                                                    <p className="text-muted-foreground font-medium">No students found in {selectedClass}</p>
                                                 </TableCell>
                                             </TableRow>
-                                        );
-                                    })}
-                                    {sortedStudents.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={displaySubjects.length * 2 + 4} className="text-center py-16">
-                                                <BookOpen className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
-                                                <p className="text-muted-foreground font-medium">No students found in {selectedClass}</p>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-        );
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            );
+        } catch (error) {
+            console.error("Rendering error in subject broadsheet:", error);
+            return <div className="p-8 text-red-600 font-medium border border-red-200 bg-red-50 rounded-lg">An error occurred while loading the broadsheet. Please try selecting a different class or refreshing the page.</div>;
+        }
     };
 
     return (
@@ -1296,14 +1310,14 @@ export default function TeacherBroadsheet() {
                                             <span className="text-blue-600">{previewStudent.grade}</span>
                                         </div>
                                         <div className="flex gap-2">
-                                            <span className="font-semibold text-slate-700">{yearName}</span>
-                                            <span className="text-blue-600 font-medium">{termName}</span>
+                                            <span className="font-semibold text-slate-700">{yearName || "Academic Year"}</span>
+                                            <span className="text-blue-600 font-medium">{termName || "Select Term"}</span>
                                         </div>
                                     </div>
                                     <div className="flex justify-between">
                                         <div className="flex gap-2">
                                             <span className="font-semibold text-blue-700">Number On Roll :</span>
-                                            <span className="text-blue-600">{classStudents.length}</span>
+                                            <span className="text-blue-600">{students.filter(s => s.grade === selectedClass).length}</span>
                                         </div>
                                         <div className="flex gap-2">
                                             <span className="font-semibold text-blue-700">Next Term Begins :</span>
@@ -1460,7 +1474,7 @@ export default function TeacherBroadsheet() {
                                     <div className="flex gap-2">
                                         <span className="font-semibold">Position:</span>
                                         <span className="text-blue-600 font-medium">
-                                            {studentPosition != null && studentPosition > 0 ? `${getPositionSuffix(studentPosition)} out of ${classStudents.length}` : "N/A"}
+                                            {studentPosition != null && studentPosition > 0 ? `${getPositionSuffix(studentPosition)} out of ${students.filter(s => s.grade === selectedClass).length}` : "N/A"}
                                         </span>
                                     </div>
                                 </div>

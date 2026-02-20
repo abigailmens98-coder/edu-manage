@@ -21,11 +21,11 @@ export async function seedDatabase() {
     }
 
     // Create default teacher user
-    const existingTeacher = await storage.getUserByUsername("teacher");
+    const existingTeacher = await storage.getUserByUsername("teacher_001");
     if (!existingTeacher) {
       const teacherPassword = await bcrypt.hash("teacher123", 10);
       const teacherUser = await storage.createUser({
-        username: "teacher",
+        username: "teacher_001",
         password: teacherPassword,
         role: "teacher",
         secretWord: "teaching",
@@ -41,9 +41,30 @@ export async function seedDatabase() {
         assignedClass: "Basic 1",
       });
 
-      console.log("✅ Teacher user created (username: teacher, password: teacher123)");
-    } else {
-      console.log("✅ Teacher user already exists");
+      console.log("✅ Teacher user created (username: teacher_001, password: teacher123)");
+    }
+
+    // Create another default teacher user
+    const existingSarah = await storage.getUserByUsername("sarah@academia.edu");
+    if (!existingSarah) {
+      const sarahPassword = await bcrypt.hash("teacher123", 10);
+      const sarahUser = await storage.createUser({
+        username: "sarah@academia.edu",
+        password: sarahPassword,
+        role: "teacher",
+        secretWord: "teaching",
+      });
+
+      await storage.createTeacher({
+        userId: sarahUser.id,
+        teacherId: "T002",
+        name: "Sarah Academia",
+        subject: "Science",
+        email: "sarah@academia.edu",
+        assignedClass: "Basic 2",
+      });
+
+      console.log("✅ Sarah teacher user created (username: sarah@academia.edu, password: teacher123)");
     }
 
     // Create default subjects if none exist

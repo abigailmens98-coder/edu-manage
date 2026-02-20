@@ -659,7 +659,7 @@ export default function Reports() {
     doc.text(nextTermBegins, 165, 82);
 
     // Score Table
-    const tableHead = [["SUBJECTS", "CLASS\nSCORE\n30%", "EXAMS\nSCORE\n70%", "TOTAL\n(100%)", "GRADES", "POS", "REMARKS"]];
+    const tableHead = [["SUBJECTS", "CLASS\nSCORE\n40%", "EXAMS\nSCORE\n60%", "TOTAL\n(100%)", "GRADES", "POS", "REMARKS"]];
     const tableBody = allSubjects.map(s => {
       const scoreData = scores.find(sc => sc.studentId === student.id && sc.subjectId === s.id);
       const classScore = scoreData?.classScore || 0;

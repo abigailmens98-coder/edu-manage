@@ -109,7 +109,7 @@ export default function TeacherBroadsheet() {
         conduct: "GOOD",
         interest: "HOLDS VARIED INTERESTS",
         teacherRemarks: "",
-        formMaster: "",
+        formMaster: username || "",
         nextTermBegins: "",
     });
 
@@ -186,15 +186,13 @@ export default function TeacherBroadsheet() {
     };
 
     const calculateTotal = (studentId: string) => {
-        const classSubjects = getSubjectsForClass(selectedClass);
-        return classSubjects.reduce((sum: number, sub: any) => sum + getScore(studentId, sub.id), 0);
+        return displaySubjects.reduce((sum: number, sub: any) => sum + getScore(studentId, sub.id), 0);
     };
 
     const calculateAverage = (studentId: string) => {
-        const classSubjects = getSubjectsForClass(selectedClass);
-        if (classSubjects.length === 0) return 0;
-        const total = classSubjects.reduce((sum: number, s: any) => sum + getScore(studentId, s.id), 0);
-        return parseFloat((total / classSubjects.length).toFixed(1));
+        if (displaySubjects.length === 0) return 0;
+        const total = displaySubjects.reduce((sum: number, s: any) => sum + getScore(studentId, s.id), 0);
+        return parseFloat((total / displaySubjects.length).toFixed(1));
     };
 
     const getNumericGrade = (score: number): any => {
@@ -273,8 +271,8 @@ export default function TeacherBroadsheet() {
     // Get subjects to display based on role
     const getDisplaySubjects = () => {
         if (isClassTeacherForSelectedClass) {
-            // Class teacher sees subjects for this class
-            return getSubjectsForClass(selectedClass);
+            // Class teacher sees ALL subjects (admin style)
+            return subjects;
         }
         // Subject teacher sees ONLY their assigned subjects
         const assignedSubjectIds = assignments
@@ -562,7 +560,7 @@ export default function TeacherBroadsheet() {
                     conduct: "GOOD",
                     interest: "HOLDS VARIED INTERESTS",
                     teacherRemarks: "",
-                    formMaster: "",
+                    formMaster: username || "",
                     nextTermBegins: "",
                 });
             }
@@ -662,7 +660,7 @@ export default function TeacherBroadsheet() {
 
         autoTable(doc, {
             startY: 75,
-            head: [["SUBJECT", "CLASS SCORE", "EXAM SCORE", "TOTAL", "POS", "REMARK"]],
+            head: [["SUBJECT", "CLASS\nSCORE\n40%", "EXAMS\nSCORE\n60%", "TOTAL\n(100%)", "POS", "REMARK"]],
             body: tableBody,
             theme: "grid",
             headStyles: { fillColor: [30, 64, 175], textColor: 255 },

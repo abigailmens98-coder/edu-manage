@@ -55,7 +55,7 @@ export default function ScoreEntry() {
       setStudents(studentsData);
       setSubjects(subjectsData);
       setTerms(termsData);
-      
+
       const activeTerm = termsData.find(t => t.status === "Active");
       if (activeTerm) {
         setSelectedTerm(activeTerm.id);
@@ -124,7 +124,7 @@ export default function ScoreEntry() {
     try {
       const allScores = await scoresApi.getByTerm(selectedTerm);
       const initialScores: Record<string, { class: string, exam: string, id?: string }> = {};
-      
+
       classStudents.forEach(student => {
         const existingScore = allScores.find(
           s => s.studentId === student.id && s.subjectId === selectedSubject
@@ -139,7 +139,7 @@ export default function ScoreEntry() {
           initialScores[student.id] = { class: "", exam: "" };
         }
       });
-      
+
       setScores(initialScores);
     } catch (error) {
       toast({
@@ -151,10 +151,8 @@ export default function ScoreEntry() {
   };
 
   const getMaxScore = (type: 'class' | 'exam') => {
-    const basicNum = parseInt(selectedClass.replace(/[^0-9]/g, "") || "0");
-    const is1to6 = basicNum >= 1 && basicNum <= 6;
-    if (type === 'class') return is1to6 ? 50 : 30;
-    return is1to6 ? 50 : 70;
+    if (type === 'class') return 40;
+    return 60;
   };
 
   const handleScoreChange = (studentId: string, type: 'class' | 'exam', value: string) => {
@@ -162,7 +160,7 @@ export default function ScoreEntry() {
     if (numValue < 0) numValue = 0;
     const maxVal = getMaxScore(type);
     if (numValue > maxVal) numValue = maxVal;
-    
+
     setScores(prev => ({
       ...prev,
       [studentId]: {
@@ -198,12 +196,12 @@ export default function ScoreEntry() {
       });
 
       await Promise.all(promises);
-      
+
       toast({
         title: "Success",
         description: "Scores saved successfully!",
       });
-      
+
       await loadScores();
     } catch (error) {
       toast({
@@ -231,20 +229,20 @@ export default function ScoreEntry() {
       const score = scores[s.id];
       return score && (parseInt(score.class || "0") > 0 || parseInt(score.exam || "0") > 0);
     });
-    
+
     if (studentsWithScores.length === 0) {
       return { average: 0, passed: 0, failed: 0, total: classStudents.length };
     }
-    
+
     const totals = studentsWithScores.map(s => {
       const score = scores[s.id];
       return parseInt(score?.class || "0") + parseInt(score?.exam || "0");
     });
-    
+
     const average = totals.reduce((a, b) => a + b, 0) / totals.length;
     const passed = totals.filter(t => t >= 50).length;
     const failed = totals.filter(t => t < 50).length;
-    
+
     return { average: Math.round(average * 10) / 10, passed, failed, total: classStudents.length, entered: studentsWithScores.length };
   };
 
@@ -262,13 +260,13 @@ export default function ScoreEntry() {
 
     const subjectName = subjects.find(s => s.id === selectedSubject)?.name || "";
     const termName = terms.find(t => t.id === selectedTerm)?.name || "";
-    
+
     const headers = ["STUDENT_ID", "STUDENT_NAME", "CLASS_SCORE", "EXAM_SCORE"];
     const rows = classStudents.map(s => {
       const studentScore = scores[s.id] || { class: "", exam: "" };
       return [s.studentId, s.name, studentScore.class || "0", studentScore.exam || "0"];
     });
-    
+
     const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
@@ -295,7 +293,7 @@ export default function ScoreEntry() {
       try {
         const text = e.target?.result as string;
         const lines = text.split("\n").filter(line => line.trim());
-        
+
         if (lines.length < 2) {
           setCsvError("CSV file must have a header row and at least one data row");
           return;
@@ -322,7 +320,7 @@ export default function ScoreEntry() {
 
         for (let i = 1; i < lines.length; i++) {
           const values = lines[i].split(",").map(v => v.trim());
-          
+
           let student: any = null;
           if (studentIdIdx >= 0 && values[studentIdIdx]) {
             student = classStudents.find(s => s.studentId === values[studentIdIdx]);
@@ -331,7 +329,7 @@ export default function ScoreEntry() {
             const searchName = values[studentNameIdx].toLowerCase();
             student = classStudents.find(s => s.name.toLowerCase().includes(searchName) || searchName.includes(s.name.toLowerCase()));
           }
-          
+
           if (!student) {
             errors++;
             continue;
@@ -387,7 +385,7 @@ export default function ScoreEntry() {
     setCsvSuccess("");
 
     const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
-    
+
     if (!isExcel) {
       handleCSVImport(event);
       return;
@@ -401,7 +399,7 @@ export default function ScoreEntry() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as string[][];
-        
+
         if (jsonData.length < 2) {
           setCsvError("Excel file must have a header row and at least one data row");
           return;
@@ -428,7 +426,7 @@ export default function ScoreEntry() {
 
         for (let i = 1; i < jsonData.length; i++) {
           const values = jsonData[i].map(v => String(v || "").trim());
-          
+
           let student: any = null;
           if (studentIdIdx >= 0 && values[studentIdIdx]) {
             student = classStudents.find(s => s.studentId === values[studentIdIdx]);
@@ -437,7 +435,7 @@ export default function ScoreEntry() {
             const searchName = values[studentNameIdx].toLowerCase();
             student = classStudents.find(s => s.name.toLowerCase().includes(searchName) || searchName.includes(s.name.toLowerCase()));
           }
-          
+
           if (!student) {
             errors++;
             continue;
@@ -513,7 +511,7 @@ export default function ScoreEntry() {
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">Score Entry</h1>
         <p className="text-muted-foreground mt-1">
-          {isTeacher 
+          {isTeacher
             ? "Enter scores for your assigned classes and subjects."
             : "Enter class and exam scores for all students in a subject."
           }
@@ -524,7 +522,7 @@ export default function ScoreEntry() {
         <Alert className="bg-blue-50 border-blue-200">
           <AlertCircle className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800 ml-2">
-            You can only enter scores for the classes and subjects assigned to you. 
+            You can only enter scores for the classes and subjects assigned to you.
             Showing {availableClasses.length} class(es) and {availableSubjects.length} subject(s) based on your assignments.
           </AlertDescription>
         </Alert>
@@ -571,8 +569,8 @@ export default function ScoreEntry() {
           </div>
           <div className="space-y-2">
             <Label>Subject {isTeacher && "(Assigned)"}</Label>
-            <Select 
-              value={selectedSubject} 
+            <Select
+              value={selectedSubject}
               onValueChange={setSelectedSubject}
               disabled={!selectedClass}
             >
@@ -599,7 +597,7 @@ export default function ScoreEntry() {
             <div>
               <CardTitle>{selectedClass} - Score Entry</CardTitle>
               <CardDescription>
-                {isBasic1to6 ? "Basic 1-6 (50% Class + 50% Exam)" : "Basic 7-9 (30% Class + 70% Exam)"}
+                Continuous Assessment (40% Class + 60% Exam)
               </CardDescription>
               {classStats.entered !== undefined && classStats.entered > 0 && (
                 <div className="flex gap-4 mt-3 text-sm">
@@ -622,7 +620,7 @@ export default function ScoreEntry() {
               <Button variant="outline" onClick={exportScoresToCSV} className="gap-2" data-testid="button-export-scores-csv">
                 <FileDown className="h-4 w-4" /> Export CSV
               </Button>
-              
+
               <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setCsvError(""); setCsvSuccess(""); } }}>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="gap-2" data-testid="button-import-scores">
@@ -667,7 +665,7 @@ export default function ScoreEntry() {
                   </div>
                 </DialogContent>
               </Dialog>
-              
+
               <Button onClick={handleSave} className="gap-2" data-testid="button-save-scores">
                 <Save className="h-4 w-4" /> Save Scores
               </Button>
@@ -678,8 +676,8 @@ export default function ScoreEntry() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[300px]">Student Name</TableHead>
-                  <TableHead>Class Score {isBasic1to6 ? "(50%)" : "(30%)"}</TableHead>
-                  <TableHead>Exam Score {isBasic1to6 ? "(50%)" : "(70%)"}</TableHead>
+                  <TableHead>Class Score (40%)</TableHead>
+                  <TableHead>Exam Score (60%)</TableHead>
                   <TableHead>Total (100%)</TableHead>
                   <TableHead>Grade</TableHead>
                 </TableRow>
@@ -689,7 +687,7 @@ export default function ScoreEntry() {
                   const classScore = parseInt(scores[student.id]?.class || "0");
                   const examScore = parseInt(scores[student.id]?.exam || "0");
                   const total = classScore + examScore;
-                  
+
                   return (
                     <TableRow key={student.id} data-testid={`row-score-${student.id}`}>
                       <TableCell className="font-medium">
@@ -697,9 +695,9 @@ export default function ScoreEntry() {
                         <div className="text-xs text-muted-foreground">{student.studentId}</div>
                       </TableCell>
                       <TableCell>
-                        <Input 
-                          type="number" 
-                          className="w-24" 
+                        <Input
+                          type="number"
+                          className="w-24"
                           min={0}
                           max={getMaxScore('class')}
                           value={scores[student.id]?.class || ""}
@@ -708,9 +706,9 @@ export default function ScoreEntry() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Input 
-                          type="number" 
-                          className="w-24" 
+                        <Input
+                          type="number"
+                          className="w-24"
                           min={0}
                           max={getMaxScore('exam')}
                           value={scores[student.id]?.exam || ""}

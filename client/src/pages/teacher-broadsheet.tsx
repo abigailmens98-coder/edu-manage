@@ -100,6 +100,7 @@ export default function TeacherBroadsheet() {
     const [previewStudent, setPreviewStudent] = useState<any | null>(null);
     const [studentTermDetails, setStudentTermDetails] = useState<any | null>(null);
     const [loadingReport, setLoadingReport] = useState(false);
+    const [generatingBulk, setGeneratingBulk] = useState(false);
     const [schoolLogoBase64, setSchoolLogoBase64] = useState<string>("");
 
     const [reportFormData, setReportFormData] = useState({
@@ -169,7 +170,8 @@ export default function TeacherBroadsheet() {
     // Helper functions moved to top to avoid ReferenceError
     const getSubjectsForClass = (classLevel: string) => {
         if (!classLevel || !subjects) return [];
-        return subjects.filter(s => Array.isArray(s.classLevels) && s.classLevels.includes(classLevel));
+        const filtered = subjects.filter(s => Array.isArray(s.classLevels) && s.classLevels.includes(classLevel));
+        return filtered.length > 0 ? filtered : subjects;
     };
 
     const getScore = (studentId: string, subjectId: string) => {
@@ -576,15 +578,11 @@ export default function TeacherBroadsheet() {
         fetchStudentScores(student.id);
     };
 
-    const printStudentReport = async (student: any) => {
-        if (!selectedTerm || !studentTermDetails) return;
-
+    const generateStudentReportTemplate = (doc: jsPDF, student: any, sDetails: any) => {
         const termData = terms.find(t => t.id === selectedTerm);
         const termName = termData?.name || "";
         const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
         const yearName = yearData?.year || "";
-
-        const doc = new jsPDF();
 
         // Add logo if available
         if (schoolLogoBase64) {
@@ -649,12 +647,12 @@ export default function TeacherBroadsheet() {
             const remark = getGradeFromScales(total, selectedClass, gradingScales).description;
 
             return [
-                sub.name,
+                sub.name.toUpperCase(),
                 classScore.toFixed(1),
                 examScore.toFixed(1),
                 total.toFixed(1),
-                position.toString(),
-                remark
+                getPositionSuffix(position),
+                remark.toUpperCase()
             ];
         });
 
@@ -683,12 +681,59 @@ export default function TeacherBroadsheet() {
         doc.setFont("helvetica", "bold");
         doc.text("CLASS TEACHER'S REMARKS", 25, finalY + 32);
         doc.setFont("helvetica", "italic");
-        const remarks = studentTermDetails?.classTeacherRemark || "No remarks entered.";
+        const remarks = sDetails?.classTeacherRemark || "No remarks entered.";
         const splitRemarks = doc.splitTextToSize(remarks, 160);
         doc.text(splitRemarks, 25, finalY + 42);
 
+        // Signatures
+        doc.setFont("helvetica", "bold");
+        doc.text("Class Teacher:", 20, finalY + 75);
+        doc.setFont("helvetica", "normal");
+        doc.text(sDetails?.formMaster || teacherInfo?.name || username || "_________________", 50, finalY + 75);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Head's Signature:", 120, finalY + 75);
+        doc.setFont("helvetica", "normal");
+        doc.text("_________________", 155, finalY + 75);
+    };
+
+    const printStudentReport = async (student: any) => {
+        if (!selectedTerm) return;
+        const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+        const doc = new jsPDF();
+        generateStudentReportTemplate(doc, student, sDetails);
+        const termData = terms.find(t => t.id === selectedTerm);
+        const termName = termData?.name || "";
         doc.save(`${student.name.replace(/\s+/g, "_")}_Report_${termName.replace(/\s+/g, "_")}.pdf`);
         toast({ title: "Success", description: "Report PDF generated" });
+    };
+
+    const exportAllReportsPDF = async () => {
+        if (!selectedClass || !selectedTerm) return;
+        setGeneratingBulk(true);
+        try {
+            const doc = new jsPDF();
+            const sortedStudentsByRank = [...classStudents].sort((a, b) =>
+                calculateAverage(b?.id || "") - calculateAverage(a?.id || "")
+            );
+
+            for (let i = 0; i < sortedStudentsByRank.length; i++) {
+                const student = sortedStudentsByRank[i];
+                if (i > 0) doc.addPage();
+                const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+                generateStudentReportTemplate(doc, student, sDetails);
+            }
+
+            const termData = terms.find(t => t.id === selectedTerm);
+            const termName = termData?.name || "";
+            doc.save(`All_Reports_${selectedClass}_${termName.replace(/\s+/g, "_")}.pdf`);
+            toast({ title: "Success", description: "All student reports generated" });
+        } catch (error) {
+            console.error("Failed to generate bulk reports", error);
+            toast({ title: "Error", description: "Failed to generate all reports", variant: "destructive" });
+        } finally {
+            setGeneratingBulk(false);
+        }
     };
 
     const handleSaveReportDetails = async () => {
@@ -1140,6 +1185,22 @@ export default function TeacherBroadsheet() {
                                                 <FileDown className="h-4 w-4" /> Export PDF
                                             </Button>
                                             <Button
+                                                onClick={exportAllReportsPDF}
+                                                className="gap-2 bg-gradient-to-r from-blue-600 to-primary text-white"
+                                                variant="default"
+                                                disabled={generatingBulk}
+                                            >
+                                                {generatingBulk ? (
+                                                    <>
+                                                        <Loader2 className="h-4 w-4 animate-spin" /> Generating Reports...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Printer className="h-4 w-4" /> Print All Reports
+                                                    </>
+                                                )}
+                                            </Button>
+                                            <Button
                                                 onClick={exportClassTeacherExcel}
                                                 className="gap-2"
                                                 variant="outline"
@@ -1343,12 +1404,12 @@ export default function TeacherBroadsheet() {
                                                 <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                                                     <div>CLASS</div>
                                                     <div>SCORE</div>
-                                                    <div className="text-xs font-normal">30 %</div>
+                                                    <div className="text-xs font-normal">40 %</div>
                                                 </TableHead>
                                                 <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                                                     <div>EXAMS</div>
                                                     <div>SCORE</div>
-                                                    <div className="text-xs font-normal">70 %</div>
+                                                    <div className="text-xs font-normal">60 %</div>
                                                 </TableHead>
                                                 <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                                                     <div>TOTAL</div>

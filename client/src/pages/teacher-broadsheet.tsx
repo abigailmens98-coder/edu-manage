@@ -1312,7 +1312,7 @@ export default function TeacherBroadsheet() {
                             );
                         }
 
-                        const classSubjects = getSubjectsForClass(selectedClass);
+                        const classSubjects = displaySubjects;
                         const studentTotal = classSubjects.reduce((sum: number, sub: any) => sum + getScore(previewStudent.id, sub.id), 0);
                         const subjectsWithScores = classSubjects.filter(sub => getScore(previewStudent.id, sub.id) > 0);
                         const studentAvg = subjectsWithScores.length > 0 ? parseFloat((studentTotal / subjectsWithScores.length).toFixed(1)) : 0;

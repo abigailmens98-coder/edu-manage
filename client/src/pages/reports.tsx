@@ -1259,12 +1259,12 @@ export default function Reports() {
                         <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                           <div>CLASS</div>
                           <div>SCORE</div>
-                          <div className="text-xs font-normal">30 %</div>
+                          <div className="text-xs font-normal">40 %</div>
                         </TableHead>
                         <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                           <div>EXAMS</div>
                           <div>SCORE</div>
-                          <div className="text-xs font-normal">70 %</div>
+                          <div className="text-xs font-normal">60 %</div>
                         </TableHead>
                         <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                           <div>TOTAL</div>

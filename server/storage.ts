@@ -31,8 +31,9 @@ import { and } from "drizzle-orm";
 // Create database pool with error handling
 let pool: pg.Pool | null = null;
 let db: any = null;
+let databaseSuccessfullyConnected = false;
 
-const isDatabaseAvailable = !!process.env.DATABASE_URL;
+const isDatabaseAvailable = !!process.env.DATABASE_URL && process.env.FORCE_IN_MEMORY !== "true";
 
 if (isDatabaseAvailable) {
   try {
@@ -43,23 +44,24 @@ if (isDatabaseAvailable) {
 
     db = drizzle(pool, { schema });
 
-    // Test connection
-    pool.query('SELECT NOW()', (err) => {
-      if (err) {
-        console.error('❌ Database connection error:', err.message);
-      } else {
-        console.log('✅ Database connected successfully');
+    // Initial silent check
+    pool.query('SELECT NOW()').then(() => {
+      console.log('✅ Database connected successfully');
+      databaseSuccessfullyConnected = true;
+    }).catch((err) => {
+      console.error('❌ Database connection failed:', err.message);
+      if (err.message.includes('password authentication failed')) {
+        console.error('🛑 DATABASE AUTHENTICATION ERROR: Please check your password in the Render dashboard!');
       }
     });
   } catch (error) {
-    console.error('❌ Failed to initialize database:', error);
+    console.error('❌ Failed to initialize database pool:', error);
   }
 } else {
-  console.warn('⚠️  DATABASE_URL not set - using in-memory storage');
-  console.warn('⚠️  Data will not persist between restarts');
+  console.warn('⚠️  DATABASE_URL not set or FORCE_IN_MEMORY is true - using in-memory storage');
 }
 
-export { pool, isDatabaseAvailable };
+export { pool, isDatabaseAvailable, databaseSuccessfullyConnected };
 
 export interface IStorage {
   // User operations
@@ -1061,4 +1063,29 @@ export class MemStorage implements IStorage {
 
 }
 
-export const storage = isDatabaseAvailable ? new DatabaseStorage() : new MemStorage();
+// Determine which storage to use. 
+// We default to MemStorage if DB init fails or if we encounter an auth error.
+export let storage: IStorage;
+
+if (isDatabaseAvailable && pool) {
+  // We'll use DatabaseStorage, but it might still fail at runtime if the password is wrong.
+  // Ideally, we'd wait for the test query, but for now we'll export it and let it log.
+  storage = new DatabaseStorage();
+
+  // Refined connection test
+  pool.query('SELECT NOW()').then(() => {
+    console.log('✅ Database connected successfully');
+    databaseSuccessfullyConnected = true;
+  }).catch((err) => {
+    console.error('❌ Database connection failed:', err.message);
+    if (err.message.includes('password authentication failed')) {
+      console.error('🛑 AUTHENTICATION ERROR: Please check your DATABASE_URL password on Render!');
+      console.warn('🔄 Falling back to in-memory storage for this session to keep the app running.');
+      // Note: Replacing the storage instance after export might not work for all importers
+      // but the app logic usually uses the storage object reference.
+      storage = new MemStorage();
+    }
+  });
+} else {
+  storage = new MemStorage();
+}

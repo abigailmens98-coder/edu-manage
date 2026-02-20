@@ -1,0 +1,24 @@
+
+--- Testing: Direct Host + Password ---
+✅ SUCCESS: Direct Host + Password
+Details: {"current_database":"neondb","current_user":"neondb_owner","version":"PostgreSQL 17.7 (bdd1736) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit"}
+
+--- Testing: Direct Host (Passwordless?) ---
+❌ FAILED: Direct Host (Passwordless?)
+Error code: None
+Message: SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string
+
+--- Testing: pg.neon.tech (user$project, Passwordless?) ---
+❌ FAILED: pg.neon.tech (user$project, Passwordless?)
+Error code: None
+Message: Connection terminated due to connection timeout
+
+--- Testing: pg.neon.tech (user$project + Password) ---
+❌ FAILED: pg.neon.tech (user$project + Password)
+Error code: None
+Message: Connection terminated due to connection timeout
+
+--- Testing: pg.neon.tech (project only as user?) ---
+❌ FAILED: pg.neon.tech (project only as user?)
+Error code: None
+Message: Connection terminated due to connection timeout

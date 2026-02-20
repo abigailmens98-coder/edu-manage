@@ -1,0 +1,20 @@
+
+--- Testing: Direct Host (Clean) ---
+❌ FAILED: Direct Host (Clean)
+Error code: 28P01
+Message: password authentication failed for user 'neondb_owner'
+
+--- Testing: pg.neon.tech (user$project) ---
+❌ FAILED: pg.neon.tech (user$project)
+Error code: undefined
+Message: Connection terminated due to connection timeout
+
+--- Testing: AWS Proxy (user$project) ---
+❌ FAILED: AWS Proxy (user$project)
+Error code: ERR_TLS_CERT_ALTNAME_INVALID
+Message: Hostname/IP does not match certificate's altnames: Host: us-east-1.aws.neon.tech. is not in the cert's altnames: DNS:*.us-east-1.aws.neon.tech
+
+--- Testing: pg.neon.tech (Passwordless?) ---
+❌ FAILED: pg.neon.tech (Passwordless?)
+Error code: undefined
+Message: Connection terminated due to connection timeout

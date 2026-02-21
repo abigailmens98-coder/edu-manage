@@ -187,12 +187,15 @@ export default function Broadsheet() {
     drawWatermark(doc, 130);
 
     // Set up hook for background drawing on subsequent pages
-    const originalAddPage = doc.addPage.bind(doc);
-    doc.addPage = function () {
-      const result = originalAddPage.apply(this, arguments as any);
-      drawWatermark(this as any, 130);
-      return result;
-    };
+    if (!(doc as any)._watermarkHookAttached) {
+      const originalAddPage = doc.addPage.bind(doc);
+      doc.addPage = function () {
+        const result = originalAddPage.apply(this, arguments as any);
+        drawWatermark(this as any, 130);
+        return result;
+      };
+      (doc as any)._watermarkHookAttached = true;
+    }
 
     // Add Top corner logo (Original size)
     if (schoolLogoBase64) {

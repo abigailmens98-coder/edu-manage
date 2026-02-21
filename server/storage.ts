@@ -36,6 +36,18 @@ let db: any = null;
 let databaseSuccessfullyConnected = false;
 
 const rawUrl = process.env.DATABASE_URL || "";
+
+// Strip unsupported parameters that cause connection failures
+// channel_binding=require is not supported by node-postgres and silently breaks connections
+let cleanedUrl = rawUrl;
+if (cleanedUrl.includes("channel_binding")) {
+  cleanedUrl = cleanedUrl
+    .replace(/[&?]channel_binding=[^&]*/g, "")
+    .replace(/\?&/, "?")
+    .replace(/\?$/, "");
+  console.log("⚠️  Stripped unsupported 'channel_binding' parameter from DATABASE_URL");
+}
+
 const isDatabaseAvailable = !!rawUrl &&
   process.env.FORCE_IN_MEMORY !== "true" &&
   !rawUrl.includes("ENOTFOUND") &&
@@ -47,7 +59,7 @@ const isDatabaseAvailable = !!rawUrl &&
 if (isDatabaseAvailable) {
   try {
     pool = new pg.Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: cleanedUrl,
       ssl: { rejectUnauthorized: false },
       connectionTimeoutMillis: 5000,
     });
@@ -55,6 +67,7 @@ if (isDatabaseAvailable) {
   } catch (error) {
     console.error('❌ Failed to initialize database pool:', error);
   }
+
 } else {
   console.warn('⚠️  DATABASE_URL not set or invalid - using in-memory storage');
 }

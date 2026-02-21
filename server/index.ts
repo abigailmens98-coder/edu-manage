@@ -20,6 +20,39 @@ app.get("/api/emergency-debug", (req, res) => {
   });
 });
 
+// Direct database test endpoint
+app.get("/api/debug/db-test", async (req, res) => {
+  const { pool: dbPool, isDatabaseAvailable: dbAvail } = await import("./storage");
+
+  if (!dbPool) {
+    return res.json({
+      error: "No pool created",
+      isDatabaseAvailable: dbAvail,
+      hasDbUrl: !!process.env.DATABASE_URL,
+      dbUrlLength: (process.env.DATABASE_URL || "").length,
+    });
+  }
+
+  try {
+    const result = await dbPool.query("SELECT NOW() as time, current_database() as db");
+    const students = await dbPool.query("SELECT COUNT(*) as count FROM students");
+    const users = await dbPool.query("SELECT COUNT(*) as count FROM users");
+    res.json({
+      connected: true,
+      serverTime: result.rows[0].time,
+      database: result.rows[0].db,
+      studentCount: students.rows[0].count,
+      userCount: users.rows[0].count,
+    });
+  } catch (error: any) {
+    res.json({
+      connected: false,
+      error: error.message,
+      code: error.code,
+    });
+  }
+});
+
 // Trust proxy for production (behind load balancer)
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);

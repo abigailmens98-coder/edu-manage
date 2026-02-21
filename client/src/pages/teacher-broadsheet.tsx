@@ -656,10 +656,10 @@ export default function TeacherBroadsheet() {
         doc.text(`Student ID: ${student.studentId}`, 20, 66);
         doc.text(`Academic Period: ${yearName} - ${termName}`, 140, 66);
 
-        // Subjects Table
-        const tableBody = displaySubjects.map(sub => {
-            const { classScore, examScore } = getScoreDetails(student.id, sub.id);
-            const total = classScore + examScore;
+        // Subjects Table - Use all class subjects, not just displaySubjects
+        const allClassSubjects = getSubjectsForClass(selectedClass);
+        const tableBody = allClassSubjects.map(sub => {
+            const { classScore, examScore, total } = getScoreDetails(student.id, sub.id);
 
             // Per-subject rank
             const classTotalScores = students
@@ -743,13 +743,28 @@ export default function TeacherBroadsheet() {
 
     const printStudentReport = async (student: any) => {
         if (!selectedTerm) return;
-        const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
-        const doc = new jsPDF();
-        generateStudentReportTemplate(doc, student, sDetails);
-        const termData = terms.find(t => t.id === selectedTerm);
-        const termName = termData?.name || "";
-        doc.save(`${student.name.replace(/\s+/g, "_")}_Report_${termName.replace(/\s+/g, "_")}.pdf`);
-        toast({ title: "Success", description: "Report PDF generated" });
+        setLoadingReport(true);
+        try {
+            const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+            const doc = new jsPDF();
+            generateStudentReportTemplate(doc, student, sDetails);
+
+            const termData = terms.find(t => t.id === selectedTerm);
+            const termName = termData?.name || "Report";
+            const safeFileName = `${student.name.replace(/[^a-zA-Z0-9]/g, "_")}_${termName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+
+            doc.save(safeFileName);
+            toast({ title: "Success", description: "Report PDF generated and saved." });
+        } catch (err: any) {
+            console.error("PDF generation failed:", err);
+            toast({
+                title: "Error",
+                description: "Failed to generate PDF: " + (err.message || "Unknown error"),
+                variant: "destructive"
+            });
+        } finally {
+            setLoadingReport(false);
+        }
     };
 
     const exportAllReportsPDF = async () => {
@@ -769,12 +784,16 @@ export default function TeacherBroadsheet() {
             }
 
             const termData = terms.find(t => t.id === selectedTerm);
-            const termName = termData?.name || "";
-            doc.save(`All_Reports_${selectedClass}_${termName.replace(/\s+/g, "_")}.pdf`);
-            toast({ title: "Success", description: "All student reports generated" });
-        } catch (error) {
-            console.error("Failed to generate bulk reports", error);
-            toast({ title: "Error", description: "Failed to generate all reports", variant: "destructive" });
+            const termName = termData?.name || "Term";
+            doc.save(`Bulk_Reports_${selectedClass.replace(/[^a-zA-Z0-9]/g, "_")}_${termName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+            toast({ title: "Success", description: `Successfully generated ${sortedStudentsByRank.length} reports.` });
+        } catch (err: any) {
+            console.error("Bulk PDF export failed:", err);
+            toast({
+                title: "Error",
+                description: "Failed to generate bulk reports: " + (err.message || "Unknown error"),
+                variant: "destructive"
+            });
         } finally {
             setGeneratingBulk(false);
         }

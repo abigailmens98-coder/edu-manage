@@ -121,16 +121,14 @@ export default function TeacherBroadsheet() {
         return config ? { class: config.classScoreWeight, exam: config.examScoreWeight } : { class: 40, exam: 60 };
     };
 
-    const getNumericGrade = (score: number): number => {
+    const getNumericGrade = (score: number): any => {
         if (score === 0) return 0;
-        const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
-        return entry ? entry.grade : 9;
+        return getGradeFromScales(score, selectedClass, gradingScales).grade;
     };
 
     const getGradeRemark = (score: number): string => {
         if (score === 0) return "-";
-        const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
-        return entry ? entry.remark : "Fail";
+        return getGradeFromScales(score, selectedClass, gradingScales).description;
     };
 
     useEffect(() => {
@@ -710,15 +708,19 @@ export default function TeacherBroadsheet() {
         });
 
         // Overall Performance
-        const finalY = (doc as any).lastAutoTable.cursor.y + 15;
         const avg = calculateAverage(student.id);
         const overallPos = getStudentOverallPosition(student.id);
+        const totalInClass = students.length;
+
+        // Safely determine Y position - handles potential autoTable failures
+        const lastY = (doc as any).lastAutoTable?.cursor?.y;
+        const finalY = lastY ? lastY + 15 : 150;
 
         doc.setFont("helvetica", "bold");
         doc.text("OVERALL PERFORMANCE", 20, finalY);
         doc.setFont("helvetica", "normal");
         doc.text(`Average Score: ${avg.toFixed(1)}%`, 20, finalY + 8);
-        doc.text(`Overall Position: ${overallPos} out of ${classStudents.length}`, 20, finalY + 14);
+        doc.text(`Overall Position: ${overallPos || "-"} out of ${totalInClass}`, 20, finalY + 14);
 
         // Remarks
         doc.rect(20, finalY + 25, 170, 40);
@@ -772,7 +774,8 @@ export default function TeacherBroadsheet() {
         setGeneratingBulk(true);
         try {
             const doc = new jsPDF();
-            const sortedStudentsByRank = [...classStudents].sort((a, b) =>
+            // In this component, 'students' state holds the class students
+            const sortedStudentsByRank = [...students].sort((a, b) =>
                 calculateAverage(b?.id || "") - calculateAverage(a?.id || "")
             );
 

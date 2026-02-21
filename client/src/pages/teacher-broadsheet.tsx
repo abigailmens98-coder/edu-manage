@@ -665,33 +665,13 @@ export default function TeacherBroadsheet() {
             : "TBD";
         doc.text(nextTermBeginsDate, 165, 82);
 
-        // Subjects Table - Use all class subjects, not just displaySubjects
         const allClassSubjects = getSubjectsForClass(selectedClass);
         const tableBody = allClassSubjects.map(sub => {
             const { classScore, examScore, total } = getScoreDetails(student.id, sub.id);
-
-            // Per-subject rank
-            const classTotalScores = students
-                .filter(s => s.grade === selectedClass)
-                .map(s => {
-                    const sScores = scores.filter(sc => sc.studentId === s.id && sc.subjectId === sub.id);
-                    return sScores.reduce((sum, sc) => sum + sc.totalScore, 0);
-                })
-                .sort((a, b) => b - a);
-
-            const position = classTotalScores.indexOf(total) + 1;
-            const numericGrade = total > 0 ? getNumericGrade(total) : "-";
+            const grade = total > 0 ? getNumericGrade(total) : "-";
+            const subPos = getSubjectPosition(student.id, sub.id);
             const remark = total > 0 ? getGradeFromScales(total, selectedClass, gradingScales).description : "-";
-
-            return [
-                sub.name.toUpperCase(),
-                classScore.toFixed(1),
-                examScore.toFixed(1),
-                total.toFixed(1),
-                numericGrade,
-                getPositionSuffix(position),
-                remark.toUpperCase()
-            ];
+            return [sub.name.toUpperCase(), classScore.toFixed(1), examScore.toFixed(1), total.toFixed(1), grade, getPositionSuffix(subPos), remark.toUpperCase()];
         });
 
         const totalScoreValue = calculateTotal(student.id);
@@ -751,8 +731,8 @@ export default function TeacherBroadsheet() {
         const finalY = (doc as any).lastAutoTable?.finalY || 180;
 
         // Additional Info
-        const attendanceVal = String(sDetails?.attendance !== undefined ? sDetails.attendance : (student.attendance || "60"));
-        const attendanceTotalVal = String(sDetails?.attendanceTotal || "60");
+        const attendanceVal = sDetails?.attendance !== undefined ? sDetails.attendance : (student.attendance || "60");
+        const attendanceTotalVal = sDetails?.attendanceTotal || "60";
         const attitudeVal = sDetails?.attitude || "RESPECTFUL";
         const conductVal = sDetails?.conduct || "GOOD";
         const interestVal = sDetails?.interest || "HOLDS VARIED INTERESTS";
@@ -779,7 +759,7 @@ export default function TeacherBroadsheet() {
         doc.setFont("helvetica", "italic");
         doc.text(interestVal.toUpperCase(), 35, finalY + 31);
 
-        // Class Teacher's Remarks
+        // Remarks
         const defaultRemark = avgValue >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
             avgValue >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
                 avgValue >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
@@ -799,20 +779,18 @@ export default function TeacherBroadsheet() {
         const positionText = overallPos != null && overallPos > 0 ? `${getPositionSuffix(overallPos)} out of ${totalInClass}` : "N/A";
         doc.text(positionText, 35, finalY + 52);
 
-        // Form Master
+        // Signatures
         doc.setTextColor(0, 0, 0);
         doc.setFont("helvetica", "bold");
-        doc.text("Form Master:", 14, finalY + 63);
+        doc.text("Class Teacher:", 14, finalY + 63);
         doc.setFont("helvetica", "normal");
         doc.text(sDetails?.formMaster || teacherInfo?.name || username || "_________________", 44, finalY + 63);
 
-        // Next Term Begins
         doc.setFont("helvetica", "bold");
         doc.text("Next Term Begins:", 100, finalY + 63);
         doc.setFont("helvetica", "normal");
         doc.text(nextTermBeginsDate, 145, finalY + 63);
 
-        // Head's Signature
         doc.setFont("helvetica", "bold");
         doc.text("Head's Signature:", 14, finalY + 73);
         doc.setFont("helvetica", "normal");

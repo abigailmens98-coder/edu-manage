@@ -335,7 +335,7 @@ export default function TeacherBroadsheet() {
 
                 doc.saveGraphicsState();
                 // @ts-ignore
-                const gState = new (doc as any).GState({ opacity: 0.08 });
+                const gState = new (doc as any).GState({ opacity: 0.20 });
                 doc.setGState(gState);
                 doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
                 doc.restoreGraphicsState();
@@ -519,7 +519,7 @@ export default function TeacherBroadsheet() {
 
                 doc.saveGraphicsState();
                 // @ts-ignore
-                const gState = new (doc as any).GState({ opacity: 0.08 });
+                const gState = new (doc as any).GState({ opacity: 0.20 });
                 doc.setGState(gState);
                 doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
                 doc.restoreGraphicsState();

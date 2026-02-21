@@ -1210,6 +1210,12 @@ class StorageManager implements IStorage {
     try {
       await pool.query('SELECT NOW()');
       console.log('🔄 Database reconnection successful');
+
+      // CRITICAL: Initialize DatabaseStorage if it wasn't created at startup
+      if (!this.dbStorage) {
+        this.dbStorage = new DatabaseStorage();
+      }
+
       this.isFallback = false;
       databaseSuccessfullyConnected = true;
       this.lastFailingError = null;
@@ -1220,6 +1226,7 @@ class StorageManager implements IStorage {
       return { success: false, error: err.message };
     }
   }
+
 
   private async handleFailure(err: any) {
     if (this.isFallback) return;
@@ -1257,6 +1264,12 @@ class StorageManager implements IStorage {
 
   // Wrapper to catch errors and fallback immediately
   private async exec<T>(fn: (storage: IStorage) => Promise<T>): Promise<T> {
+    // If in fallback, try to reconnect ONCE more if we have a pool
+    if (this.isFallback && pool && !this.lastFailingError?.includes('password')) {
+      console.log("🔄 Storage in fallback but pool exists. Attempting proactive recovery...");
+      await this.tryReconnect();
+    }
+
     if (!this.isFallback && this.dbStorage) {
       try {
         return await fn(this.dbStorage);
@@ -1267,6 +1280,7 @@ class StorageManager implements IStorage {
     }
     return await fn(this.memStorage);
   }
+
 
   getStorageStatus() {
     return {

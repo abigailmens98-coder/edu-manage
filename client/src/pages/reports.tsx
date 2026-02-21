@@ -14,6 +14,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, gradingScalesApi, assessmentConfigsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { sortClassNames } from "@/lib/class-utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getGradeFromScales, GradingScale, isJHS } from "@/lib/grading";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -244,14 +245,7 @@ export default function Reports() {
       classes = classes.filter(c => teacherClasses.includes(c));
     }
 
-    return classes.sort((a, b) => {
-      const getOrder = (grade: string) => {
-        if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
-        if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
-        return 100;
-      };
-      return getOrder(a) - getOrder(b);
-    });
+    return classes.sort(sortClassNames);
   })();
 
   const yearTerms = terms.filter(t => t.academicYearId === selectedYear);
@@ -575,7 +569,7 @@ export default function Reports() {
 
     // Set blue color for headers
     const blueColor: [number, number, number] = [30, 64, 175];
-    const lightBlue: [number, number, number] = [219, 234, 254];
+    const lightBlue: [number, number, number] = [235, 245, 255];
 
     // Add School Badge
     if (schoolLogoBase64) {
@@ -662,8 +656,8 @@ export default function Reports() {
       `CLASS\nSCORE\n${weights.class}%`,
       `EXAMS\nSCORE\n${weights.exam}%`,
       "TOTAL\n(100%)",
-      "GRADES",
       "POS",
+      "GRADES",
       "REMARKS"
     ]];
     const tableBody = allSubjects.map(s => {
@@ -674,7 +668,7 @@ export default function Reports() {
       const grade = totalScore > 0 ? getNumericGrade(totalScore) : "-";
       const subjectPos = getSubjectPosition(student.id, s.id);
       const remark = totalScore > 0 ? getGradeFromScales(totalScore, student.grade, gradingScales).description : "-";
-      return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, getPositionSuffix(subjectPos), remark.toUpperCase()];
+      return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", getPositionSuffix(subjectPos), grade, remark.toUpperCase()];
     });
 
     // Add Grand Total and Average rows

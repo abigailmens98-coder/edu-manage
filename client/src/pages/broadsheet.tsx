@@ -10,6 +10,7 @@ import autoTable from "jspdf-autotable";
 import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { sortClassNames } from "@/lib/class-utils";
 
 export default function Broadsheet() {
   const [students, setStudents] = useState<any[]>([]);
@@ -105,14 +106,7 @@ export default function Broadsheet() {
     : ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"];
 
   // Sort classes logically
-  const availableClasses = myClasses.sort((a: any, b: any) => {
-    const getOrder = (grade: string) => {
-      if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
-      if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
-      return 100;
-    };
-    return getOrder(a) - getOrder(b);
-  });
+  const availableClasses = myClasses.sort(sortClassNames);
 
   const classStudents = students.filter(s => s.grade === selectedClass);
 

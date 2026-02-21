@@ -21,6 +21,7 @@ import {
     gradingScalesApi, studentsApi, scoresApi, academicYearsApi, assessmentConfigsApi
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { sortClassNames } from "@/lib/class-utils";
 import { getGradeFromScales, GradingScale, isJHS } from "@/lib/grading";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -262,7 +263,7 @@ export default function TeacherBroadsheet() {
         return getGradeFromScales(avg, selectedClass, gradingScales);
     };
 
-    const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel))).filter(Boolean);
+    const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel))).sort(sortClassNames).filter(Boolean);
 
     // Determine if teacher is class teacher for the selected class
     const isClassTeacherForSelectedClass = assignments.some(
@@ -578,8 +579,8 @@ export default function TeacherBroadsheet() {
     };
 
     const generateStudentReportTemplate = (doc: jsPDF, student: any, sDetails: any) => {
-        const blueColor = [30, 64, 175];
-        const lightBlue = [235, 245, 255];
+        const blueColor: [number, number, number] = [30, 64, 175];
+        const lightBlue: [number, number, number] = [235, 245, 255];
         const termData = terms.find(t => t.id === selectedTerm);
         const termName = termData?.name || "";
         const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
@@ -671,7 +672,7 @@ export default function TeacherBroadsheet() {
             const grade = total > 0 ? getNumericGrade(total) : "-";
             const subPos = getSubjectPosition(student.id, sub.id);
             const remark = total > 0 ? getGradeFromScales(total, selectedClass, gradingScales).description : "-";
-            return [sub.name.toUpperCase(), classScore.toFixed(1), examScore.toFixed(1), total.toFixed(1), grade, getPositionSuffix(subPos), remark.toUpperCase()];
+            return [sub.name.toUpperCase(), classScore.toFixed(1), examScore.toFixed(1), total.toFixed(1), getPositionSuffix(subPos), grade, remark.toUpperCase()];
         });
 
         const totalScoreValue = calculateTotal(student.id);
@@ -690,16 +691,16 @@ export default function TeacherBroadsheet() {
                 `CLASS\nSCORE\n${weights.class}%`,
                 `EXAMS\nSCORE\n${weights.exam}%`,
                 "TOTAL\n(100%)",
-                "GRADES",
                 "POS",
+                "GRADES",
                 "REMARKS"
             ]],
             body: tableBody,
             theme: "grid",
             styles: {
                 fontSize: 8,
-                textColor: [30, 64, 175],
-                lineColor: [30, 64, 175],
+                textColor: blueColor,
+                lineColor: blueColor,
                 lineWidth: 0.3,
                 halign: 'center',
                 valign: 'middle'
@@ -719,6 +720,12 @@ export default function TeacherBroadsheet() {
                 4: { cellWidth: 15 },
                 5: { cellWidth: 15 },
                 6: { cellWidth: 'auto' }
+            },
+            didParseCell: (data) => {
+                if (data.row.index >= tableBody.length - 2 && data.section === 'body') {
+                    data.cell.styles.fillColor = lightBlue;
+                    data.cell.styles.fontStyle = 'bold';
+                }
             }
         });
 
@@ -770,7 +777,7 @@ export default function TeacherBroadsheet() {
         doc.setFont("helvetica", "bold");
         doc.text("Class Teacher's Remarks:", 14, finalY + 42);
         doc.setFont("helvetica", "italic");
-        const remarkLines = doc.splitTextToSize(teacherRemark.toUpperCase(), 130);
+        const remarkLines = doc.splitTextToSize(teacherRemark, 130);
         doc.text(remarkLines, 60, finalY + 42);
 
         doc.setFont("helvetica", "bold");

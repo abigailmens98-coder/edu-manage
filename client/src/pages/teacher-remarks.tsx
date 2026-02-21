@@ -13,6 +13,7 @@ import { FileText, Save, CheckCircle, Info, Download, BookOpen, Loader2, User, A
 import { studentsApi, academicTermsApi, teacherAssignmentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { sortClassNames } from "@/lib/class-utils";
 
 interface StudentTermDetails {
   id?: string;
@@ -147,10 +148,7 @@ export default function TeacherRemarks() {
         .map((a: any) => a.classLevel);
     }
 
-    return classes.sort((a: any, b: any) => {
-      const order = ["KG 1", "KG 2", "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6", "Basic 7", "Basic 8", "Basic 9"];
-      return order.indexOf(a) - order.indexOf(b);
-    });
+    return classes.sort(sortClassNames);
   };
 
   const getStudentsByClass = (classLevel: string) => {

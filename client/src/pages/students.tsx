@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { studentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { sortClassNames } from "@/lib/class-utils";
 
 interface Student {
   id: string;
@@ -477,14 +478,7 @@ export default function Students() {
   const sortedClasses = (() => {
     const allGrades = new Set<string>(GRADES);
     Object.keys(classCounts).forEach(g => allGrades.add(g));
-    return Array.from(allGrades).sort((a, b) => {
-      const getOrder = (grade: string) => {
-        if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
-        if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
-        return 100;
-      };
-      return getOrder(a) - getOrder(b);
-    });
+    return Array.from(allGrades).sort(sortClassNames);
   })();
 
   const classStudents = selectedClass

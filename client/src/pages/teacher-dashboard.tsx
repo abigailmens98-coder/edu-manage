@@ -12,6 +12,7 @@ import { useLocation } from "wouter";
 import { subjectsApi, academicTermsApi, teacherAssignmentsApi, gradingScalesApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { getGradeFromScales, GradingScale } from "@/lib/grading";
+import { sortClassNames } from "@/lib/class-utils";
 
 interface TeacherAssignment {
   id: string;
@@ -104,7 +105,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel)));
+  const uniqueClasses = Array.from(new Set(assignments.map(a => a.classLevel))).sort(sortClassNames);
 
   const subjectsForSelectedClass = assignments
     .filter(a => a.classLevel === selectedClass)

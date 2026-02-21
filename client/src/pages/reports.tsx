@@ -15,7 +15,7 @@ import * as XLSX from "xlsx";
 import { studentsApi, subjectsApi, academicYearsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, gradingScalesApi, assessmentConfigsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { getGradeFromScales, GradingScale } from "@/lib/grading";
+import { getGradeFromScales, GradingScale, isJHS } from "@/lib/grading";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 
@@ -36,17 +36,6 @@ const GRADES = [
   "Basic 7", "Basic 8", "Basic 9"
 ];
 
-const NUMERIC_GRADE_SCALE = [
-  { min: 80, max: 100, grade: 1, remark: "Excellent" },
-  { min: 70, max: 79, grade: 2, remark: "Very Good" },
-  { min: 60, max: 69, grade: 3, remark: "Good" },
-  { min: 50, max: 59, grade: 4, remark: "Credit" },
-  { min: 40, max: 49, grade: 5, remark: "Pass" },
-  { min: 30, max: 39, grade: 6, remark: "Weak Pass" },
-  { min: 20, max: 29, grade: 7, remark: "Weak" },
-  { min: 10, max: 19, grade: 8, remark: "Very Weak" },
-  { min: 0, max: 9, grade: 9, remark: "Fail" },
-];
 
 interface TeacherAssignment {
   id: string;
@@ -401,7 +390,7 @@ export default function Reports() {
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 100, 0);
-    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
+    doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -545,7 +534,7 @@ export default function Reports() {
     });
 
     const wsData = [
-      ["UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL"],
+      ["MINES AND TECHNOLOGY BASIC SCHOOL"],
       [`${yearName} - ${termName} BROADSHEET FOR ${selectedClass}`],
       [`Number on Roll: ${classStudents.length}`],
       [],
@@ -591,27 +580,28 @@ export default function Reports() {
     // Add School Badge
     if (schoolLogoBase64) {
       try {
-        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 28, 28);
+        // Reduced size and slightly shifted to prevent overlap
+        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
       } catch (e: any) {
         console.error("Failed to add school logo to PDF", e);
       }
     }
 
-    // School Header
+    // School Header - Repositioned text slightly
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...blueColor);
-    doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
+    doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("Knowledge, Truth and Excellence", 105, 24, { align: "center" });
+    doc.text("Knowledge, Truth and Excellence", 115, 24, { align: "center" });
 
     // Contact info
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Email: info@universitybasic.edu.gh", 160, 27);
+    doc.text("Email: info@minesandtech.edu.gh", 160, 27);
 
     doc.text("ADDRESS", 160, 32);
     doc.text("P.O. BOX 237, TARKWA", 160, 37);
@@ -1091,7 +1081,7 @@ export default function Reports() {
       <Card className="border-green-200">
         <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
           <div className="text-center">
-            <CardTitle className="text-lg font-bold">UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
+            <CardTitle className="text-lg font-bold">MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
             <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {selectedClass?.toUpperCase()}</p>
             <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
           </div>
@@ -1208,14 +1198,17 @@ export default function Reports() {
           <CardTitle>Grading Scale Reference</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-2 text-center text-sm">
-            {NUMERIC_GRADE_SCALE.map((g, idx) => (
-              <div key={idx} className={`p-2 rounded border ${g.grade >= 6 ? 'bg-red-50 border-red-200' : g.grade >= 4 ? 'bg-yellow-50 border-yellow-200' : 'bg-green-50 border-green-200'}`}>
-                <div className="font-bold text-lg">{g.grade}</div>
-                <div className="text-xs text-gray-600">{g.min}-{g.max}%</div>
-                <div className="text-xs font-medium">{g.remark}</div>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {gradingScales
+              .filter(s => s.type === (isJHS(selectedClass) ? "jhs" : "primary"))
+              .sort((a, b) => b.minScore - a.minScore)
+              .map((g) => (
+                <div key={g.id} className="p-3 rounded border bg-blue-50 border-blue-200">
+                  <div className="font-bold text-lg text-blue-800">{g.grade}</div>
+                  <div className="text-xs text-blue-600 font-semibold">{g.minScore}-{g.maxScore}%</div>
+                  <div className="text-xs font-medium text-gray-700">{g.description.toUpperCase()}</div>
+                </div>
+              ))}
           </div>
         </CardContent>
       </Card>
@@ -1237,14 +1230,14 @@ export default function Reports() {
                       <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
                     </div>
                     <div className="flex-1 px-4">
-                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
+                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">MINES AND TECHNOLOGY BASIC SCHOOL</h1>
                       <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
                     </div>
                     <div className="flex-shrink-0 w-20" />
                   </div>
                   <div className="flex justify-between text-xs mt-2 text-gray-600">
                     <div className="text-left">
-                      <p>Email: info@universitybasic.edu.gh</p>
+                      <p>Email: info@minesandtech.edu.gh</p>
                     </div>
                     <div className="text-right">
                       <p><strong>ADDRESS</strong></p>

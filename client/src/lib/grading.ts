@@ -18,6 +18,8 @@ export function getGradeFromScales(score: number, classLevel: string, scales: Gr
 }
 
 export function isJHS(classLevel: string) {
-    const jhsLevels = ["Basic 7", "Basic 8", "Basic 9", "JHS 1", "JHS 2", "JHS 3"];
-    return jhsLevels.some(level => classLevel.includes(level));
+    if (!classLevel) return false;
+    const jhsLevels = ["basic 7", "basic 8", "basic 9", "jhs 1", "jhs 2", "jhs 3"];
+    const levelLower = classLevel.toLowerCase();
+    return jhsLevels.some(level => levelLower.includes(level));
 }

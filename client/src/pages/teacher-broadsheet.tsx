@@ -21,7 +21,7 @@ import {
     gradingScalesApi, studentsApi, scoresApi, academicYearsApi, assessmentConfigsApi
 } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { getGradeFromScales, GradingScale } from "@/lib/grading";
+import { getGradeFromScales, GradingScale, isJHS } from "@/lib/grading";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -66,17 +66,6 @@ interface Score {
     totalScore: number;
 }
 
-const NUMERIC_GRADE_SCALE = [
-    { min: 80, max: 100, grade: 1, remark: "Excellent" },
-    { min: 70, max: 79, grade: 2, remark: "Very Good" },
-    { min: 60, max: 69, grade: 3, remark: "Good" },
-    { min: 55, max: 59, grade: 4, remark: "Credit" },
-    { min: 50, max: 54, grade: 5, remark: "Pass" },
-    { min: 30, max: 49, grade: 6, remark: "Weak Pass" },
-    { min: 20, max: 29, grade: 7, remark: "Weak" },
-    { min: 10, max: 19, grade: 8, remark: "Very Weak" },
-    { min: 0, max: 9, grade: 9, remark: "Fail" },
-];
 
 export default function TeacherBroadsheet() {
     const { username, role, logout, teacherInfo } = useAuth();
@@ -115,21 +104,6 @@ export default function TeacherBroadsheet() {
         nextTermBegins: "",
     });
 
-    const getAssessmentWeights = (className: string) => {
-        const classNum = parseInt(className.replace(/[^0-9]/g, "") || "0");
-        const config = assessmentConfigs.find(c => classNum >= c.minClassLevel && classNum <= c.maxClassLevel);
-        return config ? { class: config.classScoreWeight, exam: config.examScoreWeight } : { class: 40, exam: 60 };
-    };
-
-    const getNumericGrade = (score: number): any => {
-        if (score === 0) return 0;
-        return getGradeFromScales(score, selectedClass, gradingScales).grade;
-    };
-
-    const getGradeRemark = (score: number): string => {
-        if (score === 0) return "-";
-        return getGradeFromScales(score, selectedClass, gradingScales).description;
-    };
 
     useEffect(() => {
         fetchInitialData();
@@ -332,7 +306,7 @@ export default function TeacherBroadsheet() {
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 100, 0);
-        doc.text("UNIVERSITY BASIC SCHOOL", 148.5, 18, { align: "center" });
+        doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
 
         doc.setFontSize(11);
         doc.setTextColor(0, 0, 0);
@@ -471,7 +445,7 @@ export default function TeacherBroadsheet() {
         });
 
         const wsData = [
-            ["UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL"],
+            ["MINES AND TECHNOLOGY BASIC SCHOOL"],
             [`${yearName} - ${termName} BROADSHEET FOR ${selectedClass}`],
             [`Number on Roll: ${classStudents.length}`],
             [],
@@ -503,7 +477,7 @@ export default function TeacherBroadsheet() {
         const termName = terms.find(t => t.id === selectedTerm)?.name || "Term";
 
         doc.setFontSize(16);
-        doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", doc.internal.pageSize.width / 2, 15, { align: "center" });
+        doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", doc.internal.pageSize.width / 2, 15, { align: "center" });
         doc.setFontSize(11);
         doc.text(`Subject Broadsheet — ${selectedClass}`, 14, 24);
         doc.text(`${termName}`, 14, 30);
@@ -612,17 +586,18 @@ export default function TeacherBroadsheet() {
         // Add logo if available
         if (schoolLogoBase64) {
             try {
-                doc.addImage(schoolLogoBase64, 'PNG', 20, 10, 25, 25);
+                // Reduced size and slightly shifted to prevent overlap
+                doc.addImage(schoolLogoBase64, 'PNG', 20, 10, 22, 22);
             } catch (e) {
                 console.error("Could not add logo to PDF", e);
             }
         }
 
-        // Header
+        // Header - Repositioned text slightly
         doc.setFontSize(18);
         doc.setTextColor(30, 64, 175);
         doc.setFont("helvetica", "bold");
-        doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
+        doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
 
         // Footer
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -637,7 +612,7 @@ export default function TeacherBroadsheet() {
         doc.text("Knowledge, Truth and Excellence", 105, 24, { align: "center" });
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
-        doc.text("Email: info@universitybasic.edu.gh", 105, 29, { align: "center" });
+        doc.text("Email: info@minesandtech.edu.gh", 105, 29, { align: "center" });
 
         doc.setDrawColor(30, 64, 175);
         doc.setLineWidth(1.5);
@@ -744,7 +719,11 @@ export default function TeacherBroadsheet() {
     };
 
     const printStudentReport = async (student: any) => {
-        if (!selectedTerm) return;
+        if (!selectedTerm || !student) {
+            toast({ title: "Error", description: "Term and Student must be selected.", variant: "destructive" });
+            return;
+        }
+
         setLoadingReport(true);
         try {
             const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
@@ -753,7 +732,11 @@ export default function TeacherBroadsheet() {
 
             const termData = terms.find(t => t.id === selectedTerm);
             const termName = termData?.name || "Report";
-            const safeFileName = `${student.name.replace(/[^a-zA-Z0-9]/g, "_")}_${termName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+
+            // Sanitized filename
+            const safeStudent = (student.name || "Student").replace(/[^a-zA-Z0-9]/g, "_");
+            const safeTerm = termName.replace(/[^a-zA-Z0-9]/g, "_");
+            const safeFileName = `Terminal_Report_${safeStudent}_${safeTerm}.pdf`;
 
             doc.save(safeFileName);
             toast({ title: "Success", description: "Report PDF generated and saved." });
@@ -770,7 +753,11 @@ export default function TeacherBroadsheet() {
     };
 
     const exportAllReportsPDF = async () => {
-        if (!selectedClass || !selectedTerm) return;
+        if (!selectedClass || !selectedTerm) {
+            toast({ title: "Selection Required", description: "Select class and term before bulk printing.", variant: "destructive" });
+            return;
+        }
+
         setGeneratingBulk(true);
         try {
             const doc = new jsPDF();
@@ -779,16 +766,32 @@ export default function TeacherBroadsheet() {
                 calculateAverage(b?.id || "") - calculateAverage(a?.id || "")
             );
 
+            if (sortedStudentsByRank.length === 0) {
+                toast({ title: "No Data", description: "No students found in this class.", variant: "destructive" });
+                return;
+            }
+
             for (let i = 0; i < sortedStudentsByRank.length; i++) {
                 const student = sortedStudentsByRank[i];
                 if (i > 0) doc.addPage();
-                const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
-                generateStudentReportTemplate(doc, student, sDetails);
+
+                // Fetch details per student to ensure they have remarks
+                try {
+                    const sDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+                    generateStudentReportTemplate(doc, student, sDetails);
+                } catch (e) {
+                    console.error(`Failed to fetch details for ${student.name}`, e);
+                    // Continue with empty details if one fails
+                    generateStudentReportTemplate(doc, student, null);
+                }
             }
 
             const termData = terms.find(t => t.id === selectedTerm);
             const termName = termData?.name || "Term";
-            doc.save(`Bulk_Reports_${selectedClass.replace(/[^a-zA-Z0-9]/g, "_")}_${termName.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+            const safeClass = selectedClass.replace(/[^a-zA-Z0-9]/g, "_");
+            const safeTerm = termName.replace(/[^a-zA-Z0-9]/g, "_");
+
+            doc.save(`Bulk_Reports_${safeClass}_${safeTerm}.pdf`);
             toast({ title: "Success", description: `Successfully generated ${sortedStudentsByRank.length} reports.` });
         } catch (err: any) {
             console.error("Bulk PDF export failed:", err);
@@ -905,7 +908,7 @@ export default function TeacherBroadsheet() {
                     <Card className="border-green-200">
                         <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
                             <div className="text-center">
-                                <CardTitle className="text-lg font-bold">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
+                                <CardTitle className="text-lg font-bold">MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
                                 <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {(selectedClass || "").toUpperCase()}</p>
                                 <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
                             </div>
@@ -1398,16 +1401,13 @@ export default function TeacherBroadsheet() {
                                             <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
                                         </div>
                                         <div className="flex-1 px-4">
-                                            <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
+                                            <h1 className="text-xl font-bold text-blue-700 tracking-wide">MINES AND TECHNOLOGY BASIC SCHOOL</h1>
                                             <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
                                         </div>
                                         <div className="flex-shrink-0 w-20" />
                                     </div>
                                     <div className="flex justify-between text-xs mt-2 text-gray-600">
-                                        <div className="text-left">
-                                            <p>Email: info@universitybasic.edu.gh</p>
-                                        </div>
-                                        <div className="text-right">
+                                        <p>Email: info@minesandtech.edu.gh</p>                                        <div className="text-right">
                                             <p><strong>ADDRESS</strong></p>
                                             <p>P.O. BOX 237, TARKWA</p>
                                             <p>WESTERN REGION, GHANA</p>
@@ -1640,8 +1640,17 @@ export default function TeacherBroadsheet() {
                                     <Button onClick={handleSaveReportDetails} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
                                         <Save className="h-4 w-4" /> Save Information
                                     </Button>
-                                    <Button onClick={() => printStudentReport(previewStudent)} className="gap-2 bg-blue-600 hover:bg-blue-700 text-white">
-                                        <Printer className="h-4 w-4" /> Print Report Card
+                                    <Button
+                                        onClick={() => printStudentReport(previewStudent)}
+                                        className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                                        disabled={loadingReport}
+                                    >
+                                        {loadingReport ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Printer className="h-4 w-4" />
+                                        )}
+                                        {loadingReport ? "Generating..." : "Print Report Card"}
                                     </Button>
                                 </div>
                             </div>

@@ -6,8 +6,10 @@ export async function seedDatabase() {
     console.log("🌱 Setting up database...");
 
     // 1. Ensure Admin User
+    console.log("🔍 Checking for admin user...");
     const existingAdmin = await storage.getUserByUsername("admin");
     if (!existingAdmin) {
+      console.log("✨ Admin user not found. Creating new admin user...");
       const adminPassword = await bcrypt.hash("admin123", 10);
       await storage.createUser({
         username: "admin",
@@ -17,10 +19,11 @@ export async function seedDatabase() {
       });
       console.log("✅ Admin user created (username: admin, password: admin123)");
     } else {
-      console.log("✅ Admin user already exists (ensuring password is up to date)");
+      console.log(`✅ Admin user found (ID: ${existingAdmin.id}). Ensuring password is admin123...`);
       // Force reset admin password for this fix push to ensure they can get in
       const adminPassword = await bcrypt.hash("admin123", 10);
-      await storage.updateUserPassword(existingAdmin.id, adminPassword);
+      const updateResult = await storage.updateUserPassword(existingAdmin.id, adminPassword);
+      console.log(`✅ Admin password reset attempt: ${updateResult ? "Success" : "Failed"}`);
     }
 
     // 2. Ensure Default Teacher User (teacher_001)

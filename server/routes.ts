@@ -18,8 +18,33 @@ export async function registerRoutes(
     res.json({
       status: "ok",
       database: isDatabaseAvailable ? "connected" : "not configured",
+      isSeeded,
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Debug endpoint (Temporary)
+  app.get("/api/debug/auth-check", async (req, res) => {
+    try {
+      const admin = await storage.getUserByUsername("admin");
+      const teachers = await storage.getTeachers();
+      const users = await Promise.all(teachers.map(async t => {
+        const u = await storage.getUser(t.userId);
+        return { username: u?.username, role: u?.role };
+      }));
+
+      res.json({
+        adminFound: !!admin,
+        adminId: admin?.id,
+        adminRole: admin?.role,
+        teacherCount: teachers.length,
+        users,
+        isSeeded,
+        databaseType: isDatabaseAvailable ? "PostgreSQL" : "In-Memory"
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // Seed database on first run with error handling

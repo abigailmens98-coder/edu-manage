@@ -390,7 +390,7 @@ export default function Reports() {
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 100, 0);
-    doc.text("UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
+    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
 
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
@@ -534,7 +534,7 @@ export default function Reports() {
     });
 
     const wsData = [
-      ["UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL"],
+      ["UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL"],
       [`${yearName} - ${termName} BROADSHEET FOR ${selectedClass}`],
       [`Number on Roll: ${classStudents.length}`],
       [],
@@ -591,7 +591,7 @@ export default function Reports() {
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...blueColor);
-    doc.text("UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
+    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
@@ -1081,7 +1081,7 @@ export default function Reports() {
       <Card className="border-green-200">
         <CardHeader className="bg-gradient-to-r from-green-700 to-green-600 text-white rounded-t-lg">
           <div className="text-center">
-            <CardTitle className="text-lg font-bold">UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
+            <CardTitle className="text-lg font-bold">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</CardTitle>
             <p className="text-sm mt-1">{yearName} TERM {termNumber} BROADSHEET FOR {selectedClass?.toUpperCase()}</p>
             <p className="text-xs mt-1 font-semibold">SCORE AND POSITION OF STUDENTS</p>
           </div>
@@ -1230,7 +1230,7 @@ export default function Reports() {
                       <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
                     </div>
                     <div className="flex-1 px-4">
-                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL</h1>
+                      <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
                       <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
                     </div>
                     <div className="flex-shrink-0 w-20" />

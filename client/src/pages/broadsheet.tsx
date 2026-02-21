@@ -148,7 +148,7 @@ export default function Broadsheet() {
     const termName = terms.find((t: any) => t.id === selectedTerm)?.name || "Term 1";
 
     doc.setFontSize(18);
-    doc.text("UNIVERSITY MINES AND TECHNOLOGY BASIC SCHOOL", 14, 15);
+    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 14, 15);
     doc.setFontSize(12);
     doc.text(`Broadsheet - ${selectedClass}`, 14, 22);
     doc.text(`Academic Year: 2024/2025 - ${termName}`, 14, 28);

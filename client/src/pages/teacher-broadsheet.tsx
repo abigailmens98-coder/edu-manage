@@ -115,6 +115,24 @@ export default function TeacherBroadsheet() {
         nextTermBegins: "",
     });
 
+    const getAssessmentWeights = (className: string) => {
+        const classNum = parseInt(className.replace(/[^0-9]/g, "") || "0");
+        const config = assessmentConfigs.find(c => classNum >= c.minClassLevel && classNum <= c.maxClassLevel);
+        return config ? { class: config.classScoreWeight, exam: config.examScoreWeight } : { class: 40, exam: 60 };
+    };
+
+    const getNumericGrade = (score: number): number => {
+        if (score === 0) return 0;
+        const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
+        return entry ? entry.grade : 9;
+    };
+
+    const getGradeRemark = (score: number): string => {
+        if (score === 0) return "-";
+        const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
+        return entry ? entry.remark : "Fail";
+    };
+
     useEffect(() => {
         fetchInitialData();
         // Pre-load school logo for PDF

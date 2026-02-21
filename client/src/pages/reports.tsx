@@ -611,9 +611,7 @@ export default function Reports() {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("TELEPHONE", 20, 32);
-    doc.text("Phone: 031-XXXXXXX", 20, 37);
-    doc.text("Email: info@universitybasic.edu.gh", 20, 42);
+    doc.text("Email: info@universitybasic.edu.gh", 20, 32);
 
     doc.text("ADDRESS", 160, 32);
     doc.text("P.O. BOX 237, TARKWA", 160, 37);
@@ -685,7 +683,7 @@ export default function Reports() {
       const totalScore = classScore + examScore;
       const grade = totalScore > 0 ? getNumericGrade(totalScore) : "-";
       const subjectPos = getSubjectPosition(student.id, s.id);
-      const remark = getGradeRemark(totalScore);
+      const remark = getGradeFromScales(totalScore, student.grade, gradingScales).description;
       return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, getPositionSuffix(subjectPos), remark.toUpperCase()];
     });
 
@@ -715,11 +713,12 @@ export default function Reports() {
       },
       columnStyles: {
         0: { halign: 'left', cellWidth: 50 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 22 },
-        3: { cellWidth: 22 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 35 }
+        1: { cellWidth: 20 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 15 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 'auto' }
       },
       didParseCell: (data) => {
         // Style Grand Total and Average rows

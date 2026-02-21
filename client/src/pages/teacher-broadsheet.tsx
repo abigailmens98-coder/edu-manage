@@ -680,7 +680,15 @@ export default function TeacherBroadsheet() {
             body: tableBody,
             theme: "grid",
             headStyles: { fillColor: [30, 64, 175], textColor: 255 },
-            styles: { fontSize: 8, cellPadding: 2 }
+            styles: { fontSize: 8, cellPadding: 2 },
+            columnStyles: {
+                0: { cellWidth: 60 },
+                1: { cellWidth: 25 },
+                2: { cellWidth: 25 },
+                3: { cellWidth: 25 },
+                4: { cellWidth: 15 },
+                5: { cellWidth: 'auto' }
+            }
         });
 
         // Overall Performance
@@ -1422,12 +1430,12 @@ export default function TeacherBroadsheet() {
                                                 <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                                                     <div>CLASS</div>
                                                     <div>SCORE</div>
-                                                    <div className="text-xs font-normal">40 %</div>
+                                                    <div className="text-xs font-normal">{getAssessmentWeights(selectedClass || "").class} %</div>
                                                 </TableHead>
                                                 <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                                                     <div>EXAMS</div>
                                                     <div>SCORE</div>
-                                                    <div className="text-xs font-normal">60 %</div>
+                                                    <div className="text-xs font-normal">{getAssessmentWeights(selectedClass || "").exam} %</div>
                                                 </TableHead>
                                                 <TableHead className="border-2 border-blue-600 text-blue-700 font-bold text-center w-[80px]">
                                                     <div>TOTAL</div>

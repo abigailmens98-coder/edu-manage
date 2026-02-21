@@ -578,6 +578,8 @@ export default function TeacherBroadsheet() {
     };
 
     const generateStudentReportTemplate = (doc: jsPDF, student: any, sDetails: any) => {
+        const blueColor = [30, 64, 175];
+        const lightBlue = [235, 245, 255];
         const termData = terms.find(t => t.id === selectedTerm);
         const termName = termData?.name || "";
         const yearData = academicYears.find((y: any) => y.id === termData?.academicYearId);
@@ -587,47 +589,82 @@ export default function TeacherBroadsheet() {
         if (schoolLogoBase64) {
             try {
                 // Reduced size and slightly shifted to prevent overlap
-                doc.addImage(schoolLogoBase64, 'PNG', 20, 10, 22, 22);
+                doc.addImage(schoolLogoBase64, 'PNG', 14, 10, 22, 22);
             } catch (e) {
                 console.error("Could not add logo to PDF", e);
             }
         }
 
-        // Header - Repositioned text slightly
-        doc.setFontSize(18);
+        // Header - Professional styling
+        doc.setFontSize(16);
         doc.setTextColor(30, 64, 175);
         doc.setFont("helvetica", "bold");
         doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
 
-        // Footer
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
-        doc.setFont("helvetica", "normal");
-        doc.text("Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com", 105, pageHeight - 5, { align: "center" });
-
         doc.setFontSize(10);
         doc.setFont("helvetica", "italic");
         doc.setTextColor(37, 99, 235);
-        doc.text("Knowledge, Truth and Excellence", 105, 24, { align: "center" });
+        doc.text("Knowledge, Truth and Excellence", 115, 24, { align: "center" });
+
+        // Contact info & Address
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
-        doc.text("Email: info@minesandtech.edu.gh", 105, 29, { align: "center" });
+        doc.text("Email: info@minesandtech.edu.gh", 160, 27);
+        doc.text("ADDRESS", 160, 32);
+        doc.text("P.O. BOX 237, TARKWA", 160, 37);
+        doc.text("WESTERN REGION, GHANA", 160, 42);
+
+        // Footer for bottom of page
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.text("Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com", 105, pageHeight - 5, { align: "center" });
 
         doc.setDrawColor(30, 64, 175);
         doc.setLineWidth(1.5);
-        doc.line(20, 38, 190, 38);
+        doc.line(10, 47, 200, 47);
+
+        // Terminal Report Badge
+        doc.setFillColor(220, 38, 38);
+        doc.roundedRect(80, 50, 50, 8, 2, 2, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text("TERMINAL REPORT", 105, 56, { align: "center" });
 
         // Student Info
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("STUDENT TERMINAL REPORT", 105, 48, { align: "center" });
-
         doc.setFontSize(10);
-        doc.text(`Name: ${student.name}`, 20, 60);
-        doc.text(`Class: ${selectedClass}`, 140, 60);
-        doc.text(`Student ID: ${student.studentId}`, 20, 66);
-        doc.text(`Academic Period: ${yearName} - ${termName}`, 140, 66);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 64, 175);
+        doc.text("Name of Student :", 14, 68);
+        doc.setFont("helvetica", "normal");
+        doc.text(student.name.toUpperCase(), 52, 68);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Student ID:", 14, 75);
+        doc.setFont("helvetica", "normal");
+        doc.text(student.studentId, 42, 75);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Class:", 14, 82);
+        doc.setFont("helvetica", "normal");
+        doc.text(selectedClass, 30, 82);
+
+        // Right side info
+        doc.setFont("helvetica", "bold");
+        doc.text(`${yearName}  ${termName}`, 160, 68);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Number On Roll :", 120, 75);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(students.length), 160, 75);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Next Term Begins :", 120, 82);
+        doc.setFont("helvetica", "normal");
+        const nextTermBeginsDate = sDetails?.nextTermBegins
+            ? new Date(sDetails.nextTermBegins).toLocaleDateString('en-GB')
+            : "TBD";
+        doc.text(nextTermBeginsDate, 165, 82);
 
         // Subjects Table - Use all class subjects, not just displaySubjects
         const allClassSubjects = getSubjectsForClass(selectedClass);
@@ -659,26 +696,41 @@ export default function TeacherBroadsheet() {
         const weights = getAssessmentWeights(selectedClass);
 
         autoTable(doc, {
-            startY: 75,
+            startY: 88,
             head: [[
-                "SUBJECT",
+                "SUBJECTS",
                 `CLASS\nSCORE\n${weights.class}%`,
                 `EXAMS\nSCORE\n${weights.exam}%`,
                 "TOTAL\n(100%)",
+                "GRADES",
                 "POS",
-                "REMARK"
+                "REMARKS"
             ]],
             body: tableBody,
             theme: "grid",
-            headStyles: { fillColor: [30, 64, 175], textColor: 255 },
-            styles: { fontSize: 8, cellPadding: 2 },
+            styles: {
+                fontSize: 8,
+                textColor: [30, 64, 175],
+                lineColor: [30, 64, 175],
+                lineWidth: 0.3,
+                halign: 'center',
+                valign: 'middle'
+            },
+            headStyles: {
+                fillColor: lightBlue,
+                textColor: [30, 64, 175],
+                fontStyle: 'bold',
+                lineColor: [30, 64, 175],
+                lineWidth: 0.5
+            },
             columnStyles: {
-                0: { cellWidth: 60 },
-                1: { cellWidth: 25 },
-                2: { cellWidth: 25 },
-                3: { cellWidth: 25 },
+                0: { halign: 'left', cellWidth: 50 },
+                1: { cellWidth: 20 },
+                2: { cellWidth: 20 },
+                3: { cellWidth: 20 },
                 4: { cellWidth: 15 },
-                5: { cellWidth: 'auto' }
+                5: { cellWidth: 15 },
+                6: { cellWidth: 'auto' }
             }
         });
 
@@ -687,35 +739,57 @@ export default function TeacherBroadsheet() {
         const overallPos = getStudentOverallPosition(student.id);
         const totalInClass = students.length;
 
-        // Safely determine Y position - handles potential autoTable failures
-        const lastY = (doc as any).lastAutoTable?.cursor?.y;
-        const finalY = lastY ? lastY + 15 : 150;
+        // Safely determine Y position
+        const finalY = (doc as any).lastAutoTable?.finalY || 180;
+
+        // Additional Info
+        const attendanceVal = String(sDetails?.attendance !== undefined ? sDetails.attendance : (student.attendance || "60"));
+        const attendanceTotalVal = String(sDetails?.attendanceTotal || "60");
+        const attitudeVal = sDetails?.attitude || "RESPECTFUL";
+        const conductVal = sDetails?.conduct || "GOOD";
+        const interestVal = sDetails?.interest || "HOLDS VARIED INTERESTS";
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Attendance: `, 14, finalY + 10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${attendanceVal} Out Of ${attendanceTotalVal}`, 38, finalY + 10);
 
         doc.setFont("helvetica", "bold");
-        doc.text("OVERALL PERFORMANCE", 20, finalY);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Average Score: ${avg.toFixed(1)}%`, 20, finalY + 8);
-        doc.text(`Overall Position: ${overallPos || "-"} out of ${totalInClass}`, 20, finalY + 14);
+        doc.text("Attitude:", 14, finalY + 17);
+        doc.setFont("helvetica", "italic");
+        doc.text(attitudeVal.toUpperCase(), 35, finalY + 17);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Conduct:", 14, finalY + 24);
+        doc.setFont("helvetica", "italic");
+        doc.text(conductVal.toUpperCase(), 35, finalY + 24);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("Interest:", 14, finalY + 31);
+        doc.setFont("helvetica", "italic");
+        doc.text(interestVal.toUpperCase(), 35, finalY + 31);
 
         // Remarks
-        doc.rect(20, finalY + 25, 170, 40);
+        doc.rect(14, finalY + 38, 182, 30);
         doc.setFont("helvetica", "bold");
-        doc.text("CLASS TEACHER'S REMARKS", 25, finalY + 32);
+        doc.text("CLASS TEACHER'S REMARKS", 18, finalY + 45);
         doc.setFont("helvetica", "italic");
-        const remarks = sDetails?.classTeacherRemark || "No remarks entered.";
-        const splitRemarks = doc.splitTextToSize(remarks, 160);
-        doc.text(splitRemarks, 25, finalY + 42);
+        const teacherRemarks = sDetails?.classTeacherRemark || "No remarks entered.";
+        const splitRemarksText = doc.splitTextToSize(teacherRemarks, 172);
+        doc.text(splitRemarksText, 18, finalY + 52);
 
         // Signatures
         doc.setFont("helvetica", "bold");
-        doc.text("Class Teacher:", 20, finalY + 75);
+        doc.text("Class Teacher:", 14, finalY + 80);
         doc.setFont("helvetica", "normal");
-        doc.text(sDetails?.formMaster || teacherInfo?.name || username || "_________________", 50, finalY + 75);
+        doc.text(sDetails?.formMaster || teacherInfo?.name || username || "_________________", 44, finalY + 80);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Head's Signature:", 120, finalY + 75);
+        doc.text("Head's Signature:", 120, finalY + 80);
         doc.setFont("helvetica", "normal");
-        doc.text("_________________", 155, finalY + 75);
+        doc.text("_________________", 155, finalY + 80);
     };
 
     const printStudentReport = async (student: any) => {

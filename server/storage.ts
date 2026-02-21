@@ -1147,7 +1147,13 @@ export class MemStorage implements IStorage {
 
     defaults.forEach(c => {
       const id = randomUUID();
-      this.assessmentConfigs.set(id, { ...c, id, createdAt: new Date() });
+      this.assessmentConfigs.set(id, {
+        ...c,
+        id,
+        createdAt: new Date(),
+        classScoreWeight: c.classScoreWeight ?? 40,
+        examScoreWeight: c.examScoreWeight ?? 60
+      });
     });
     console.log("Seeded default assessment configurations (Memory)");
   }
@@ -1158,6 +1164,8 @@ export class MemStorage implements IStorage {
 class StorageManager implements IStorage {
   private current: IStorage;
   private isFallback = false;
+  private seeder: (() => Promise<void>) | null = null;
+  private isSeeded = false;
 
   constructor() {
     if (isDatabaseAvailable && pool) {
@@ -1180,7 +1188,7 @@ class StorageManager implements IStorage {
     }
   }
 
-  private handleFailure(err: any) {
+  private async handleFailure(err: any) {
     if (this.isFallback) return;
 
     console.error('❌ Database operation failed:', err.message);
@@ -1189,11 +1197,29 @@ class StorageManager implements IStorage {
     this.isFallback = true;
     databaseSuccessfullyConnected = false;
 
+    if (this.isSeeded && this.seeder) {
+      console.log('🌱 Re-seeding memory storage after fallback...');
+      try {
+        await this.seeder();
+        console.log('✅ Re-seeding complete.');
+      } catch (seedErr: any) {
+        console.error('❌ Failed to re-seed after fallback:', seedErr.message);
+      }
+    }
+
     if (err.message.includes('password authentication failed')) {
       console.error('🛑 DATABASE AUTHENTICATION ERROR: Please check your password in the Render dashboard!');
     } else if (err.message.includes('ENOTFOUND')) {
       console.error('🛑 HOSTNAME ERROR: Your DATABASE_URL hostname is invalid or incomplete. Please check for copy-paste errors!');
     }
+  }
+
+  setSeeder(seeder: () => Promise<void>) {
+    this.seeder = seeder;
+  }
+
+  setSeeded(val: boolean) {
+    this.isSeeded = val;
   }
 
   // Wrapper to catch errors and fallback immediately

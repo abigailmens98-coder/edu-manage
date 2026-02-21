@@ -33,6 +33,11 @@ export async function registerRoutes(
         return { username: u?.username, role: u?.role };
       }));
 
+      // @ts-ignore - reaching into internal state for debug
+      const isFallback = storage.isFallback;
+      // @ts-ignore
+      const isSeededStorage = storage.isSeeded;
+
       res.json({
         adminFound: !!admin,
         adminId: admin?.id,
@@ -40,6 +45,8 @@ export async function registerRoutes(
         teacherCount: teachers.length,
         users,
         isSeeded,
+        isSeededStorage,
+        isFallback,
         databaseType: isDatabaseAvailable ? "PostgreSQL" : "In-Memory"
       });
     } catch (error: any) {
@@ -47,12 +54,21 @@ export async function registerRoutes(
     }
   });
 
-  // Seed database on first run with error handling
   // Seed database on first run
   if (!isSeeded) {
     try {
+      // @ts-ignore
+      if (storage.setSeeder) {
+        // @ts-ignore
+        storage.setSeeder(seedDatabase);
+      }
       await seedDatabase();
       isSeeded = true;
+      // @ts-ignore
+      if (storage.setSeeded) {
+        // @ts-ignore
+        storage.setSeeded(true);
+      }
     } catch (error) {
       console.error('❌ Failed to seed database:', error);
       isSeeded = true;

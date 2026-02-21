@@ -401,29 +401,31 @@ export default function TeacherBroadsheet() {
                     }
                     const cellValue = data.cell.raw;
                     if (cellValue === "Fail" || cellValue === 0) {
-                    }
-                },
-                didDrawPage: (data) => {
-                    if (schoolLogoBase64) {
-                        try {
-                            const pageWidth = doc.internal.pageSize.getWidth();
-                            const pageHeight = doc.internal.pageSize.getHeight();
-                            const watermarkSize = 130;
-                            const x = (pageWidth - watermarkSize) / 2;
-                            const y = (pageHeight - watermarkSize) / 2;
-
-                            doc.saveGraphicsState();
-                            // @ts-ignore
-                            const gState = new (doc as any).GState({ opacity: 0.15 });
-                            doc.setGState(gState);
-                            doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
-                            doc.restoreGraphicsState();
-                        } catch (e) {
-                            console.error("Failed to draw watermark on page", e);
-                        }
+                        data.cell.styles.textColor = [200, 0, 0];
                     }
                 }
-            });
+            },
+            didDrawPage: (data) => {
+                if (schoolLogoBase64) {
+                    try {
+                        const pageWidth = doc.internal.pageSize.getWidth();
+                        const pageHeight = doc.internal.pageSize.getHeight();
+                        const watermarkSize = 130;
+                        const x = (pageWidth - watermarkSize) / 2;
+                        const y = (pageHeight - watermarkSize) / 2;
+
+                        doc.saveGraphicsState();
+                        // @ts-ignore
+                        const gState = new (doc as any).GState({ opacity: 0.15 });
+                        doc.setGState(gState);
+                        doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
+                        doc.restoreGraphicsState();
+                    } catch (e) {
+                        console.error("Failed to draw watermark on page", e);
+                    }
+                }
+            }
+        });
 
         doc.save(`Broadsheet_${selectedClass}_${termName.replace(/\s+/g, "_")}.pdf`);
         toast({ title: "Success", description: "Broadsheet PDF exported successfully" });

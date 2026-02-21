@@ -29,7 +29,7 @@ export default function Login() {
     setIsLoading(true);
 
     const success = await login(identifier, password);
-    
+
     if (success) {
       setLocation("/");
     } else {
@@ -51,9 +51,9 @@ export default function Login() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8 space-y-4">
           <div className="flex justify-center">
-            <img 
-              src="/school-logo.png" 
-              alt="University Basic School Logo" 
+            <img
+              src="/school-logo.png"
+              alt="University Basic School Logo"
               className="h-24 w-24 object-contain drop-shadow-lg"
             />
           </div>
@@ -115,8 +115,8 @@ export default function Login() {
                 </div>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full h-10 shadow-lg shadow-primary/20 text-base font-semibold"
                 disabled={isLoading}
                 data-testid="button-submit-login"
@@ -146,8 +146,10 @@ export default function Login() {
                   <p className="font-semibold text-blue-900">Teacher:</p>
                   <p className="text-blue-800"><span className="font-mono">teacher_001</span> / <span className="font-mono">teacher123</span></p>
                   <p className="text-blue-800"><span className="font-mono">sarah@academia.edu</span> / <span className="font-mono">teacher123</span></p>
+                  <p className="text-xs text-muted-foreground mt-1">All teacher accounts use password: <span className="font-mono">teacher123</span></p>
                 </div>
               </div>
+
             </div>
           </CardContent>
         </Card>

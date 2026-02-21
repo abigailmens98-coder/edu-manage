@@ -141,6 +141,18 @@ export async function seedDatabase() {
       console.log("✅ Academic year and terms created");
     }
 
+    // 5.5. Reset ALL teacher passwords to teacher123 (to ensure legacy teachers can also login)
+    const allTeachers = await storage.getTeachers();
+    const defaultTeacherPassword = await bcrypt.hash("teacher123", 10);
+    for (const teacher of allTeachers) {
+      try {
+        await storage.updateUserPassword(teacher.userId, defaultTeacherPassword);
+      } catch (e) {
+        // Ignore if user doesn't exist
+      }
+    }
+    console.log(`✅ Reset passwords for ${allTeachers.length} teacher(s) to teacher123`);
+
     console.log("🎉 Database setup completed!");
   } catch (error) {
     console.error("❌ Error setting up database:", error);

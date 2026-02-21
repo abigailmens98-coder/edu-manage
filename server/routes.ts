@@ -26,10 +26,7 @@ export async function registerRoutes(
   // Seed database on first run
   if (!isSeeded) {
     try {
-      const user = await storage.getUserByUsername("admin");
-      if (!user) {
-        await seedDatabase();
-      }
+      await seedDatabase();
       isSeeded = true;
     } catch (error) {
       console.error('❌ Failed to seed database:', error);

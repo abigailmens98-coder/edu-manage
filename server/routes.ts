@@ -80,6 +80,8 @@ export async function registerRoutes(
     try {
       const { username, password } = req.body;
 
+      console.log(`📥 Login request received: username="${username}", hasPassword=${!!password}`);
+
       if (!username || !password) {
         return res.status(400).json({ error: "Username and password required" });
       }
@@ -95,7 +97,7 @@ export async function registerRoutes(
       const validPassword = await bcrypt.compare(password, user.password);
 
       if (!validPassword) {
-        console.log(`❌ Login failure: Incorrect password for user "${username}"`);
+        console.log(`❌ Login failure: Incorrect password for user "${username}". Password hash starts with: ${user.password.substring(0, 10)}...`);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
@@ -111,19 +113,45 @@ export async function registerRoutes(
         teacherInfo = teachers.find(t => t.userId === user.id);
       }
 
-      res.json({
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role
-        },
-        teacher: teacherInfo
+      // Explicitly save session before responding to avoid race conditions
+      req.session.save((err) => {
+        if (err) {
+          console.error("❌ Session save error:", err);
+        }
+        res.json({
+          user: {
+            id: user.id,
+            username: user.username,
+            role: user.role
+          },
+          teacher: teacherInfo
+        });
       });
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });
+
+  // Debug: test password verification (Temporary)
+  app.get("/api/debug/test-login", async (req, res) => {
+    try {
+      const user = await storage.getUserByUsername("admin");
+      if (!user) {
+        return res.json({ error: "admin user not found" });
+      }
+      const match = await bcrypt.compare("admin123", user.password);
+      res.json({
+        adminFound: true,
+        passwordMatch: match,
+        hashPrefix: user.password.substring(0, 10),
+        userId: user.id
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
 
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err: any) => {

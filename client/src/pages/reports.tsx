@@ -875,7 +875,7 @@ export default function Reports() {
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     doc.setFont("helvetica", "normal");
-    doc.text("Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com", 105, pageHeight - 5, { align: "center" });
+    doc.text("Powered by B&P Code Labs | Contact: 0242099920", 105, pageHeight - 5, { align: "center" });
   };
 
   const printStudentReport = async (student: any) => {
@@ -1450,35 +1450,66 @@ export default function Reports() {
                       data-testid="input-attendance-total"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold w-24">Attitude:</span>
-                    <Input
-                      className="flex-1 h-7"
-                      value={reportFormData.attitude}
-                      onChange={(e) => setReportFormData({ ...reportFormData, attitude: e.target.value })}
-                      placeholder="e.g., RESPECTFUL"
-                      data-testid="input-attitude"
-                    />
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Attitude</Label>
+                      <Select
+                        value={reportFormData.attitude}
+                        onValueChange={(val) => setReportFormData({ ...reportFormData, attitude: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Attitude" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="RESPECTFUL">Respectful</SelectItem>
+                          <SelectItem value="OBEDIENT">Obedient</SelectItem>
+                          <SelectItem value="POLITE">Polite</SelectItem>
+                          <SelectItem value="MODERATE">Moderate</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Conduct</Label>
+                      <Select
+                        value={reportFormData.conduct}
+                        onValueChange={(val) => setReportFormData({ ...reportFormData, conduct: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Conduct" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Behaves well in class.">Behaves well in class.</SelectItem>
+                          <SelectItem value="Conduct is improving.">Conduct is improving.</SelectItem>
+                          <SelectItem value="Conduct needs improvement.">Conduct needs improvement.</SelectItem>
+                          <SelectItem value="Needs to be more disciplined in class.">Needs to be more disciplined in class.</SelectItem>
+                          <SelectItem value="EXCELLENT">Excellent</SelectItem>
+                          <SelectItem value="GOOD">Good</SelectItem>
+                          <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold w-24">Conduct:</span>
-                    <Input
-                      className="flex-1 h-7"
-                      value={reportFormData.conduct}
-                      onChange={(e) => setReportFormData({ ...reportFormData, conduct: e.target.value })}
-                      placeholder="e.g., GOOD"
-                      data-testid="input-conduct"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold w-24">Interest:</span>
-                    <Input
-                      className="flex-1 h-7"
-                      value={reportFormData.interest}
-                      onChange={(e) => setReportFormData({ ...reportFormData, interest: e.target.value })}
-                      placeholder="e.g., HOLDS VARIED INTERESTS"
-                      data-testid="input-interest"
-                    />
+                  <div className="grid md:grid-cols-2 gap-4 pt-2">
+                    <div className="space-y-2">
+                      <Label>Interest</Label>
+                      <Select
+                        value={reportFormData.interest}
+                        onValueChange={(val) => setReportFormData({ ...reportFormData, interest: val })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Interest" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Art work">Art work</SelectItem>
+                          <SelectItem value="Reading">Reading</SelectItem>
+                          <SelectItem value="Sports">Sports</SelectItem>
+                          <SelectItem value="VERY KEEN">Very Keen</SelectItem>
+                          <SelectItem value="KEEN">Keen</SelectItem>
+                          <SelectItem value="MODERATE">Moderate</SelectItem>
+                          <SelectItem value="MINIMAL">Minimal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
@@ -1538,7 +1569,7 @@ export default function Reports() {
                 {/* Marketing Footer */}
                 <div className="px-6 py-2 text-center border-t bg-slate-50">
                   <p className="text-[10px] text-gray-400 font-medium">
-                    Powered by B&P Code Labs | Contact: 0242099920 | Email: B&PCode@gmail.com
+                    Powered by B&P Code Labs | Contact: 0242099920
                   </p>
                 </div>
 

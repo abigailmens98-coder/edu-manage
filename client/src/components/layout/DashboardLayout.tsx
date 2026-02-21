@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
+import { authApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,19 +48,30 @@ interface Subject {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [location] = useLocation();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const { logout } = useAuth();
+  const { username, logout } = useAuth();
   const [, setLocation] = useLocation();
+  const [userEmail, setUserEmail] = useState("admin@school.com");
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const { user } = await authApi.me();
+        if (user.email) setUserEmail(user.email);
+      } catch (e) { }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    setLocation("/login");
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<{ students: Student[]; subjects: Subject[] }>({ students: [], subjects: [] });
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-
-  const handleLogout = () => {
-    logout();
-    setLocation("/login");
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -196,12 +208,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="mt-auto p-4 border-t border-sidebar-border">
         <div className="flex items-center gap-3 px-3 py-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="https://github.com/shadcn.png" />
-            <AvatarFallback>AD</AvatarFallback>
+            <AvatarImage src={`https://avatar.vercel.sh/${username}.png`} />
+            <AvatarFallback>{username ? username.substring(0, 2).toUpperCase() : "AD"}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">Admin User</span>
-            <span className="text-xs text-sidebar-foreground/60">admin@academia.edu</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-sm font-medium truncate capitalize">{username || "Admin User"}</span>
+            <span className="text-xs text-sidebar-foreground/60 truncate">{userEmail}</span>
           </div>
         </div>
       </div>
@@ -328,10 +340,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuLabel>My Account ({username})</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocation("/profile")}>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocation("/settings")}>
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleLogout}>
                   <LogOut className="mr-2 h-4 w-4" />

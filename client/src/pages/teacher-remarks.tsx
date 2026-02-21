@@ -388,10 +388,13 @@ export default function TeacherRemarks() {
                                           <SelectValue placeholder="Select Conduct" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                          <SelectItem value="Behaves well in class.">Behaves well in class.</SelectItem>
+                                          <SelectItem value="Conduct is improving.">Conduct is improving.</SelectItem>
+                                          <SelectItem value="Conduct needs improvement.">Conduct needs improvement.</SelectItem>
+                                          <SelectItem value="Needs to be more disciplined in class.">Needs to be more disciplined in class.</SelectItem>
                                           <SelectItem value="EXCELLENT">Excellent</SelectItem>
                                           <SelectItem value="GOOD">Good</SelectItem>
                                           <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
-                                          <SelectItem value="NEEDS IMPROVEMENT">Needs Improvement</SelectItem>
                                         </SelectContent>
                                       </Select>
                                     </div>
@@ -433,6 +436,9 @@ export default function TeacherRemarks() {
                                           <SelectValue placeholder="Select Interest" />
                                         </SelectTrigger>
                                         <SelectContent>
+                                          <SelectItem value="Art work">Art work</SelectItem>
+                                          <SelectItem value="Reading">Reading</SelectItem>
+                                          <SelectItem value="Sports">Sports</SelectItem>
                                           <SelectItem value="VERY KEEN">Very Keen</SelectItem>
                                           <SelectItem value="KEEN">Keen</SelectItem>
                                           <SelectItem value="MODERATE">Moderate</SelectItem>
@@ -481,7 +487,7 @@ export default function TeacherRemarks() {
                             <Save className="mr-2 h-4 w-4" /> Save Remarks
                           </>
                         )}
-                      </Button>
+                      </Button>+
                     </CardFooter>
                   )}
                 </Card>

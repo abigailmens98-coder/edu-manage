@@ -17,6 +17,7 @@ import TeacherRemarks from "@/pages/teacher-remarks";
 import ScoreEntry from "@/pages/score-entry";
 import Broadsheet from "@/pages/broadsheet";
 import AdminSettings from "@/pages/admin-settings";
+import AdminProfile from "@/pages/admin-profile";
 import NotFound from "@/pages/not-found";
 
 function AppRoutes() {
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="/scores" component={ScoreEntry} />
         <Route path="/broadsheet" component={Broadsheet} />
         <Route path="/settings" component={AdminSettings} />
+        <Route path="/profile" component={AdminProfile} />
         <Route component={NotFound} />
       </Switch>
     </DashboardLayout>

@@ -79,6 +79,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, user: Partial<InsertUser>): Promise<User | undefined>;
 
   // Student operations
   getStudents(): Promise<Student[]>;
@@ -178,6 +179,15 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(schema.users).values(insertUser).returning();
+    return user;
+  }
+
+  async updateUser(id: string, userUpdate: Partial<InsertUser>): Promise<User | undefined> {
+    const [user] = await db
+      .update(schema.users)
+      .set(userUpdate)
+      .where(eq(schema.users.id, id))
+      .returning();
     return user;
   }
 
@@ -659,10 +669,19 @@ export class MemStorage implements IStorage {
       id,
       createdAt: new Date(),
       role: insertUser.role || "teacher",
-      secretWord: insertUser.secretWord || null
+      secretWord: insertUser.secretWord || null,
+      email: insertUser.email || null
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, userUpdate: Partial<InsertUser>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    const updated = { ...user, ...userUpdate };
+    this.users.set(id, updated);
+    return updated;
   }
 
   // Student operations
@@ -1296,6 +1315,7 @@ class StorageManager implements IStorage {
   getUser(id: string) { return this.exec((s) => s.getUser(id)); }
   getUserByUsername(username: string) { return this.exec((s) => s.getUserByUsername(username)); }
   createUser(user: any) { return this.exec((s) => s.createUser(user)); }
+  updateUser(id: string, user: any) { return this.exec((s) => s.updateUser(id, user)); }
   getStudents() { return this.exec((s) => s.getStudents()); }
   getStudent(id: string) { return this.exec((s) => s.getStudent(id)); }
   createStudent(student: any) { return this.exec((s) => s.createStudent(student)); }

@@ -36,7 +36,25 @@ export const authApi = {
     const response = await fetch('/api/auth/me', {
       credentials: 'include',
     });
-    return handleResponse<{ user: { id: string; username: string; role: string }; teacher?: any }>(response);
+    return handleResponse<{ user: { id: string; username: string; role: string; email?: string; secretWord?: string }; teacher?: any }>(response);
+  },
+
+  updateProfile: async (data: { email?: string; secretWord?: string }) => {
+    const response = await fetch('/api/auth/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ message: string; user: any }>(response);
+  },
+
+  changePassword: async (data: { currentPassword: string; newPassword: string }) => {
+    const response = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return handleResponse<{ message: string }>(response);
   },
 };
 

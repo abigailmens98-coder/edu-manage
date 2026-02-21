@@ -28,9 +28,9 @@ export async function seedDatabase() {
     }
 
     // 2. Ensure Default Teacher User (teacher_001)
+    const teacherPassword = await bcrypt.hash("teacher123", 10);
     const existingTeacher1 = await storage.getUserByUsername("teacher_001");
     if (!existingTeacher1) {
-      const teacherPassword = await bcrypt.hash("teacher123", 10);
       const teacherUser = await storage.createUser({
         username: "teacher_001",
         password: teacherPassword,
@@ -49,7 +49,8 @@ export async function seedDatabase() {
 
       console.log("✅ Teacher user created (username: teacher_001, password: teacher123)");
     } else {
-      console.log("✅ Teacher user teacher_001 already exists");
+      await storage.updateUserPassword(existingTeacher1.id, teacherPassword);
+      console.log("✅ Teacher user teacher_001 password reset to teacher123");
     }
 
     // 3. Ensure Sarah Teacher User (sarah@academia.edu)
@@ -74,8 +75,11 @@ export async function seedDatabase() {
 
       console.log("✅ Sarah teacher user created (username: sarah@academia.edu, password: teacher123)");
     } else {
-      console.log("✅ Teacher user sarah@academia.edu already exists");
+      const sarahPassword = await bcrypt.hash("teacher123", 10);
+      await storage.updateUserPassword(existingSarah.id, sarahPassword);
+      console.log("✅ Sarah teacher user password reset to teacher123");
     }
+
 
     // 4. Create default subjects if none exist
     const subjects = await storage.getSubjects();

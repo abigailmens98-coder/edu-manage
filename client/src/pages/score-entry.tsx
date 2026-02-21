@@ -5,14 +5,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BASIC_1_6_GRADING_SCALE, GES_GRADING_SCALE } from "@/lib/mock-data";
 import { Save, Upload, FileDown, AlertCircle, CheckCircle, Lock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, assessmentConfigsApi } from "@/lib/api";
+import { studentsApi, subjectsApi, academicTermsApi, scoresApi, teacherAssignmentsApi, teachersApi, assessmentConfigsApi, gradingScalesApi } from "@/lib/api";
+import { getGradeFromScales, GradingScale } from "@/lib/grading";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { sortClassNames } from "@/lib/class-utils";
 
 interface TeacherAssignment {
   id: string;
@@ -35,7 +36,15 @@ export default function ScoreEntry() {
   const [csvError, setCsvError] = useState("");
   const [csvSuccess, setCsvSuccess] = useState("");
   const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
-  const [assessmentConfigs, setAssessmentConfigs] = useState<any[]>([]);
+  const [assessmentConfigs, setAssessmentConfigs] = useState<{
+    id: string;
+    classGroup: string;
+    minClassLevel: number;
+    maxClassLevel: number;
+    classScoreWeight: number;
+    examScoreWeight: number;
+  }[]>([]);
+  const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
   const [currentTeacherId, setCurrentTeacherId] = useState<string | null>(null);
   const { toast } = useToast();
   const { role, userId, teacherInfo } = useAuth();
@@ -48,16 +57,18 @@ export default function ScoreEntry() {
 
   const fetchData = async () => {
     try {
-      const [studentsData, subjectsData, termsData, configData] = await Promise.all([
+      const [studentsData, subjectsData, termsData, configData, scalesData] = await Promise.all([
         studentsApi.getAll(),
         subjectsApi.getAll(),
         academicTermsApi.getAll(),
         assessmentConfigsApi.getAll(),
+        gradingScalesApi.getAll(),
       ]);
       setStudents(studentsData);
       setSubjects(subjectsData);
       setTerms(termsData);
       setAssessmentConfigs(configData);
+      setGradingScales(scalesData);
 
       const activeTerm = termsData.find(t => t.status === "Active");
       if (activeTerm) {
@@ -89,14 +100,7 @@ export default function ScoreEntry() {
       const assignedClasses = Array.from(new Set(teacherAssignments.map(a => a.classLevel)));
       return assignedClasses.filter(cls => students.some(s => s.grade === cls));
     }
-    return Array.from(new Set(students.map(s => s.grade))).sort((a, b) => {
-      const getOrder = (grade: string) => {
-        if (grade.startsWith("KG")) return parseInt(grade.replace(/[^0-9]/g, "") || "0");
-        if (grade.startsWith("Basic")) return 10 + parseInt(grade.replace(/[^0-9]/g, "") || "0");
-        return 100;
-      };
-      return getOrder(a) - getOrder(b);
-    });
+    return Array.from(new Set(students.map(s => s.grade))).sort(sortClassNames);
   };
 
   const getAvailableSubjects = () => {
@@ -223,10 +227,7 @@ export default function ScoreEntry() {
   };
 
   const getGrade = (total: number, classLevel: string) => {
-    const basicNum = parseInt(classLevel.replace(/[^0-9]/g, ""));
-    const scale = basicNum >= 1 && basicNum <= 6 ? BASIC_1_6_GRADING_SCALE : GES_GRADING_SCALE;
-    const entry = scale.find(g => total >= g.range[0] && total <= g.range[1]);
-    return entry ? entry.grade : "F";
+    return getGradeFromScales(total, classLevel, gradingScales).grade;
   };
 
   const isBasic1to6 = (() => {

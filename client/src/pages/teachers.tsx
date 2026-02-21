@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { teachersApi, subjectsApi, teacherAssignmentsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { sortClassNames } from "@/lib/class-utils";
 
 interface Teacher {
   id: string;
@@ -50,7 +51,7 @@ const DEFAULT_GRADES = [
   "KG 1", "KG 2",
   "Basic 1", "Basic 2", "Basic 3", "Basic 4", "Basic 5", "Basic 6",
   "Basic 7", "Basic 8", "Basic 9"
-];
+].sort(sortClassNames);
 
 export default function Teachers() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -105,7 +106,8 @@ export default function Teachers() {
       setTeachers(teachersData);
       setSubjects(subjectsData);
       setAllAssignments(assignmentsData);
-      setActualClassLevels(classLevelsRes.length > 0 ? classLevelsRes : DEFAULT_GRADES);
+      const sortedClassLevels = (classLevelsRes.length > 0 ? classLevelsRes : DEFAULT_GRADES).sort(sortClassNames);
+      setActualClassLevels(sortedClassLevels);
     } catch (error) {
       toast({
         title: "Error",

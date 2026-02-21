@@ -153,6 +153,9 @@ export async function seedDatabase() {
     }
     console.log(`✅ Reset passwords for ${allTeachers.length} teacher(s) to teacher123`);
 
+    // 5.6. Seed Assessment Configs
+    await storage.seedAssessmentConfigs();
+
     console.log("🎉 Database setup completed!");
   } catch (error) {
     console.error("❌ Error setting up database:", error);

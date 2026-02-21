@@ -607,6 +607,46 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Assessment Config operations
+  async getAssessmentConfigs(): Promise<AssessmentConfig[]> {
+    return await db.select().from(schema.assessmentConfigs);
+  }
+
+  async updateAssessmentConfig(id: string, config: Partial<InsertAssessmentConfig>): Promise<AssessmentConfig | undefined> {
+    const [updated] = await db
+      .update(schema.assessmentConfigs)
+      .set({ ...config })
+      .where(eq(schema.assessmentConfigs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async seedAssessmentConfigs(): Promise<void> {
+    const existing = await this.getAssessmentConfigs();
+    if (existing.length > 0) return;
+
+    const defaults: InsertAssessmentConfig[] = [
+      {
+        classGroup: "Basic 1-6 (Lower/Upper Primary)",
+        minClassLevel: 1,
+        maxClassLevel: 6,
+        classScoreWeight: 50,
+        examScoreWeight: 50,
+      },
+      {
+        classGroup: "Basic 7-9 (JHS)",
+        minClassLevel: 7,
+        maxClassLevel: 9,
+        classScoreWeight: 40,
+        examScoreWeight: 60,
+      },
+    ];
+
+    for (const config of defaults) {
+      await db.insert(schema.assessmentConfigs).values(config);
+    }
+  }
+
   // User Password Management
   async updateUserPassword(userId: string, newPassword: string): Promise<boolean> {
     await db

@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { BookOpen, LogOut, User, CheckCircle, Loader2, MessageSquare, BarChart3, GraduationCap, ClipboardList } from "lucide-react";
 import { useLocation } from "wouter";
-import { subjectsApi, academicTermsApi, teacherAssignmentsApi, gradingScalesApi } from "@/lib/api";
+import { subjectsApi, academicTermsApi, teacherAssignmentsApi, gradingScalesApi, assessmentConfigsApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { getGradeFromScales, GradingScale } from "@/lib/grading";
 import { sortClassNames } from "@/lib/class-utils";
@@ -47,6 +47,15 @@ interface ScoreData {
   id?: string;
 }
 
+interface AssessmentConfig {
+  id: string;
+  classGroup: string;
+  minClassLevel: number;
+  maxClassLevel: number;
+  classScoreWeight: number;
+  examScoreWeight: number;
+}
+
 export default function TeacherDashboard() {
   const { username, logout, teacherInfo } = useAuth();
   const teacherId = teacherInfo?.id;
@@ -60,6 +69,7 @@ export default function TeacherDashboard() {
   const [students, setStudents] = useState<Student[]>([]);
   const [terms, setTerms] = useState<Term[]>([]);
   const [gradingScales, setGradingScales] = useState<GradingScale[]>([]);
+  const [assessmentConfigs, setAssessmentConfigs] = useState<AssessmentConfig[]>([]);
 
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
@@ -74,12 +84,14 @@ export default function TeacherDashboard() {
 
   const fetchInitialData = async () => {
     try {
-      const [subjectsData, termsData, gradingData] = await Promise.all([
+      const [subjectsData, termsData, gradingData, configData] = await Promise.all([
         subjectsApi.getAll(),
         academicTermsApi.getAll(),
         gradingScalesApi.getAll(),
+        assessmentConfigsApi.getAll(),
       ]);
 
+      setAssessmentConfigs(configData);
       setGradingScales(gradingData);
       setSubjects(subjectsData);
       setTerms(termsData);
@@ -172,6 +184,19 @@ export default function TeacherDashboard() {
     }
   };
 
+  const getAssessmentConfig = (className: string) => {
+    const classNum = parseInt(className.replace(/[^0-9]/g, "") || "0");
+    return assessmentConfigs.find(c => classNum >= c.minClassLevel && classNum <= c.maxClassLevel);
+  };
+
+  const getMaxScore = (type: 'classScore' | 'examScore') => {
+    if (!selectedClass) return type === 'classScore' ? 40 : 60;
+    const config = getAssessmentConfig(selectedClass);
+    if (!config) return type === 'classScore' ? 40 : 60;
+
+    return type === 'classScore' ? config.classScoreWeight : config.examScoreWeight;
+  };
+
   const autoSaveScore = useCallback(async (studentId: string, scoreData: ScoreData) => {
     if (!selectedTerm || !selectedSubject || !teacherId) return;
 
@@ -215,7 +240,7 @@ export default function TeacherDashboard() {
 
   const handleScoreChange = (studentId: string, type: 'classScore' | 'examScore', value: string) => {
     const numValue = parseInt(value) || 0;
-    const maxValue = type === 'classScore' ? 40 : 60;
+    const maxValue = getMaxScore(type);
     if (numValue < 0 || numValue > maxValue) return;
 
     const newScores = {
@@ -420,7 +445,7 @@ export default function TeacherDashboard() {
                                 <Input
                                   type="number"
                                   min="0"
-                                  max="40"
+                                  max={getMaxScore('classScore')}
                                   placeholder=""
                                   value={studentScore.classScore}
                                   onChange={(e) => handleScoreChange(student.id, 'classScore', e.target.value)}
@@ -432,7 +457,7 @@ export default function TeacherDashboard() {
                                 <Input
                                   type="number"
                                   min="0"
-                                  max="60"
+                                  max={getMaxScore('examScore')}
                                   placeholder=""
                                   value={studentScore.examScore}
                                   onChange={(e) => handleScoreChange(student.id, 'examScore', e.target.value)}

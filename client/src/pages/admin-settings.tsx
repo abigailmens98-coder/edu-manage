@@ -38,6 +38,8 @@ interface GradingScale {
 interface AssessmentConfig {
   id: string;
   classGroup: string;
+  minClassLevel: number;
+  maxClassLevel: number;
   classScoreWeight: number;
   examScoreWeight: number;
 }

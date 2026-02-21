@@ -427,7 +427,7 @@ export default function TeacherRemarks() {
                                     </div>
 
                                     <div className="space-y-2">
-                                      <Label className="text-xs">Interest </Label>
+                                      <Label className="text-xs">Interest</Label>
                                       <Select
                                         value={currentRemark.interest || ""}
                                         onValueChange={(val) => handleRemarkChange("interest", val)}
@@ -487,7 +487,7 @@ export default function TeacherRemarks() {
                             <Save className="mr-2 h-4 w-4" /> Save Remarks
                           </>
                         )}
-                      </Button>+
+                      </Button>
                     </CardFooter>
                   )}
                 </Card>

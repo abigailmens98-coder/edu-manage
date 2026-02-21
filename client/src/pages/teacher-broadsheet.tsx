@@ -1607,7 +1607,7 @@ export default function TeacherBroadsheet() {
                         return (
                             <div className="bg-white">
                                 {/* School Header with Badge */}
-                                <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
+                                <div className="text-center pb-4 pt-6 px-6">
                                     <div className="flex items-start justify-between">
                                         <div className="flex-shrink-0 p-0.5">
                                             <img src="/school-logo.png" alt="School Badge" className="w-24 h-24 object-contain" />

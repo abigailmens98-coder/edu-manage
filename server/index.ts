@@ -10,6 +10,16 @@ import { pool } from "./storage";
 const app = express();
 const httpServer = createServer(app);
 
+// Emergency debug route added at the very top
+app.get("/api/emergency-debug", (req, res) => {
+  res.json({
+    status: "alive",
+    time: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    dbAvailable: !!process.env.DATABASE_URL
+  });
+});
+
 // Trust proxy for production (behind load balancer)
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);

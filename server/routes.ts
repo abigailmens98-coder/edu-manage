@@ -71,16 +71,19 @@ export async function registerRoutes(
       const user = await storage.getUserByUsername(username.toLowerCase());
 
       if (!user) {
-        console.log(`Login failure: User not found - ${username}`);
+        console.log(`❌ Login failure: User NOT FOUND - "${username}"`);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
+      console.log(`🔍 Login attempt: User "${user.username}" (ID: ${user.id}, Role: ${user.role})`);
       const validPassword = await bcrypt.compare(password, user.password);
 
       if (!validPassword) {
+        console.log(`❌ Login failure: Incorrect password for user "${username}"`);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
+      console.log(`✅ Login success: "${username}"`);
       // Set session
       req.session.userId = user.id;
       req.session.role = user.role;

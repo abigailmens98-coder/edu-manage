@@ -163,24 +163,9 @@ export default function Broadsheet() {
     doc.text(`Broadsheet - ${selectedClass}`, 14, 22);
     doc.text(`Academic Year: 2024/2025 - ${termName}`, 14, 28);
 
-    // Add School Badge & Watermark
+    // Add Top corner logo (Original size)
     if (schoolLogoBase64) {
       try {
-        // Background Watermark (Large, faded, centered)
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const watermarkSize = 130;
-        const x = (pageWidth - watermarkSize) / 2;
-        const y = (pageHeight - watermarkSize) / 2;
-
-        doc.saveGraphicsState();
-        // @ts-ignore
-        const gState = new (doc as any).GState({ opacity: 0.20 });
-        doc.setGState(gState);
-        doc.addImage(schoolLogoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
-        doc.restoreGraphicsState();
-
-        // Top corner logo (Original size)
         doc.addImage(schoolLogoBase64, 'PNG', 14, 10, 22, 22);
       } catch (e) {
         console.error("Could not add logo to PDF", e);
@@ -206,6 +191,26 @@ export default function Broadsheet() {
       theme: 'grid',
       styles: { fontSize: 8 },
       headStyles: { fillColor: [41, 128, 185] },
+      didDrawPage: (data) => {
+        if (schoolLogoBase64) {
+          try {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const watermarkSize = 130;
+            const x = (pageWidth - watermarkSize) / 2;
+            const y = (pageHeight - watermarkSize) / 2;
+
+            doc.saveGraphicsState();
+            // @ts-ignore
+            const gState = new (doc as any).GState({ opacity: 0.15 });
+            doc.setGState(gState);
+            doc.addImage(schoolLogoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
+            doc.restoreGraphicsState();
+          } catch (e) {
+            console.error("Failed to draw watermark on page", e);
+          }
+        }
+      }
     });
 
     doc.save(`Broadsheet_${selectedClass}_${termName}.pdf`);

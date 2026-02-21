@@ -400,24 +400,9 @@ export default function Reports() {
     doc.text(`Term: ${termNumber}`, 70, 38);
     doc.text(today, 250, 38);
 
-    // Add School Badge & Watermark
+    // Add Top corner logo (Original size) - Keep outside hook to draw on first page at least
     if (schoolLogoBase64) {
       try {
-        // Background Watermark (Large, faded, centered)
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const watermarkSize = 130;
-        const x = (pageWidth - watermarkSize) / 2;
-        const y = (pageHeight - watermarkSize) / 2;
-
-        doc.saveGraphicsState();
-        // @ts-ignore
-        const gState = new (doc as any).GState({ opacity: 0.20 });
-        doc.setGState(gState);
-        doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
-        doc.restoreGraphicsState();
-
-        // Top corner logo (Original size)
         doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
       } catch (e: any) {
         console.error("Failed to add school logo to broadsheet PDF", e);
@@ -497,6 +482,26 @@ export default function Reports() {
           const cellValue = data.cell.raw;
           if (cellValue === "Fail" || cellValue === 0) {
             data.cell.styles.textColor = [200, 0, 0];
+          }
+        }
+      },
+      didDrawPage: (data) => {
+        if (schoolLogoBase64) {
+          try {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const watermarkSize = 130;
+            const x = (pageWidth - watermarkSize) / 2;
+            const y = (pageHeight - watermarkSize) / 2;
+
+            doc.saveGraphicsState();
+            // @ts-ignore
+            const gState = new (doc as any).GState({ opacity: 0.15 });
+            doc.setGState(gState);
+            doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
+            doc.restoreGraphicsState();
+          } catch (e) {
+            console.error("Failed to draw watermark on page", e);
           }
         }
       }
@@ -596,25 +601,9 @@ export default function Reports() {
     const blueColor: [number, number, number] = [30, 64, 175];
     const lightBlue: [number, number, number] = [235, 245, 255];
 
-    // Add School Badge & Watermark
+    // Add Top corner logo (Original size)
     if (schoolLogoBase64) {
       try {
-        // Background Watermark (Large, faded, centered)
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const watermarkSize = 120;
-        const x = (pageWidth - watermarkSize) / 2;
-        const y = (pageHeight - watermarkSize) / 2;
-
-        // Save current state, set opacity, add image, then restore
-        doc.saveGraphicsState();
-        // @ts-ignore - GState exists in jsPDF
-        const gState = new (doc as any).GState({ opacity: 0.20 });
-        doc.setGState(gState);
-        doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
-        doc.restoreGraphicsState();
-
-        // Top corner logo (Original size)
         doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
       } catch (e: any) {
         console.error("Failed to add school logo to PDF", e);
@@ -749,6 +738,26 @@ export default function Reports() {
         if (data.row.index >= tableBody.length - 2 && data.section === 'body') {
           data.cell.styles.fillColor = lightBlue;
           data.cell.styles.fontStyle = 'bold';
+        }
+      },
+      didDrawPage: (data) => {
+        if (schoolLogoBase64) {
+          try {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const watermarkSize = 120;
+            const x = (pageWidth - watermarkSize) / 2;
+            const y = (pageHeight - watermarkSize) / 2;
+
+            doc.saveGraphicsState();
+            // @ts-ignore
+            const gState = new (doc as any).GState({ opacity: 0.15 });
+            doc.setGState(gState);
+            doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
+            doc.restoreGraphicsState();
+          } catch (e) {
+            console.error("Failed to draw watermark on page", e);
+          }
         }
       }
     });

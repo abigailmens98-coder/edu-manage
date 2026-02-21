@@ -601,7 +601,7 @@ export default function Reports() {
     doc.setFontSize(16);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...blueColor);
-    doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
+    doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
@@ -611,7 +611,7 @@ export default function Reports() {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Email: info@universitybasic.edu.gh", 20, 32);
+    doc.text("Email: info@universitybasic.edu.gh", 160, 27);
 
     doc.text("ADDRESS", 160, 32);
     doc.text("P.O. BOX 237, TARKWA", 160, 37);
@@ -683,7 +683,7 @@ export default function Reports() {
       const totalScore = classScore + examScore;
       const grade = totalScore > 0 ? getNumericGrade(totalScore) : "-";
       const subjectPos = getSubjectPosition(student.id, s.id);
-      const remark = getGradeFromScales(totalScore, student.grade, gradingScales).description;
+      const remark = totalScore > 0 ? getGradeFromScales(totalScore, student.grade, gradingScales).description : "-";
       return [s.name.toUpperCase(), classScore || "-", examScore || "-", totalScore || "-", grade, getPositionSuffix(subjectPos), remark.toUpperCase()];
     });
 

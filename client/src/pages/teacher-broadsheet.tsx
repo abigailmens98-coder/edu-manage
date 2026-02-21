@@ -622,7 +622,7 @@ export default function TeacherBroadsheet() {
         doc.setFontSize(18);
         doc.setTextColor(30, 64, 175);
         doc.setFont("helvetica", "bold");
-        doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
+        doc.text("MINES AND TECHNOLOGY BASIC SCHOOL", 105, 18, { align: "center" });
 
         // Footer
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -669,7 +669,7 @@ export default function TeacherBroadsheet() {
                 .sort((a, b) => b - a);
 
             const position = classTotalScores.indexOf(total) + 1;
-            const remark = getGradeFromScales(total, selectedClass, gradingScales).description;
+            const remark = total > 0 ? getGradeFromScales(total, selectedClass, gradingScales).description : "-";
 
             return [
                 sub.name.toUpperCase(),

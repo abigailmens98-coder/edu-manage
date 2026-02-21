@@ -680,6 +680,7 @@ export default function TeacherBroadsheet() {
                 .sort((a, b) => b - a);
 
             const position = classTotalScores.indexOf(total) + 1;
+            const numericGrade = total > 0 ? getNumericGrade(total) : "-";
             const remark = total > 0 ? getGradeFromScales(total, selectedClass, gradingScales).description : "-";
 
             return [
@@ -687,10 +688,18 @@ export default function TeacherBroadsheet() {
                 classScore.toFixed(1),
                 examScore.toFixed(1),
                 total.toFixed(1),
+                numericGrade,
                 getPositionSuffix(position),
                 remark.toUpperCase()
             ];
         });
+
+        const totalScoreValue = calculateTotal(student.id);
+        const avgValue = calculateAverage(student.id);
+
+        // Add Grand Total and Average rows
+        tableBody.push(["Grand Total", "", "", totalScoreValue.toFixed(1), "", "", ""]);
+        tableBody.push(["Average", "", "", avgValue.toFixed(1), "", "", ""]);
 
         const weights = getAssessmentWeights(selectedClass);
 
@@ -770,25 +779,44 @@ export default function TeacherBroadsheet() {
         doc.setFont("helvetica", "italic");
         doc.text(interestVal.toUpperCase(), 35, finalY + 31);
 
-        // Remarks
-        doc.rect(14, finalY + 38, 182, 30);
+        // Class Teacher's Remarks
+        const defaultRemark = avgValue >= 80 ? "EXCELLENT PERFORMANCE. KEEP IT UP!" :
+            avgValue >= 70 ? "VERY GOOD WORK. AIM HIGHER!" :
+                avgValue >= 60 ? "GOOD EFFORT. MORE ROOM FOR IMPROVEMENT." :
+                    avgValue >= 50 ? "FAIR PERFORMANCE. WORK HARDER!" :
+                        "NEEDS SIGNIFICANT IMPROVEMENT.";
+        const teacherRemark = sDetails?.classTeacherRemark || defaultRemark;
+
         doc.setFont("helvetica", "bold");
-        doc.text("CLASS TEACHER'S REMARKS", 18, finalY + 45);
+        doc.text("Class Teacher's Remarks:", 14, finalY + 42);
         doc.setFont("helvetica", "italic");
-        const teacherRemarks = sDetails?.classTeacherRemark || "No remarks entered.";
-        const splitRemarksText = doc.splitTextToSize(teacherRemarks, 172);
-        doc.text(splitRemarksText, 18, finalY + 52);
-
-        // Signatures
-        doc.setFont("helvetica", "bold");
-        doc.text("Class Teacher:", 14, finalY + 80);
-        doc.setFont("helvetica", "normal");
-        doc.text(sDetails?.formMaster || teacherInfo?.name || username || "_________________", 44, finalY + 80);
+        const remarkLines = doc.splitTextToSize(teacherRemark.toUpperCase(), 130);
+        doc.text(remarkLines, 60, finalY + 42);
 
         doc.setFont("helvetica", "bold");
-        doc.text("Head's Signature:", 120, finalY + 80);
+        doc.text("Position:", 14, finalY + 52);
+        doc.setTextColor(30, 64, 175);
+        const positionText = overallPos != null && overallPos > 0 ? `${getPositionSuffix(overallPos)} out of ${totalInClass}` : "N/A";
+        doc.text(positionText, 35, finalY + 52);
+
+        // Form Master
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Form Master:", 14, finalY + 63);
         doc.setFont("helvetica", "normal");
-        doc.text("_________________", 155, finalY + 80);
+        doc.text(sDetails?.formMaster || teacherInfo?.name || username || "_________________", 44, finalY + 63);
+
+        // Next Term Begins
+        doc.setFont("helvetica", "bold");
+        doc.text("Next Term Begins:", 100, finalY + 63);
+        doc.setFont("helvetica", "normal");
+        doc.text(nextTermBeginsDate, 145, finalY + 63);
+
+        // Head's Signature
+        doc.setFont("helvetica", "bold");
+        doc.text("Head's Signature:", 14, finalY + 73);
+        doc.setFont("helvetica", "normal");
+        doc.text("_________________________", 50, finalY + 73);
     };
 
     const printStudentReport = async (student: any) => {

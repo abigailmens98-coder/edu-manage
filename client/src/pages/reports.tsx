@@ -438,18 +438,10 @@ export default function Reports() {
       (doc as any)._watermarkHookAttached = true;
     }
 
-    // Logo Area with Border Square
+    // Logo Area
     if (schoolLogoBase64) {
       try {
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.rect(14, 10, 35, 35);
         doc.addImage(schoolLogoBase64, "PNG", 14, 10, 35, 35);
-
-        // Add Email beneath the badge
-        doc.setFontSize(8);
-        doc.setTextColor(100, 100, 100);
-        doc.text("Email: info@minesandtech.edu.gh", 14, 50);
       } catch (e: any) {
         console.error("Failed to add school logo to broadsheet PDF", e);
       }
@@ -662,14 +654,10 @@ export default function Reports() {
       (doc as any)._watermarkHookAttached = true;
     }
 
-    // Logo Area with Border Square
+    // Logo Area
     if (schoolLogoBase64) {
       try {
-        // Black border square
-        doc.setDrawColor(0, 0, 0);
-        doc.setLineWidth(0.5);
-        doc.rect(14, 10, 35, 35);
-        // Enlarged Logo to fill the square
+        // Enlarged Logo
         doc.addImage(schoolLogoBase64, "PNG", 14, 10, 35, 35);
       } catch (e: any) {
         console.error("Failed to add school logo to PDF", e);
@@ -693,8 +681,6 @@ export default function Reports() {
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    // Email moved beneath the badge
-    doc.text("Email: info@minesandtech.edu.gh", 14, 50);
 
     doc.text("ADDRESS", 160, 31);
     doc.text("P.O. BOX 237, TARKWA", 160, 36);
@@ -1319,9 +1305,8 @@ export default function Reports() {
                 {/* School Header with Badge */}
                 <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
                   <div className="flex items-start justify-between">
-                    <div className="flex-shrink-0 border-2 border-black p-0.5">
+                    <div className="flex-shrink-0 p-0.5">
                       <img src="/school-logo.png" alt="School Badge" className="w-24 h-24 object-contain" />
-                      <p className="text-[10px] text-gray-600 mt-1 whitespace-nowrap">Email: info@minesandtech.edu.gh</p>
                     </div>
                     <div className="flex-1 px-4">
                       <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>

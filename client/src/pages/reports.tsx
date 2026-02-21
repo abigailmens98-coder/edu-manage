@@ -412,7 +412,7 @@ export default function Reports() {
 
         doc.saveGraphicsState();
         // @ts-ignore
-        const gState = new (doc as any).GState({ opacity: 0.08 });
+        const gState = new (doc as any).GState({ opacity: 0.20 });
         doc.setGState(gState);
         doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
         doc.restoreGraphicsState();
@@ -609,7 +609,7 @@ export default function Reports() {
         // Save current state, set opacity, add image, then restore
         doc.saveGraphicsState();
         // @ts-ignore - GState exists in jsPDF
-        const gState = new (doc as any).GState({ opacity: 0.08 });
+        const gState = new (doc as any).GState({ opacity: 0.20 });
         doc.setGState(gState);
         doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
         doc.restoreGraphicsState();

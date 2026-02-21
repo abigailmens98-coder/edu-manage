@@ -648,7 +648,7 @@ export default function TeacherBroadsheet() {
                 // Save current state, set opacity, add image, then restore
                 doc.saveGraphicsState();
                 // @ts-ignore - GState might not be in types but exists in jsPDF
-                const gState = new (doc as any).GState({ opacity: 0.08 });
+                const gState = new (doc as any).GState({ opacity: 0.20 });
                 doc.setGState(gState);
                 doc.addImage(schoolLogoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
                 doc.restoreGraphicsState();

@@ -323,6 +323,30 @@ export default function TeacherBroadsheet() {
         doc.text(`Term: ${termNumber}`, 70, 38);
         doc.text(today, 250, 38);
 
+        // Add School Badge & Watermark
+        if (schoolLogoBase64) {
+            try {
+                // Background Watermark (Large, faded, centered)
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const watermarkSize = 130;
+                const x = (pageWidth - watermarkSize) / 2;
+                const y = (pageHeight - watermarkSize) / 2;
+
+                doc.saveGraphicsState();
+                // @ts-ignore
+                const gState = new (doc as any).GState({ opacity: 0.08 });
+                doc.setGState(gState);
+                doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
+                doc.restoreGraphicsState();
+
+                // Top corner logo (Original size)
+                doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
+            } catch (e: any) {
+                console.error("Failed to add school logo to broadsheet PDF", e);
+            }
+        }
+
         const subjectHeaders = displaySubjects.flatMap(s => [s.name, ""]);
         const tableHead = [
             ["NAME OF STUDENTS", ...subjectHeaders, "TOT", "AVG", "POS"]
@@ -482,6 +506,31 @@ export default function TeacherBroadsheet() {
         doc.setFontSize(11);
         doc.text(`Subject Broadsheet — ${selectedClass}`, 14, 24);
         doc.text(`${termName}`, 14, 30);
+
+        // Add School Badge & Watermark
+        if (schoolLogoBase64) {
+            try {
+                // Background Watermark (Large, faded, centered)
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const watermarkSize = 120;
+                const x = (pageWidth - watermarkSize) / 2;
+                const y = (pageHeight - watermarkSize) / 2;
+
+                doc.saveGraphicsState();
+                // @ts-ignore
+                const gState = new (doc as any).GState({ opacity: 0.08 });
+                doc.setGState(gState);
+                doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
+                doc.restoreGraphicsState();
+
+                // Top corner logo (Original size)
+                doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
+            } catch (e: any) {
+                console.error("Failed to add school logo to broadsheet PDF", e);
+            }
+        }
+
         doc.setFontSize(9);
         doc.text(`Subjects: ${displaySubjects.map(s => s.name).join(", ")}`, 14, 36);
 
@@ -589,7 +638,22 @@ export default function TeacherBroadsheet() {
         // Add logo if available
         if (schoolLogoBase64) {
             try {
-                // Reduced size and slightly shifted to prevent overlap
+                // Background Watermark (Large, faded, centered)
+                const pageWidth = doc.internal.pageSize.getWidth();
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const watermarkSize = 120;
+                const x = (pageWidth - watermarkSize) / 2;
+                const y = (pageHeight - watermarkSize) / 2;
+
+                // Save current state, set opacity, add image, then restore
+                doc.saveGraphicsState();
+                // @ts-ignore - GState might not be in types but exists in jsPDF
+                const gState = new (doc as any).GState({ opacity: 0.08 });
+                doc.setGState(gState);
+                doc.addImage(schoolLogoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
+                doc.restoreGraphicsState();
+
+                // Top corner logo (Original size)
                 doc.addImage(schoolLogoBase64, 'PNG', 14, 10, 22, 22);
             } catch (e) {
                 console.error("Could not add logo to PDF", e);

@@ -21,15 +21,31 @@ export default function Broadsheet() {
   const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedTerm, setSelectedTerm] = useState("");
+  const [schoolLogoBase64, setSchoolLogoBase64] = useState<string | null>(null);
   const { toast } = useToast();
-  const { role, userId } = useAuth();
+  const { role, userId, username } = useAuth();
 
   const isTeacher = role === "teacher";
   const isAdmin = role === "admin";
 
   useEffect(() => {
     fetchData();
+    loadLogo();
   }, []);
+
+  const loadLogo = async () => {
+    try {
+      const response = await fetch("/school-logo.png");
+      const blob = await response.blob();
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSchoolLogoBase64(reader.result as string);
+      };
+      reader.readAsDataURL(blob);
+    } catch (e: any) {
+      console.error("Failed to load school logo", e);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -146,6 +162,30 @@ export default function Broadsheet() {
     doc.setFontSize(12);
     doc.text(`Broadsheet - ${selectedClass}`, 14, 22);
     doc.text(`Academic Year: 2024/2025 - ${termName}`, 14, 28);
+
+    // Add School Badge & Watermark
+    if (schoolLogoBase64) {
+      try {
+        // Background Watermark (Large, faded, centered)
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const watermarkSize = 130;
+        const x = (pageWidth - watermarkSize) / 2;
+        const y = (pageHeight - watermarkSize) / 2;
+
+        doc.saveGraphicsState();
+        // @ts-ignore
+        const gState = new (doc as any).GState({ opacity: 0.08 });
+        doc.setGState(gState);
+        doc.addImage(schoolLogoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
+        doc.restoreGraphicsState();
+
+        // Top corner logo (Original size)
+        doc.addImage(schoolLogoBase64, 'PNG', 14, 10, 22, 22);
+      } catch (e) {
+        console.error("Could not add logo to PDF", e);
+      }
+    }
 
     const tableHead = [
       ["Pos", "Student ID", "Name", ...displaySubjects.map(s => s.code), "Total"]

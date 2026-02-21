@@ -84,6 +84,7 @@ export default function Reports() {
   const [loadingReportDetails, setLoadingReportDetails] = useState(false);
   const [schoolLogoBase64, setSchoolLogoBase64] = useState<string>("");
   const [generatingBulk, setGeneratingBulk] = useState(false);
+  const [loadingReport, setLoadingReport] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const { role, userId } = useAuth();
@@ -200,16 +201,14 @@ export default function Reports() {
     }
   };
 
-  const getNumericGrade = (score: number): number => {
-    if (score === 0) return 0;
-    const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
-    return entry ? entry.grade : 9;
+  const getNumericGrade = (score: number) => {
+    if (score === 0 || !selectedClass) return 0;
+    return getGradeFromScales(score, selectedClass, gradingScales).grade;
   };
 
-  const getGradeRemark = (score: number): string => {
-    if (score === 0) return "-";
-    const entry = NUMERIC_GRADE_SCALE.find(g => score >= g.min && score <= g.max);
-    return entry ? entry.remark : "Fail";
+  const getGradeRemark = (score: number) => {
+    if (score === 0 || !selectedClass) return "-";
+    return getGradeFromScales(score, selectedClass, gradingScales).description;
   };
 
   const getAssessmentWeights = (className: string) => {
@@ -578,8 +577,9 @@ export default function Reports() {
 
   const generateReportPDF = (doc: jsPDF, student: any, studentTermDetails: any) => {
     const yearName = academicYears.find(y => y.id === selectedYear)?.year || "";
-    const termName = terms.find(t => t.id === selectedTerm)?.name || "";
-    const termAttendance = terms.find(t => t.id === selectedTerm)?.totalAttendanceDays || 60;
+    const termData = terms.find(t => t.id === selectedTerm);
+    const termName = termData?.name || "";
+    const termAttendance = termData?.totalAttendanceDays || 60;
     const position = getStudentPosition(student.id);
     const total = calculateTotal(student.id, allSubjects);
     const avg = calculateAverage(student.id, allSubjects);
@@ -729,7 +729,7 @@ export default function Reports() {
       }
     });
 
-    const finalY = (doc as any).lastAutoTable.finalY || 180;
+    const finalY = (doc as any).lastAutoTable?.finalY || 180;
 
     // Additional Info - using term details
     const attendanceVal = String(studentTermDetails?.attendance !== undefined ? studentTermDetails.attendance : (student.attendance || termAttendance));
@@ -810,17 +810,41 @@ export default function Reports() {
   };
 
   const printStudentReport = async (student: any) => {
-    const doc = new jsPDF();
-    const termDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
-    generateReportPDF(doc, student, termDetails);
+    if (!selectedTerm) {
+      toast({
+        title: "Selection Required",
+        description: "Please select a term before printing.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-    const termName = terms.find(t => t.id === selectedTerm)?.name || "";
-    doc.save(`Terminal_Report_${student.name.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
+    setLoadingReport(true);
+    try {
+      const doc = new jsPDF();
+      const termDetails = await studentsApi.getTermDetails(student.id, selectedTerm);
+      generateReportPDF(doc, student, termDetails);
 
-    toast({
-      title: "Success",
-      description: "Terminal report PDF exported successfully",
-    });
+      const termName = terms.find(t => t.id === selectedTerm)?.name || "Report";
+      const safeName = student.name.replace(/[^a-zA-Z0-9]/g, "_");
+      const safeTerm = termName.replace(/[^a-zA-Z0-9]/g, "_");
+
+      doc.save(`Terminal_Report_${safeName}_${safeTerm}.pdf`);
+
+      toast({
+        title: "Success",
+        description: "Terminal report PDF exported successfully",
+      });
+    } catch (err: any) {
+      console.error("PDF generation failed:", err);
+      toast({
+        title: "Error",
+        description: "Failed to generate report: " + (err.message || "Unknown error"),
+        variant: "destructive"
+      });
+    } finally {
+      setLoadingReport(false);
+    }
   };
 
   const printBulkReports = async () => {
@@ -829,7 +853,7 @@ export default function Reports() {
     setGeneratingBulk(true);
     try {
       const doc = new jsPDF();
-      const termName = terms.find(t => t.id === selectedTerm)?.name || "";
+      const termName = terms.find(t => t.id === selectedTerm)?.name || "Bulk";
 
       // Process students one by one
       for (let i = 0; i < classStudents.length; i++) {
@@ -845,17 +869,19 @@ export default function Reports() {
         generateReportPDF(doc, student, termDetails);
       }
 
-      doc.save(`Bulk_Reports_${selectedClass.replace(/\s+/g, "_")}_${termName.replace(/\s+/g, "_")}.pdf`);
+      const safeClass = selectedClass.replace(/[^a-zA-Z0-9]/g, "_");
+      const safeTerm = termName.replace(/[^a-zA-Z0-9]/g, "_");
+      doc.save(`Bulk_Reports_${safeClass}_${safeTerm}.pdf`);
 
       toast({
         title: "Success",
         description: `Bulk reports for ${classStudents.length} students exported successfully`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Bulk export failed", error);
       toast({
         title: "Error",
-        description: "Failed to generate bulk reports",
+        description: "Failed to generate bulk reports: " + (error.message || "Unknown error"),
         variant: "destructive",
       });
     } finally {
@@ -1492,8 +1518,17 @@ export default function Reports() {
                   }} className="gap-2 bg-green-600 hover:bg-green-700">
                     <Save className="h-4 w-4" /> Save Information
                   </Button>
-                  <Button onClick={() => printStudentReport(showStudentReport)} className="gap-2 bg-blue-600 hover:bg-blue-700">
-                    <Printer className="h-4 w-4" /> Print Report Card
+                  <Button
+                    onClick={() => printStudentReport(showStudentReport)}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    disabled={loadingReport}
+                  >
+                    {loadingReport ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Printer className="h-4 w-4" />
+                    )}
+                    {loadingReport ? "Generating..." : "Print Report Card"}
                   </Button>
                 </div>
               </div>

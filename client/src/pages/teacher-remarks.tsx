@@ -413,17 +413,18 @@ export default function TeacherRemarks() {
                                           <SelectValue placeholder="Select Attitude" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="EXCELLENT">Excellent</SelectItem>
-                                          <SelectItem value="VERY GOOD">Very Good</SelectItem>
-                                          <SelectItem value="GOOD">Good</SelectItem>
-                                          <SelectItem value="SATISFACTORY">Satisfactory</SelectItem>
-                                          <SelectItem value="NEEDS IMPROVEMENT">Needs Improvement</SelectItem>
+                                          <SelectItem value="HARDWORKING">Hardworking</SelectItem>
+                                          <SelectItem value="RESPECTFUL">Respectful</SelectItem>
+                                          <SelectItem value="RESPONSIBLE">Responsible</SelectItem>
+                                          <SelectItem value="OBEDIENT">Obedient</SelectItem>
+                                          <SelectItem value="PUNCTUAL">Punctual</SelectItem>
+                                          <SelectItem value="HONEST">Honest</SelectItem>
                                         </SelectContent>
                                       </Select>
                                     </div>
 
                                     <div className="space-y-2">
-                                      <Label className="text-xs">Interest in Studies</Label>
+                                      <Label className="text-xs">Interest </Label>
                                       <Select
                                         value={currentRemark.interest || ""}
                                         onValueChange={(val) => handleRemarkChange("interest", val)}

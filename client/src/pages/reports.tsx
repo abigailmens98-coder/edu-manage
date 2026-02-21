@@ -400,7 +400,38 @@ export default function Reports() {
     doc.text(`Term: ${termNumber}`, 70, 38);
     doc.text(today, 250, 38);
 
-    // Add Top corner logo (Original size) - Keep outside hook to draw on first page at least
+    // Watermark Helper
+    const drawWatermark = (pDoc: jsPDF, size: number) => {
+      if (schoolLogoBase64) {
+        try {
+          const pageWidth = pDoc.internal.pageSize.getWidth();
+          const pageHeight = pDoc.internal.pageSize.getHeight();
+          const x = (pageWidth - size) / 2;
+          const y = (pageHeight - size) / 2;
+          pDoc.saveGraphicsState();
+          // @ts-ignore
+          const gState = new (pDoc as any).GState({ opacity: 0.15 });
+          pDoc.setGState(gState);
+          pDoc.addImage(schoolLogoBase64, "PNG", x, y, size, size);
+          pDoc.restoreGraphicsState();
+        } catch (e) {
+          console.error("Watermark failed", e);
+        }
+      }
+    };
+
+    // Draw on first page
+    drawWatermark(doc, 130);
+
+    // Set up hook for background drawing on subsequent pages
+    const originalAddPage = doc.addPage.bind(doc);
+    doc.addPage = function () {
+      const result = originalAddPage.apply(this, arguments as any);
+      drawWatermark(this as any, 130);
+      return result;
+    };
+
+    // Add Top corner logo (Original size)
     if (schoolLogoBase64) {
       try {
         doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
@@ -447,7 +478,7 @@ export default function Reports() {
       const scoreCol = 1 + (idx * 2);
       const gradeCol = 2 + (idx * 2);
       subjectColStyles[scoreCol] = { cellWidth: 8, halign: "center" };
-      subjectColStyles[gradeCol] = { cellWidth: 6, halign: "center", fillColor: [240, 240, 240] };
+      subjectColStyles[gradeCol] = { cellWidth: 6, halign: "center" }; // Transparent
     });
 
     autoTable(doc, {
@@ -455,9 +486,9 @@ export default function Reports() {
       body: tableBody,
       startY: 42,
       theme: "grid",
-      styles: { fontSize: 6, cellPadding: 1 },
+      styles: { fontSize: 6, cellPadding: 1, fillColor: undefined }, // No global fill
       headStyles: {
-        fillColor: [200, 220, 200],
+        fillColor: undefined, // Transparent
         textColor: [0, 0, 0],
         fontStyle: "bold",
         halign: "center",
@@ -475,7 +506,6 @@ export default function Reports() {
           const colIdx = data.column.index;
           if (colIdx > 0 && colIdx <= displaySubjects.length * 2) {
             if (colIdx % 2 === 0) {
-              data.cell.styles.fillColor = [245, 245, 245];
               data.cell.styles.fontSize = 5;
             }
           }
@@ -485,26 +515,7 @@ export default function Reports() {
           }
         }
       },
-      didDrawPage: (data) => {
-        if (schoolLogoBase64) {
-          try {
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const watermarkSize = 130;
-            const x = (pageWidth - watermarkSize) / 2;
-            const y = (pageHeight - watermarkSize) / 2;
-
-            doc.saveGraphicsState();
-            // @ts-ignore
-            const gState = new (doc as any).GState({ opacity: 0.15 });
-            doc.setGState(gState);
-            doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
-            doc.restoreGraphicsState();
-          } catch (e) {
-            console.error("Failed to draw watermark on page", e);
-          }
-        }
-      }
+      // didDrawPage removed from here as we use addPage hook for background drawing
     });
 
     doc.save(`Broadsheet_${selectedClass}_${termName.replace(/\s+/g, "_")}.pdf`);
@@ -600,6 +611,37 @@ export default function Reports() {
     // Set blue color for headers
     const blueColor: [number, number, number] = [30, 64, 175];
     const lightBlue: [number, number, number] = [235, 245, 255];
+
+    // Watermark Helper
+    const drawWatermark = (pDoc: jsPDF, size: number) => {
+      if (schoolLogoBase64) {
+        try {
+          const pageWidth = pDoc.internal.pageSize.getWidth();
+          const pageHeight = pDoc.internal.pageSize.getHeight();
+          const x = (pageWidth - size) / 2;
+          const y = (pageHeight - size) / 2;
+          pDoc.saveGraphicsState();
+          // @ts-ignore
+          const gState = new (pDoc as any).GState({ opacity: 0.15 });
+          pDoc.setGState(gState);
+          pDoc.addImage(schoolLogoBase64, "PNG", x, y, size, size);
+          pDoc.restoreGraphicsState();
+        } catch (e) {
+          console.error("Watermark failed", e);
+        }
+      }
+    };
+
+    // Draw on first page
+    drawWatermark(doc, 120);
+
+    // Set up hook for background drawing on subsequent pages
+    const originalAddPage = doc.addPage.bind(doc);
+    doc.addPage = function () {
+      const result = originalAddPage.apply(this, arguments as any);
+      drawWatermark(this as any, 120);
+      return result;
+    };
 
     // Add Top corner logo (Original size)
     if (schoolLogoBase64) {
@@ -718,7 +760,7 @@ export default function Reports() {
         valign: 'middle'
       },
       headStyles: {
-        fillColor: lightBlue,
+        fillColor: undefined, // Transparent
         textColor: blueColor,
         fontStyle: 'bold',
         lineColor: blueColor,
@@ -736,30 +778,9 @@ export default function Reports() {
       didParseCell: (data) => {
         // Style Grand Total and Average rows
         if (data.row.index >= tableBody.length - 2 && data.section === 'body') {
-          data.cell.styles.fillColor = lightBlue;
           data.cell.styles.fontStyle = 'bold';
         }
       },
-      didDrawPage: (data) => {
-        if (schoolLogoBase64) {
-          try {
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const watermarkSize = 120;
-            const x = (pageWidth - watermarkSize) / 2;
-            const y = (pageHeight - watermarkSize) / 2;
-
-            doc.saveGraphicsState();
-            // @ts-ignore
-            const gState = new (doc as any).GState({ opacity: 0.15 });
-            doc.setGState(gState);
-            doc.addImage(schoolLogoBase64, "PNG", x, y, watermarkSize, watermarkSize);
-            doc.restoreGraphicsState();
-          } catch (e) {
-            console.error("Failed to draw watermark on page", e);
-          }
-        }
-      }
     });
 
     const finalY = (doc as any).lastAutoTable?.finalY || 180;

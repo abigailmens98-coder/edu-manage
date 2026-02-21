@@ -163,6 +163,37 @@ export default function Broadsheet() {
     doc.text(`Broadsheet - ${selectedClass}`, 14, 22);
     doc.text(`Academic Year: 2024/2025 - ${termName}`, 14, 28);
 
+    // Watermark Helper
+    const drawWatermark = (pDoc: jsPDF, size: number) => {
+      if (schoolLogoBase64) {
+        try {
+          const pageWidth = pDoc.internal.pageSize.getWidth();
+          const pageHeight = pDoc.internal.pageSize.getHeight();
+          const x = (pageWidth - size) / 2;
+          const y = (pageHeight - size) / 2;
+          pDoc.saveGraphicsState();
+          // @ts-ignore
+          const gState = new (pDoc as any).GState({ opacity: 0.15 });
+          pDoc.setGState(gState);
+          pDoc.addImage(schoolLogoBase64, 'PNG', x, y, size, size);
+          pDoc.restoreGraphicsState();
+        } catch (e) {
+          console.error("Watermark failed", e);
+        }
+      }
+    };
+
+    // Draw on first page
+    drawWatermark(doc, 130);
+
+    // Set up hook for background drawing on subsequent pages
+    const originalAddPage = doc.addPage.bind(doc);
+    doc.addPage = function () {
+      const result = originalAddPage.apply(this, arguments as any);
+      drawWatermark(this as any, 130);
+      return result;
+    };
+
     // Add Top corner logo (Original size)
     if (schoolLogoBase64) {
       try {
@@ -189,28 +220,9 @@ export default function Broadsheet() {
       body: tableBody,
       startY: 35,
       theme: 'grid',
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [41, 128, 185] },
-      didDrawPage: (data) => {
-        if (schoolLogoBase64) {
-          try {
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const watermarkSize = 130;
-            const x = (pageWidth - watermarkSize) / 2;
-            const y = (pageHeight - watermarkSize) / 2;
-
-            doc.saveGraphicsState();
-            // @ts-ignore
-            const gState = new (doc as any).GState({ opacity: 0.15 });
-            doc.setGState(gState);
-            doc.addImage(schoolLogoBase64, 'PNG', x, y, watermarkSize, watermarkSize);
-            doc.restoreGraphicsState();
-          } catch (e) {
-            console.error("Failed to draw watermark on page", e);
-          }
-        }
-      }
+      styles: { fontSize: 8, fillColor: undefined },
+      headStyles: { fillColor: undefined, textColor: [41, 128, 185], fontStyle: 'bold' },
+      // didDrawPage removed, using addPage hook
     });
 
     doc.save(`Broadsheet_${selectedClass}_${termName}.pdf`);

@@ -310,18 +310,22 @@ export default function TeacherBroadsheet() {
         doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
 
         doc.setFontSize(11);
+        doc.text("UBaS", 148.5, 23, { align: "center" });
+
+        doc.setFontSize(11);
         doc.setTextColor(0, 0, 0);
-        doc.text(`${yearName} TERM ${termNumber}    BROADSHEET FOR    ${selectedClass?.toUpperCase()}`, 148.5, 26, { align: "center" });
+        doc.text(`${yearName} TERM ${termNumber}    BROADSHEET FOR    ${selectedClass?.toUpperCase()}`, 148.5, 30, { align: "center" });
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text("SCORE AND POSITION OF STUDENTS", 148.5, 33, { align: "center" });
+        doc.text("SCORE AND POSITION OF STUDENTS", 148.5, 37, { align: "center" });
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
-        doc.text(`Number on Roll: ${classStudents.length}`, 14, 38);
-        doc.text(`Term: ${termNumber}`, 70, 38);
-        doc.text(today, 250, 38);
+        // Number on Roll and other info shifted down to accommodate larger badge area
+        doc.text(`Number on Roll: ${classStudents.length}`, 14, 55);
+        doc.text(`Term: ${termNumber}`, 70, 55);
+        doc.text(today, 250, 55);
 
         // Watermark Helper
         const drawWatermark = (pDoc: jsPDF, size: number) => {
@@ -357,10 +361,18 @@ export default function TeacherBroadsheet() {
             (doc as any)._watermarkHookAttached = true;
         }
 
-        // Add Top corner logo (Original size)
+        // Logo Area with Border Square
         if (schoolLogoBase64) {
             try {
-                doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
+                doc.setDrawColor(0, 0, 0);
+                doc.setLineWidth(0.5);
+                doc.rect(14, 10, 35, 35);
+                doc.addImage(schoolLogoBase64, "PNG", 14, 10, 35, 35);
+
+                // Add Email beneath the badge
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                doc.text("Email: info@minesandtech.edu.gh", 14, 50);
             } catch (e: any) {
                 console.error("Failed to add school logo to broadsheet PDF", e);
             }
@@ -407,7 +419,7 @@ export default function TeacherBroadsheet() {
         autoTable(doc, {
             head: tableHead,
             body: tableBody,
-            startY: 42,
+            startY: 60,
             theme: "grid",
             styles: { fontSize: 6, cellPadding: 1, fillColor: undefined },
             headStyles: {
@@ -521,10 +533,13 @@ export default function TeacherBroadsheet() {
         const termName = terms.find(t => t.id === selectedTerm)?.name || "Term";
 
         doc.setFontSize(16);
-        doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", doc.internal.pageSize.width / 2, 15, { align: "center" });
+        doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", doc.internal.pageSize.width / 2, 18, { align: "center" });
+        doc.setFontSize(14);
+        doc.text("UBaS", doc.internal.pageSize.width / 2, 25, { align: "center" });
+
         doc.setFontSize(11);
-        doc.text(`Subject Broadsheet — ${selectedClass}`, 14, 24);
-        doc.text(`${termName}`, 14, 30);
+        doc.text(`Subject Broadsheet — ${selectedClass}`, 14, 38);
+        doc.text(`${termName}`, 14, 44);
 
         // Watermark Helper
         const drawWatermark = (pDoc: jsPDF, size: number) => {
@@ -557,10 +572,18 @@ export default function TeacherBroadsheet() {
             return result;
         };
 
-        // Add Top corner logo (Original size)
+        // Logo Area with Border Square
         if (schoolLogoBase64) {
             try {
-                doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
+                doc.setDrawColor(0, 0, 0);
+                doc.setLineWidth(0.5);
+                doc.rect(14, 10, 35, 35);
+                doc.addImage(schoolLogoBase64, "PNG", 14, 10, 35, 35);
+
+                // Add Email beneath the badge
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                doc.text("Email: info@minesandtech.edu.gh", 14, 50);
             } catch (e: any) {
                 console.error("Failed to add school logo to broadsheet PDF", e);
             }
@@ -702,10 +725,15 @@ export default function TeacherBroadsheet() {
             return result;
         };
 
-        // Add Top corner logo (Original size)
+        // Logo Area with Border Square
         if (schoolLogoBase64) {
             try {
-                doc.addImage(schoolLogoBase64, 'PNG', 14, 10, 22, 22);
+                // Black border square
+                doc.setDrawColor(0, 0, 0);
+                doc.setLineWidth(0.5);
+                doc.rect(14, 10, 35, 35);
+                // Enlarged Logo to fill the square
+                doc.addImage(schoolLogoBase64, 'PNG', 14, 10, 35, 35);
             } catch (e: any) {
                 console.error("Could not add logo to PDF", e);
             }
@@ -716,19 +744,24 @@ export default function TeacherBroadsheet() {
         doc.setFont("helvetica", "bold");
         doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
 
+        doc.setFontSize(11);
+        doc.text("UBaS", 115, 23, { align: "center" });
+
         doc.setFontSize(10);
         doc.setFont("helvetica", "italic");
         doc.setTextColor(37, 99, 235);
-        doc.text("Knowledge, Truth and Excellence", 115, 24, { align: "center" });
+        doc.text("Knowledge, Truth and Excellence", 115, 28, { align: "center" });
 
         // Contact info & Address
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100, 100, 100);
-        doc.text("Email: info@minesandtech.edu.gh", 160, 27);
-        doc.text("ADDRESS", 160, 32);
-        doc.text("P.O. BOX 237, TARKWA", 160, 37);
-        doc.text("WESTERN REGION, GHANA", 160, 42);
+        // Email moved beneath the badge
+        doc.text("Email: info@minesandtech.edu.gh", 14, 50);
+
+        doc.text("ADDRESS", 160, 27);
+        doc.text("P.O. BOX 237, TARKWA", 160, 32);
+        doc.text("WESTERN REGION, GHANA", 160, 37);
 
         // Footer for bottom of page
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -736,7 +769,7 @@ export default function TeacherBroadsheet() {
 
         doc.setDrawColor(30, 64, 175);
         doc.setLineWidth(1.5);
-        doc.line(10, 47, 200, 47);
+        doc.line(10, 55, 200, 55);
 
         // Terminal Report Badge
         doc.setFillColor(220, 38, 38);
@@ -1598,17 +1631,16 @@ export default function TeacherBroadsheet() {
                                 {/* School Header with Badge */}
                                 <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
                                     <div className="flex items-start justify-between">
-                                        <div className="flex-shrink-0 w-20">
-                                            <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
+                                        <div className="flex-shrink-0 border-2 border-black p-0.5">
+                                            <img src="/school-logo.png" alt="School Badge" className="w-24 h-24 object-contain" />
+                                            <p className="text-[10px] text-gray-600 mt-1 whitespace-nowrap">Email: info@minesandtech.edu.gh</p>
                                         </div>
                                         <div className="flex-1 px-4">
                                             <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
+                                            <h2 className="text-lg font-bold text-blue-600">UBaS</h2>
                                             <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
                                         </div>
-                                        <div className="flex-shrink-0 w-20" />
-                                    </div>
-                                    <div className="flex justify-between text-xs mt-2 text-gray-600">
-                                        <p>Email: info@minesandtech.edu.gh</p>                                        <div className="text-right">
+                                        <div className="flex-shrink-0 w-24 text-right text-xs text-gray-600">
                                             <p><strong>ADDRESS</strong></p>
                                             <p>P.O. BOX 237, TARKWA</p>
                                             <p>WESTERN REGION, GHANA</p>

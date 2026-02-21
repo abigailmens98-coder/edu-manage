@@ -387,18 +387,22 @@ export default function Reports() {
     doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 148.5, 18, { align: "center" });
 
     doc.setFontSize(11);
+    doc.text("UBaS", 148.5, 23, { align: "center" });
+
+    doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    doc.text(`${yearName} TERM ${termNumber}    BROADSHEET FOR    ${selectedClass?.toUpperCase()}`, 148.5, 26, { align: "center" });
+    doc.text(`${yearName} TERM ${termNumber}    BROADSHEET FOR    ${selectedClass?.toUpperCase()}`, 148.5, 30, { align: "center" });
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("SCORE AND POSITION OF STUDENTS", 148.5, 33, { align: "center" });
+    doc.text("SCORE AND POSITION OF STUDENTS", 148.5, 37, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(`Number on Roll: ${classStudents.length}`, 14, 38);
-    doc.text(`Term: ${termNumber}`, 70, 38);
-    doc.text(today, 250, 38);
+    // Number on Roll and other info shifted down to accommodate larger badge area
+    doc.text(`Number on Roll: ${classStudents.length}`, 14, 55);
+    doc.text(`Term: ${termNumber}`, 70, 55);
+    doc.text(today, 250, 55);
 
     // Watermark Helper
     const drawWatermark = (pDoc: jsPDF, size: number) => {
@@ -434,10 +438,18 @@ export default function Reports() {
       (doc as any)._watermarkHookAttached = true;
     }
 
-    // Add Top corner logo (Original size)
+    // Logo Area with Border Square
     if (schoolLogoBase64) {
       try {
-        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.rect(14, 10, 35, 35);
+        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 35, 35);
+
+        // Add Email beneath the badge
+        doc.setFontSize(8);
+        doc.setTextColor(100, 100, 100);
+        doc.text("Email: info@minesandtech.edu.gh", 14, 50);
       } catch (e: any) {
         console.error("Failed to add school logo to broadsheet PDF", e);
       }
@@ -487,7 +499,7 @@ export default function Reports() {
     autoTable(doc, {
       head: tableHead,
       body: tableBody,
-      startY: 42,
+      startY: 60,
       theme: "grid",
       styles: { fontSize: 6, cellPadding: 1, fillColor: undefined }, // No global fill
       headStyles: {
@@ -650,10 +662,15 @@ export default function Reports() {
       (doc as any)._watermarkHookAttached = true;
     }
 
-    // Add Top corner logo (Original size)
+    // Logo Area with Border Square
     if (schoolLogoBase64) {
       try {
-        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 22, 22);
+        // Black border square
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.rect(14, 10, 35, 35);
+        // Enlarged Logo to fill the square
+        doc.addImage(schoolLogoBase64, "PNG", 14, 10, 35, 35);
       } catch (e: any) {
         console.error("Failed to add school logo to PDF", e);
       }
@@ -665,67 +682,71 @@ export default function Reports() {
     doc.setTextColor(...blueColor);
     doc.text("UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL", 115, 18, { align: "center" });
 
+    doc.setFontSize(11);
+    doc.text("UBaS", 115, 23, { align: "center" });
+
     doc.setFontSize(10);
     doc.setFont("helvetica", "italic");
-    doc.text("Knowledge, Truth and Excellence", 115, 24, { align: "center" });
+    doc.text("Knowledge, Truth and Excellence", 115, 28, { align: "center" });
 
     // Contact info
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Email: info@minesandtech.edu.gh", 160, 27);
+    // Email moved beneath the badge
+    doc.text("Email: info@minesandtech.edu.gh", 14, 50);
 
-    doc.text("ADDRESS", 160, 32);
-    doc.text("P.O. BOX 237, TARKWA", 160, 37);
-    doc.text("WESTERN REGION, GHANA", 160, 42);
+    doc.text("ADDRESS", 160, 31);
+    doc.text("P.O. BOX 237, TARKWA", 160, 36);
+    doc.text("WESTERN REGION, GHANA", 160, 41);
 
     // Blue line separator
     doc.setDrawColor(...blueColor);
     doc.setLineWidth(1.5);
-    doc.line(10, 47, 200, 47);
+    doc.line(10, 55, 200, 55);
 
     // Terminal Report Badge
     doc.setFillColor(220, 38, 38);
-    doc.roundedRect(80, 50, 50, 8, 2, 2, 'F');
+    doc.roundedRect(80, 58, 50, 8, 2, 2, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.text("TERMINAL REPORT", 105, 56, { align: "center" });
+    doc.text("TERMINAL REPORT", 105, 64, { align: "center" });
 
-    // Student Info Section
+    // Student Info Section - Shifted down
     doc.setTextColor(...blueColor);
     doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.text("Name of Student :", 14, 68);
+    doc.text("Name of Student :", 14, 78);
     doc.setFont("helvetica", "normal");
-    doc.text(student.name.toUpperCase(), 52, 68);
+    doc.text(student.name.toUpperCase(), 52, 78);
 
     doc.setFont("helvetica", "bold");
-    doc.text("Student ID:", 14, 75);
+    doc.text("Student ID:", 14, 85);
     doc.setFont("helvetica", "normal");
-    doc.text(student.studentId, 42, 75);
+    doc.text(student.studentId, 42, 85);
 
     doc.setFont("helvetica", "bold");
-    doc.text("Class:", 14, 82);
+    doc.text("Class:", 14, 92);
     doc.setFont("helvetica", "normal");
-    doc.text(student.grade, 30, 82);
+    doc.text(student.grade, 30, 92);
 
-    // Right side info
+    // Right side info - Shifted down
     doc.setFont("helvetica", "bold");
-    doc.text(`${yearName}  ${termName}`, 160, 68);
+    doc.text(`${yearName}  ${termName}`, 160, 78);
 
     doc.setFont("helvetica", "bold");
-    doc.text("Number On Roll :", 120, 75);
+    doc.text("Number On Roll :", 120, 85);
     doc.setFont("helvetica", "normal");
-    doc.text(String(classStudents.length), 160, 75);
+    doc.text(String(classStudents.length), 160, 85);
 
     doc.setFont("helvetica", "bold");
-    doc.text("Next Term Begins :", 120, 82);
+    doc.text("Next Term Begins :", 120, 92);
     doc.setFont("helvetica", "normal");
     const nextTermBegins = studentTermDetails?.nextTermBegins
       ? new Date(studentTermDetails.nextTermBegins).toLocaleDateString('en-GB')
       : "TBD";
-    doc.text(nextTermBegins, 165, 82);
+    doc.text(nextTermBegins, 165, 92);
 
     // Score Table
     const weights = getAssessmentWeights(student.grade);
@@ -756,7 +777,7 @@ export default function Reports() {
     autoTable(doc, {
       head: tableHead,
       body: tableBody,
-      startY: 88,
+      startY: 98,
       theme: 'grid',
       styles: {
         fontSize: 8,
@@ -1298,20 +1319,16 @@ export default function Reports() {
                 {/* School Header with Badge */}
                 <div className="text-center border-b-4 border-blue-600 pb-4 pt-6 px-6">
                   <div className="flex items-start justify-between">
-                    <div className="flex-shrink-0 w-20">
-                      <img src="/school-logo.png" alt="School Badge" className="w-20 h-20 object-contain" />
+                    <div className="flex-shrink-0 border-2 border-black p-0.5">
+                      <img src="/school-logo.png" alt="School Badge" className="w-24 h-24 object-contain" />
+                      <p className="text-[10px] text-gray-600 mt-1 whitespace-nowrap">Email: info@minesandtech.edu.gh</p>
                     </div>
                     <div className="flex-1 px-4">
                       <h1 className="text-xl font-bold text-blue-700 tracking-wide">UNIVERSITY OF MINES AND TECHNOLOGY BASIC SCHOOL</h1>
+                      <h2 className="text-lg font-bold text-blue-600">UBaS</h2>
                       <p className="text-blue-600 italic text-sm">Knowledge, Truth and Excellence</p>
                     </div>
-                    <div className="flex-shrink-0 w-20" />
-                  </div>
-                  <div className="flex justify-between text-xs mt-2 text-gray-600">
-                    <div className="text-left">
-                      <p>Email: info@minesandtech.edu.gh</p>
-                    </div>
-                    <div className="text-right">
+                    <div className="flex-shrink-0 w-24 text-right text-xs text-gray-600">
                       <p><strong>ADDRESS</strong></p>
                       <p>P.O. BOX 237, TARKWA</p>
                       <p>WESTERN REGION, GHANA</p>

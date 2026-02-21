@@ -34,9 +34,7 @@ export async function registerRoutes(
       }));
 
       // @ts-ignore - reaching into internal state for debug
-      const isFallback = storage.isFallback;
-      // @ts-ignore
-      const isSeededStorage = storage.isSeeded;
+      const status = storage.getStorageStatus();
 
       res.json({
         adminFound: !!admin,
@@ -45,14 +43,26 @@ export async function registerRoutes(
         teacherCount: teachers.length,
         users,
         isSeeded,
-        isSeededStorage,
-        isFallback,
-        databaseType: isDatabaseAvailable ? "PostgreSQL" : "In-Memory"
+        ...status,
+        databaseType: !status.isFallback && status.isDatabaseAvailable ? "PostgreSQL" : "In-Memory"
       });
     } catch (error: any) {
+      console.error("Auth check error:", error);
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Reconnect database manually
+  app.get("/api/debug/reconnect", async (req, res) => {
+    try {
+      // @ts-ignore
+      const result = await storage.tryReconnect();
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
 
   // Seed database on first run
   if (!isSeeded) {

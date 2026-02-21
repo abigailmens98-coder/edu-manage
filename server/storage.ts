@@ -1175,17 +1175,19 @@ export class MemStorage implements IStorage {
 // Determine which storage to use. 
 // We use a simple object wrapper to allow swapping the implementation at runtime.
 class StorageManager implements IStorage {
-  private current: IStorage;
+  private dbStorage: DatabaseStorage | null = null;
+  private memStorage: MemStorage;
   private isFallback = false;
   private seeder: (() => Promise<void>) | null = null;
   private isSeeded = false;
+  private lastFailingError: string | null = null;
 
   constructor() {
+    this.memStorage = new MemStorage();
     if (isDatabaseAvailable && pool) {
-      this.current = new DatabaseStorage();
+      this.dbStorage = new DatabaseStorage();
       this.testConnection();
     } else {
-      this.current = new MemStorage();
       this.isFallback = true;
     }
   }
@@ -1196,8 +1198,26 @@ class StorageManager implements IStorage {
       await pool.query('SELECT NOW()');
       console.log('✅ Database connected successfully');
       databaseSuccessfullyConnected = true;
+      this.isFallback = false;
+      this.lastFailingError = null;
     } catch (err: any) {
       this.handleFailure(err);
+    }
+  }
+
+  async tryReconnect(): Promise<{ success: boolean; error?: string }> {
+    if (!pool) return { success: false, error: "No database pool available" };
+    try {
+      await pool.query('SELECT NOW()');
+      console.log('🔄 Database reconnection successful');
+      this.isFallback = false;
+      databaseSuccessfullyConnected = true;
+      this.lastFailingError = null;
+      return { success: true };
+    } catch (err: any) {
+      console.error('❌ Database reconnection failed:', err.message);
+      this.lastFailingError = err.message;
+      return { success: false, error: err.message };
     }
   }
 
@@ -1205,8 +1225,8 @@ class StorageManager implements IStorage {
     if (this.isFallback) return;
 
     console.error('❌ Database operation failed:', err.message);
+    this.lastFailingError = err.message;
     console.warn('🔄 Falling back to in-memory storage immediately.');
-    this.current = new MemStorage();
     this.isFallback = true;
     databaseSuccessfullyConnected = false;
 
@@ -1236,79 +1256,91 @@ class StorageManager implements IStorage {
   }
 
   // Wrapper to catch errors and fallback immediately
-  private async exec<T>(fn: () => Promise<T>): Promise<T> {
-    try {
-      return await fn();
-    } catch (err) {
-      this.handleFailure(err);
-      // Retry once with the new storage (MemStorage)
-      return await fn();
+  private async exec<T>(fn: (storage: IStorage) => Promise<T>): Promise<T> {
+    if (!this.isFallback && this.dbStorage) {
+      try {
+        return await fn(this.dbStorage);
+      } catch (err) {
+        await this.handleFailure(err);
+        return await fn(this.memStorage);
+      }
     }
+    return await fn(this.memStorage);
+  }
+
+  getStorageStatus() {
+    return {
+      isFallback: this.isFallback,
+      isDatabaseAvailable,
+      databaseSuccessfullyConnected,
+      lastError: this.lastFailingError,
+      isSeeded: this.isSeeded
+    };
   }
 
   // Delegate all methods with the exec wrapper
-  getUser(id: string) { return this.exec(() => this.current.getUser(id)); }
-  getUserByUsername(username: string) { return this.exec(() => this.current.getUserByUsername(username)); }
-  createUser(user: any) { return this.exec(() => this.current.createUser(user)); }
-  getStudents() { return this.exec(() => this.current.getStudents()); }
-  getStudent(id: string) { return this.exec(() => this.current.getStudent(id)); }
-  createStudent(student: any) { return this.exec(() => this.current.createStudent(student)); }
-  updateStudent(id: string, student: any) { return this.exec(() => this.current.updateStudent(id, student)); }
-  deleteStudent(id: string) { return this.exec(() => this.current.deleteStudent(id)); }
-  getTeachers() { return this.exec(() => this.current.getTeachers()); }
-  getTeacher(id: string) { return this.exec(() => this.current.getTeacher(id)); }
-  createTeacher(teacher: any) { return this.exec(() => this.current.createTeacher(teacher)); }
-  updateTeacher(id: string, teacher: any) { return this.exec(() => this.current.updateTeacher(id, teacher)); }
-  deleteTeacher(id: string) { return this.current.deleteTeacher(id); } // Note: Fixed redundant exec if needed, but keeping consistent
-  getSubjects() { return this.exec(() => this.current.getSubjects()); }
-  getSubject(id: string) { return this.exec(() => this.current.getSubject(id)); }
-  createSubject(subject: any) { return this.exec(() => this.current.createSubject(subject)); }
-  updateSubject(id: string, subject: any) { return this.exec(() => this.current.updateSubject(id, subject)); }
-  deleteSubject(id: string) { return this.exec(() => this.current.deleteSubject(id)); }
-  getAcademicYears() { return this.exec(() => this.current.getAcademicYears()); }
-  getAcademicYear(id: string) { return this.exec(() => this.current.getAcademicYear(id)); }
-  getActiveAcademicYear() { return this.exec(() => this.current.getActiveAcademicYear()); }
-  createAcademicYear(year: any) { return this.exec(() => this.current.createAcademicYear(year)); }
-  updateAcademicYear(id: string, year: any) { return this.exec(() => this.current.updateAcademicYear(id, year)); }
-  setActiveAcademicYear(id: string) { return this.exec(() => this.current.setActiveAcademicYear(id)); }
-  deleteAcademicYear(id: string) { return this.exec(() => this.current.deleteAcademicYear(id)); }
-  getAcademicTerms() { return this.exec(() => this.current.getAcademicTerms()); }
-  getAcademicTermsByYear(id: string) { return this.exec(() => this.current.getAcademicTermsByYear(id)); }
-  getAcademicTerm(id: string) { return this.exec(() => this.current.getAcademicTerm(id)); }
-  getActiveAcademicTerm() { return this.exec(() => this.current.getActiveAcademicTerm()); }
-  createAcademicTerm(term: any) { return this.exec(() => this.current.createAcademicTerm(term)); }
-  updateAcademicTerm(id: string, term: any) { return this.exec(() => this.current.updateAcademicTerm(id, term)); }
-  setActiveAcademicTerm(id: string) { return this.exec(() => this.current.setActiveAcademicTerm(id)); }
-  deleteAcademicTerm(id: string) { return this.current.deleteAcademicTerm(id); }
-  getGradingScales() { return this.exec(() => this.current.getGradingScales()); }
-  getGradingScale(id: string) { return this.exec(() => this.current.getGradingScale(id)); }
-  createGradingScale(scale: any) { return this.exec(() => this.current.createGradingScale(scale)); }
-  updateGradingScale(id: string, scale: any) { return this.exec(() => this.current.updateGradingScale(id, scale)); }
-  deleteGradingScale(id: string) { return this.exec(() => this.current.deleteGradingScale(id)); }
-  initializeGradingScales() { return this.exec(() => this.current.initializeGradingScales()); }
-  getScores() { return this.exec(() => this.current.getScores()); }
-  getScoresByStudent(id: string) { return this.exec(() => this.current.getScoresByStudent(id)); }
-  getScoresByTerm(id: string) { return this.exec(() => this.current.getScoresByTerm(id)); }
-  getScore(id: string) { return this.exec(() => this.current.getScore(id)); }
-  createScore(score: any) { return this.exec(() => this.current.createScore(score)); }
-  updateScore(id: string, score: any) { return this.exec(() => this.current.updateScore(id, score)); }
-  deleteScore(id: string) { return this.exec(() => this.current.deleteScore(id)); }
-  getTeacherAssignments() { return this.exec(() => this.current.getTeacherAssignments()); }
-  getTeacherAssignmentsByTeacher(id: string) { return this.exec(() => this.current.getTeacherAssignmentsByTeacher(id)); }
-  createTeacherAssignment(assign: any) { return this.exec(() => this.current.createTeacherAssignment(assign)); }
-  deleteTeacherAssignment(id: string) { return this.exec(() => this.current.deleteTeacherAssignment(id)); }
-  deleteTeacherAssignmentsByTeacher(id: string) { return this.exec(() => this.current.deleteTeacherAssignmentsByTeacher(id)); }
-  getStudentTermDetails(sid: string, tid: string) { return this.exec(() => this.current.getStudentTermDetails(sid, tid)); }
-  createOrUpdateStudentTermDetails(details: any) { return this.exec(() => this.current.createOrUpdateStudentTermDetails(details)); }
-  updateUserPassword(uid: string, pass: string) { return this.exec(() => this.current.updateUserPassword(uid, pass)); }
+  getUser(id: string) { return this.exec((s) => s.getUser(id)); }
+  getUserByUsername(username: string) { return this.exec((s) => s.getUserByUsername(username)); }
+  createUser(user: any) { return this.exec((s) => s.createUser(user)); }
+  getStudents() { return this.exec((s) => s.getStudents()); }
+  getStudent(id: string) { return this.exec((s) => s.getStudent(id)); }
+  createStudent(student: any) { return this.exec((s) => s.createStudent(student)); }
+  updateStudent(id: string, student: any) { return this.exec((s) => s.updateStudent(id, student)); }
+  deleteStudent(id: string) { return this.exec((s) => s.deleteStudent(id)); }
+  getTeachers() { return this.exec((s) => s.getTeachers()); }
+  getTeacher(id: string) { return this.exec((s) => s.getTeacher(id)); }
+  createTeacher(teacher: any) { return this.exec((s) => s.createTeacher(teacher)); }
+  updateTeacher(id: string, teacher: any) { return this.exec((s) => s.updateTeacher(id, teacher)); }
+  deleteTeacher(id: string) { return this.exec((s) => s.deleteTeacher(id)); }
+  getSubjects() { return this.exec((s) => s.getSubjects()); }
+  getSubject(id: string) { return this.exec((s) => s.getSubject(id)); }
+  createSubject(subject: any) { return this.exec((s) => s.createSubject(subject)); }
+  updateSubject(id: string, subject: any) { return this.exec((s) => s.updateSubject(id, subject)); }
+  deleteSubject(id: string) { return this.exec((s) => s.deleteSubject(id)); }
+  getAcademicYears() { return this.exec((s) => s.getAcademicYears()); }
+  getAcademicYear(id: string) { return this.exec((s) => s.getAcademicYear(id)); }
+  getActiveAcademicYear() { return this.exec((s) => s.getActiveAcademicYear()); }
+  createAcademicYear(year: any) { return this.exec((s) => s.createAcademicYear(year)); }
+  updateAcademicYear(id: string, year: any) { return this.exec((s) => s.updateAcademicYear(id, year)); }
+  setActiveAcademicYear(id: string) { return this.exec((s) => s.setActiveAcademicYear(id)); }
+  deleteAcademicYear(id: string) { return this.exec((s) => s.deleteAcademicYear(id)); }
+  getAcademicTerms() { return this.exec((s) => s.getAcademicTerms()); }
+  getAcademicTermsByYear(id: string) { return this.exec((s) => s.getAcademicTermsByYear(id)); }
+  getAcademicTerm(id: string) { return this.exec((s) => s.getAcademicTerm(id)); }
+  getActiveAcademicTerm() { return this.exec((s) => s.getActiveAcademicTerm()); }
+  createAcademicTerm(term: any) { return this.exec((s) => s.createAcademicTerm(term)); }
+  updateAcademicTerm(id: string, term: any) { return this.exec((s) => s.updateAcademicTerm(id, term)); }
+  setActiveAcademicTerm(id: string) { return this.exec((s) => s.setActiveAcademicTerm(id)); }
+  deleteAcademicTerm(id: string) { return this.exec((s) => s.deleteAcademicTerm(id)); }
+  getGradingScales() { return this.exec((s) => s.getGradingScales()); }
+  getGradingScale(id: string) { return this.exec((s) => s.getGradingScale(id)); }
+  createGradingScale(scale: any) { return this.exec((s) => s.createGradingScale(scale)); }
+  updateGradingScale(id: string, scale: any) { return this.exec((s) => s.updateGradingScale(id, scale)); }
+  deleteGradingScale(id: string) { return this.exec((s) => s.deleteGradingScale(id)); }
+  initializeGradingScales() { return this.exec((s) => s.initializeGradingScales()); }
+  getScores() { return this.exec((s) => s.getScores()); }
+  getScoresByStudent(id: string) { return this.exec((s) => s.getScoresByStudent(id)); }
+  getScoresByTerm(id: string) { return this.exec((s) => s.getScoresByTerm(id)); }
+  getScore(id: string) { return this.exec((s) => s.getScore(id)); }
+  createScore(score: any) { return this.exec((s) => s.createScore(score)); }
+  updateScore(id: string, score: any) { return this.exec((s) => s.updateScore(id, score)); }
+  deleteScore(id: string) { return this.exec((s) => s.deleteScore(id)); }
+  getTeacherAssignments() { return this.exec((s) => s.getTeacherAssignments()); }
+  getTeacherAssignmentsByTeacher(id: string) { return this.exec((s) => s.getTeacherAssignmentsByTeacher(id)); }
+  createTeacherAssignment(assign: any) { return this.exec((s) => s.createTeacherAssignment(assign)); }
+  deleteTeacherAssignment(id: string) { return this.exec((s) => s.deleteTeacherAssignment(id)); }
+  deleteTeacherAssignmentsByTeacher(id: string) { return this.exec((s) => s.deleteTeacherAssignmentsByTeacher(id)); }
+  getStudentTermDetails(sid: string, tid: string) { return this.exec((s) => s.getStudentTermDetails(sid, tid)); }
+  createOrUpdateStudentTermDetails(details: any) { return this.exec((s) => s.createOrUpdateStudentTermDetails(details)); }
+  updateUserPassword(uid: string, pass: string) { return this.exec((s) => s.updateUserPassword(uid, pass)); }
 
   // Assessment Config operations
-  getAssessmentConfigs() { return this.exec(() => this.current.getAssessmentConfigs()); }
-  updateAssessmentConfig(id: string, config: any) { return this.exec(() => this.current.updateAssessmentConfig(id, config)); }
-  seedAssessmentConfigs() { return this.exec(() => this.current.seedAssessmentConfigs()); }
+  getAssessmentConfigs() { return this.exec((s) => s.getAssessmentConfigs()); }
+  updateAssessmentConfig(id: string, config: any) { return this.exec((s) => s.updateAssessmentConfig(id, config)); }
+  seedAssessmentConfigs() { return this.exec((s) => s.seedAssessmentConfigs()); }
 
-  cleanupDemoData() { return this.exec(() => this.current.cleanupDemoData()); }
-  deleteUserByUsername(u: string) { return this.exec(() => this.current.deleteUserByUsername(u)); }
+  cleanupDemoData() { return this.exec((s) => s.cleanupDemoData()); }
+  deleteUserByUsername(u: string) { return this.exec((s) => s.deleteUserByUsername(u)); }
 }
 
 export const storage = new StorageManager();

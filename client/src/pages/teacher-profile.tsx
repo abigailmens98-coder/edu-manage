@@ -114,6 +114,7 @@ export default function TeacherProfile() {
         qualifications: profile.qualifications,
         experience: profile.experience,
         bio: profile.bio,
+        username: profile.username,
       });
 
       toast({
@@ -215,10 +216,10 @@ export default function TeacherProfile() {
                       <Input
                         id="username"
                         value={profile.username}
-                        disabled
-                        className="bg-muted cursor-not-allowed"
+                        onChange={(e) => handleChange("username", e.target.value)}
+                        placeholder="Enter username"
                       />
-                      <p className="text-xs text-muted-foreground">Username cannot be changed. Contact admin if needed.</p>
+                      <p className="text-xs text-muted-foreground">This is your login username. Changes will take effect on next login.</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>

@@ -499,10 +499,18 @@ export async function registerRoutes(
 
   app.patch("/api/teachers/:id", async (req, res) => {
     try {
-      const teacher = await storage.updateTeacher(req.params.id, req.body);
+      const { username, ...teacherData } = req.body;
+
+      const teacher = await storage.updateTeacher(req.params.id, teacherData);
       if (!teacher) {
         return res.status(404).json({ error: "Teacher not found" });
       }
+
+      // If username was provided, also update the associated user record
+      if (username && teacher.userId) {
+        await storage.updateUser(teacher.userId, { username });
+      }
+
       res.json(teacher);
     } catch (error) {
       res.status(400).json({ error: "Failed to update teacher" });

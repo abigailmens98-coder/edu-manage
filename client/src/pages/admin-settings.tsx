@@ -754,7 +754,6 @@ export default function AdminSettings() {
             <CardContent>
               {renderGradingTable("jhs", "Basic 7-9 (JHS)")}
               {renderGradingTable("primary", "Basic 1-6 (Primary)")}
-              {renderGradingTable("primary", "Basic 1-6 (Primary)")}
             </CardContent>
           </Card>
         </TabsContent>

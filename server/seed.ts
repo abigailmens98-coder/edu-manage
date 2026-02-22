@@ -27,7 +27,25 @@ export async function seedDatabase() {
       console.log(`✅ Admin password overwrite complete.`);
     }
 
-    // 2. Ensure Default Teacher User (teacher_001)
+    // 1b. Ensure Second Admin User (admin2)
+    console.log("🔍 Checking for admin2 user...");
+    const existingAdmin2 = await storage.getUserByUsername("admin2");
+    const admin2Password = await bcrypt.hash("admin123", 10);
+
+    if (!existingAdmin2) {
+      console.log("✨ admin2 user not found. Creating new admin user...");
+      await storage.createUser({
+        username: "admin2",
+        password: admin2Password,
+        role: "admin",
+        secretWord: "governance",
+      });
+      console.log("✅ admin2 user created (username: admin2, password: admin123)");
+    } else {
+      console.log(`✅ admin2 user found (ID: ${existingAdmin2.id}). Overwriting password...`);
+      await storage.updateUserPassword(existingAdmin2.id, admin2Password);
+      console.log(`✅ admin2 password overwrite complete.`);
+    }
     const teacherPassword = await bcrypt.hash("teacher123", 10);
     const existingTeacher1 = await storage.getUserByUsername("teacher_001");
     if (!existingTeacher1) {

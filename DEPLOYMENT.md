@@ -2,44 +2,25 @@
 
 ## Database Setup for Production
 
-Your application currently connects to a **workspace database** (hostname: `helium`) which is **NOT accessible** from Cloud Run deployments.
+Your application is designed to use an external PostgreSQL database in production.
 
 ### To deploy this application, you need to:
 
 1. **Set up a Production PostgreSQL Database**
    
-   Option A: **Replit Managed PostgreSQL (Recommended)**
-   - Go to your Replit workspace
-   - Click on the "Database" icon in the left sidebar
-   - Enable "Production Database"
-   - Replit will automatically provision a managed PostgreSQL database
-   - The `DATABASE_URL` will be automatically added to your deployment secrets
-
-   Option B: **External PostgreSQL Provider**
-   - Use providers like:
-     - Neon (https://neon.tech) - Serverless PostgreSQL
+   Use providers like:
+     - Neon (https://neon.tech) - Serverless PostgreSQL (Recommended)
+     - Render (https://render.com) - Managed PostgreSQL
      - Supabase (https://supabase.com) - Free tier available
      - Railway (https://railway.app) - PostgreSQL hosting
-     - Render (https://render.com) - Managed PostgreSQL
    
 2. **Configure Production Database URL**
    
    Once you have a production database:
    - Copy the database connection URL
-   - In your Replit workspace, go to "Secrets" (lock icon in left sidebar)
-   - Add or update the `DATABASE_URL` secret with your production database URL
+   - Set the `DATABASE_URL` environment variable in your deployment platform (e.g., Render Dashboard)
    
    Format: `postgresql://username:password@host:port/database?sslmode=require`
-
-3. **Verify Deployment Configuration**
-   
-   Your `.replit` file already has:
-   ```
-   [deployment]
-   deploymentTarget = "autoscale"
-   ```
-   
-   This is correct for Cloud Run deployments.
 
 ## Current Status
 

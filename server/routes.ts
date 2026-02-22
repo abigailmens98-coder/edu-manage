@@ -1195,9 +1195,6 @@ export async function registerRoutes(
 
   app.patch("/api/assessment-configs/:id", async (req, res) => {
     try {
-      if (!req.session.userId || req.session.role !== "admin") {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
       const updated = await storage.updateAssessmentConfig(req.params.id, req.body);
       if (!updated) {
         return res.status(404).json({ error: "Config not found" });

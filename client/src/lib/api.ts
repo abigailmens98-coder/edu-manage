@@ -12,10 +12,18 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+// Helper to always include credentials in fetch calls
+function fetchWithCredentials(url: string, options?: RequestInit): Promise<Response> {
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+  });
+}
+
 // Authentication API
 export const authApi = {
   login: async (username: string, password: string) => {
-    const response = await fetch('/api/auth/login', {
+    const response = await fetchWithCredentials('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -25,7 +33,7 @@ export const authApi = {
   },
 
   logout: async () => {
-    const response = await fetch('/api/auth/logout', {
+    const response = await fetchWithCredentials('/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
     });
@@ -33,14 +41,12 @@ export const authApi = {
   },
 
   me: async () => {
-    const response = await fetch('/api/auth/me', {
-      credentials: 'include',
-    });
+    const response = await fetchWithCredentials('/api/auth/me');
     return handleResponse<{ user: { id: string; username: string; role: string; email?: string; secretWord?: string }; teacher?: any }>(response);
   },
 
   updateProfile: async (data: { email?: string; secretWord?: string }) => {
-    const response = await fetch('/api/auth/profile', {
+    const response = await fetchWithCredentials('/api/auth/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -49,7 +55,7 @@ export const authApi = {
   },
 
   changePassword: async (data: { currentPassword: string; newPassword: string }) => {
-    const response = await fetch('/api/auth/change-password', {
+    const response = await fetchWithCredentials('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -61,12 +67,12 @@ export const authApi = {
 // Students API
 export const studentsApi = {
   getAll: async () => {
-    const response = await fetch('/api/students');
+    const response = await fetchWithCredentials('/api/students');
     return handleResponse<any[]>(response);
   },
 
   create: async (student: any) => {
-    const response = await fetch('/api/students', {
+    const response = await fetchWithCredentials('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(student),
@@ -75,7 +81,7 @@ export const studentsApi = {
   },
 
   update: async (id: string, student: any) => {
-    const response = await fetch(`/api/students/${id}`, {
+    const response = await fetchWithCredentials(`/api/students/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(student),
@@ -84,19 +90,19 @@ export const studentsApi = {
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/students/${id}`, {
+    const response = await fetchWithCredentials(`/api/students/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
   },
 
   getTermDetails: async (studentId: string, termId: string) => {
-    const response = await fetch(`/api/students/${studentId}/term-details?termId=${termId}`);
+    const response = await fetchWithCredentials(`/api/students/${studentId}/term-details?termId=${termId}`);
     return handleResponse<any>(response);
   },
 
   saveTermDetails: async (studentId: string, details: any) => {
-    const response = await fetch(`/api/students/${studentId}/term-details`, {
+    const response = await fetchWithCredentials(`/api/students/${studentId}/term-details`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(details),
@@ -108,12 +114,12 @@ export const studentsApi = {
 // Teachers API
 export const teachersApi = {
   getAll: async () => {
-    const response = await fetch('/api/teachers');
+    const response = await fetchWithCredentials('/api/teachers');
     return handleResponse<any[]>(response);
   },
 
   create: async (teacher: any) => {
-    const response = await fetch('/api/teachers', {
+    const response = await fetchWithCredentials('/api/teachers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(teacher),
@@ -122,7 +128,7 @@ export const teachersApi = {
   },
 
   update: async (id: string, teacher: any) => {
-    const response = await fetch(`/api/teachers/${id}`, {
+    const response = await fetchWithCredentials(`/api/teachers/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(teacher),
@@ -131,7 +137,7 @@ export const teachersApi = {
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/teachers/${id}`, {
+    const response = await fetchWithCredentials(`/api/teachers/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -141,7 +147,7 @@ export const teachersApi = {
     const url = classLevel
       ? `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(classLevel)}`
       : `/api/teachers/${teacherId}/students`;
-    const response = await fetch(url);
+    const response = await fetchWithCredentials(url);
     return handleResponse<any[]>(response);
   },
 
@@ -149,7 +155,7 @@ export const teachersApi = {
     const params = new URLSearchParams({ termId });
     if (classLevel) params.append('classLevel', classLevel);
     if (subjectId) params.append('subjectId', subjectId);
-    const response = await fetch(`/api/teachers/${teacherId}/scores?${params}`);
+    const response = await fetchWithCredentials(`/api/teachers/${teacherId}/scores?${params}`);
     return handleResponse<any[]>(response);
   },
 
@@ -160,7 +166,7 @@ export const teachersApi = {
     classScore: number;
     examScore: number;
   }) => {
-    const response = await fetch(`/api/teachers/${teacherId}/scores`, {
+    const response = await fetchWithCredentials(`/api/teachers/${teacherId}/scores`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(scoreData),
@@ -169,7 +175,7 @@ export const teachersApi = {
   },
 
   resetPassword: async (teacherId: string, password: string) => {
-    const response = await fetch(`/api/admin/teachers/${teacherId}/reset-password`, {
+    const response = await fetchWithCredentials(`/api/admin/teachers/${teacherId}/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password }),
@@ -181,12 +187,12 @@ export const teachersApi = {
 // Subjects API
 export const subjectsApi = {
   getAll: async () => {
-    const response = await fetch('/api/subjects');
+    const response = await fetchWithCredentials('/api/subjects');
     return handleResponse<any[]>(response);
   },
 
   create: async (subject: any) => {
-    const response = await fetch('/api/subjects', {
+    const response = await fetchWithCredentials('/api/subjects', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subject),
@@ -195,7 +201,7 @@ export const subjectsApi = {
   },
 
   update: async (id: string, subject: any) => {
-    const response = await fetch(`/api/subjects/${id}`, {
+    const response = await fetchWithCredentials(`/api/subjects/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(subject),
@@ -204,7 +210,7 @@ export const subjectsApi = {
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/subjects/${id}`, {
+    const response = await fetchWithCredentials(`/api/subjects/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -214,17 +220,17 @@ export const subjectsApi = {
 // Academic Years API
 export const academicYearsApi = {
   getAll: async () => {
-    const response = await fetch('/api/academic-years');
+    const response = await fetchWithCredentials('/api/academic-years');
     return handleResponse<any[]>(response);
   },
 
   getActive: async () => {
-    const response = await fetch('/api/academic-years/active');
+    const response = await fetchWithCredentials('/api/academic-years/active');
     return handleResponse<any>(response);
   },
 
   create: async (year: any) => {
-    const response = await fetch('/api/academic-years', {
+    const response = await fetchWithCredentials('/api/academic-years', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(year),
@@ -233,7 +239,7 @@ export const academicYearsApi = {
   },
 
   update: async (id: string, year: any) => {
-    const response = await fetch(`/api/academic-years/${id}`, {
+    const response = await fetchWithCredentials(`/api/academic-years/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(year),
@@ -242,14 +248,14 @@ export const academicYearsApi = {
   },
 
   setActive: async (id: string) => {
-    const response = await fetch(`/api/academic-years/${id}/set-active`, {
+    const response = await fetchWithCredentials(`/api/academic-years/${id}/set-active`, {
       method: 'POST',
     });
     return handleResponse<any>(response);
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/academic-years/${id}`, {
+    const response = await fetchWithCredentials(`/api/academic-years/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -260,17 +266,17 @@ export const academicYearsApi = {
 export const academicTermsApi = {
   getAll: async (yearId?: string) => {
     const url = yearId ? `/api/academic-terms?yearId=${yearId}` : '/api/academic-terms';
-    const response = await fetch(url);
+    const response = await fetchWithCredentials(url);
     return handleResponse<any[]>(response);
   },
 
   getActive: async () => {
-    const response = await fetch('/api/academic-terms/active');
+    const response = await fetchWithCredentials('/api/academic-terms/active');
     return handleResponse<any>(response);
   },
 
   create: async (term: any) => {
-    const response = await fetch('/api/academic-terms', {
+    const response = await fetchWithCredentials('/api/academic-terms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(term),
@@ -279,7 +285,7 @@ export const academicTermsApi = {
   },
 
   update: async (id: string, term: any) => {
-    const response = await fetch(`/api/academic-terms/${id}`, {
+    const response = await fetchWithCredentials(`/api/academic-terms/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(term),
@@ -288,14 +294,14 @@ export const academicTermsApi = {
   },
 
   setActive: async (id: string) => {
-    const response = await fetch(`/api/academic-terms/${id}/set-active`, {
+    const response = await fetchWithCredentials(`/api/academic-terms/${id}/set-active`, {
       method: 'POST',
     });
     return handleResponse<any>(response);
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/academic-terms/${id}`, {
+    const response = await fetchWithCredentials(`/api/academic-terms/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -305,22 +311,22 @@ export const academicTermsApi = {
 // Scores API
 export const scoresApi = {
   getAll: async () => {
-    const response = await fetch('/api/scores');
+    const response = await fetchWithCredentials('/api/scores');
     return handleResponse<any[]>(response);
   },
 
   getByStudent: async (studentId: string) => {
-    const response = await fetch(`/api/scores?studentId=${studentId}`);
+    const response = await fetchWithCredentials(`/api/scores?studentId=${studentId}`);
     return handleResponse<any[]>(response);
   },
 
   getByTerm: async (termId: string) => {
-    const response = await fetch(`/api/scores?termId=${termId}`);
+    const response = await fetchWithCredentials(`/api/scores?termId=${termId}`);
     return handleResponse<any[]>(response);
   },
 
   create: async (score: any) => {
-    const response = await fetch('/api/scores', {
+    const response = await fetchWithCredentials('/api/scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(score),
@@ -329,7 +335,7 @@ export const scoresApi = {
   },
 
   update: async (id: string, score: any) => {
-    const response = await fetch(`/api/scores/${id}`, {
+    const response = await fetchWithCredentials(`/api/scores/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(score),
@@ -338,7 +344,7 @@ export const scoresApi = {
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/scores/${id}`, {
+    const response = await fetchWithCredentials(`/api/scores/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -348,17 +354,17 @@ export const scoresApi = {
 // Teacher Assignments API
 export const teacherAssignmentsApi = {
   getAll: async () => {
-    const response = await fetch('/api/teacher-assignments');
+    const response = await fetchWithCredentials('/api/teacher-assignments');
     return handleResponse<any[]>(response);
   },
 
   getByTeacher: async (teacherId: string) => {
-    const response = await fetch(`/api/teacher-assignments?teacherId=${teacherId}`);
+    const response = await fetchWithCredentials(`/api/teacher-assignments?teacherId=${teacherId}`);
     return handleResponse<any[]>(response);
   },
 
   create: async (assignment: any) => {
-    const response = await fetch('/api/teacher-assignments', {
+    const response = await fetchWithCredentials('/api/teacher-assignments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(assignment),
@@ -367,7 +373,7 @@ export const teacherAssignmentsApi = {
   },
 
   bulkCreate: async (teacherId: string, assignments: any[]) => {
-    const response = await fetch('/api/teacher-assignments/bulk', {
+    const response = await fetchWithCredentials('/api/teacher-assignments/bulk', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ teacherId, assignments }),
@@ -376,7 +382,7 @@ export const teacherAssignmentsApi = {
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/teacher-assignments/${id}`, {
+    const response = await fetchWithCredentials(`/api/teacher-assignments/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -386,12 +392,12 @@ export const teacherAssignmentsApi = {
 // Grading Scales API
 export const gradingScalesApi = {
   getAll: async () => {
-    const response = await fetch('/api/grading-scales');
+    const response = await fetchWithCredentials('/api/grading-scales');
     return handleResponse<any[]>(response);
   },
 
   create: async (scale: any) => {
-    const response = await fetch('/api/grading-scales', {
+    const response = await fetchWithCredentials('/api/grading-scales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(scale),
@@ -400,7 +406,7 @@ export const gradingScalesApi = {
   },
 
   update: async (id: string, scale: any) => {
-    const response = await fetch(`/api/grading-scales/${id}`, {
+    const response = await fetchWithCredentials(`/api/grading-scales/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(scale),
@@ -409,7 +415,7 @@ export const gradingScalesApi = {
   },
 
   delete: async (id: string) => {
-    const response = await fetch(`/api/grading-scales/${id}`, {
+    const response = await fetchWithCredentials(`/api/grading-scales/${id}`, {
       method: 'DELETE',
     });
     return handleResponse<{ message: string }>(response);
@@ -419,12 +425,12 @@ export const gradingScalesApi = {
 // Assessment Configs API
 export const assessmentConfigsApi = {
   getAll: async () => {
-    const response = await fetch('/api/assessment-configs');
+    const response = await fetchWithCredentials('/api/assessment-configs');
     return handleResponse<any[]>(response);
   },
 
   update: async (id: string, config: any) => {
-    const response = await fetch(`/api/assessment-configs/${id}`, {
+    const response = await fetchWithCredentials(`/api/assessment-configs/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),

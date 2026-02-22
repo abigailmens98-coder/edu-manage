@@ -1061,7 +1061,8 @@ export default function TeacherBroadsheet() {
         try {
             // Fetch students for this class
             const studentsResponse = await fetch(
-                `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(selectedClass)}`
+                `/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(selectedClass)}`,
+                { credentials: 'include' }
             );
             if (studentsResponse.ok) {
                 const studentsData = await studentsResponse.json();
@@ -1070,7 +1071,8 @@ export default function TeacherBroadsheet() {
 
             // Fetch broadsheet scores (all subjects for the class)
             const scoresResponse = await fetch(
-                `/api/teachers/${teacherId}/broadsheet-scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}`
+                `/api/teachers/${teacherId}/broadsheet-scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}`,
+                { credentials: 'include' }
             );
             if (scoresResponse.ok) {
                 const scoresData = await scoresResponse.json();

@@ -1,0 +1,1 @@
+﻿{"adminFound":true,"adminId":"5e909c60-e947-42f9-ae30-5a05a9144599","adminRole":"admin","teacherCount":2,"users":[{"username":"shosho","role":"teacher"},{"username":"teacher","role":"teacher"}],"isFallback":false,"isDatabaseAvailable":true,"databaseSuccessfullyConnected":true,"lastError":null,"isSeeded":true,"databaseType":"PostgreSQL"}

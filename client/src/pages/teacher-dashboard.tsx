@@ -141,7 +141,7 @@ export default function TeacherDashboard() {
   const loadStudentsForClass = async () => {
     if (!teacherId) return;
     try {
-      const response = await fetch(`/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(selectedClass)}`);
+      const response = await fetch(`/api/teachers/${teacherId}/students?classLevel=${encodeURIComponent(selectedClass)}`, { credentials: 'include' });
       if (response.ok) {
         const data = await response.json();
         setStudents(data);
@@ -156,7 +156,8 @@ export default function TeacherDashboard() {
 
     try {
       const response = await fetch(
-        `/api/teachers/${teacherId}/scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}&subjectId=${selectedSubject}`
+        `/api/teachers/${teacherId}/scores?termId=${selectedTerm}&classLevel=${encodeURIComponent(selectedClass)}&subjectId=${selectedSubject}`,
+        { credentials: 'include' }
       );
       if (!response.ok) return;
 
@@ -211,6 +212,7 @@ export default function TeacherDashboard() {
       const response = await fetch(`/api/teachers/${teacherId}/scores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           studentId,
           subjectId: selectedSubject,

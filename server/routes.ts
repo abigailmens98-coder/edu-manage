@@ -1177,9 +1177,6 @@ export async function registerRoutes(
   // Assessment Config Routes
   app.get("/api/assessment-configs", async (req, res) => {
     try {
-      if (!req.session.userId) {
-        return res.status(401).json({ error: "Not authenticated" });
-      }
       const configs = await storage.getAssessmentConfigs();
       res.json(configs);
     } catch (error) {

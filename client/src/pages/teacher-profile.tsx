@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Save, CheckCircle, User, Phone, MapPin, Calendar, Mail, ArrowLeft } from "lucide-react";
-import { MOCK_TEACHERS } from "@/lib/mock-data";
+import { FileText, Save, CheckCircle, User, Phone, MapPin, Calendar, Mail, ArrowLeft, Loader2, KeyRound } from "lucide-react";
 import { useLocation } from "wouter";
+import { teachersApi } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
-interface TeacherProfile {
+interface TeacherProfileData {
   id: string;
+  teacherId: string;
   name: string;
   email: string;
   phone: string;
@@ -24,17 +26,19 @@ interface TeacherProfile {
   qualifications: string;
   experience: string;
   bio: string;
+  username: string;
 }
 
 export default function TeacherProfile() {
-  const { username } = useAuth();
+  const { username, teacherInfo } = useAuth();
   const [, setLocation] = useLocation();
-  const teacher = MOCK_TEACHERS.find(t => t.username === username);
+  const { toast } = useToast();
 
-  const [profile, setProfile] = useState<TeacherProfile>({
-    id: teacher?.id || "",
-    name: teacher?.name || "",
-    email: teacher?.email || "",
+  const [profile, setProfile] = useState<TeacherProfileData>({
+    id: "",
+    teacherId: "",
+    name: "",
+    email: "",
     phone: "",
     dob: "",
     address: "",
@@ -43,10 +47,41 @@ export default function TeacherProfile() {
     nationalId: "",
     qualifications: "Bachelor's Degree",
     experience: "",
-    bio: ""
+    bio: "",
+    username: "",
   });
 
-  const [submitted, setSubmitted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load teacher data from AuthContext teacherInfo
+  useEffect(() => {
+    if (teacherInfo) {
+      setProfile(prev => ({
+        ...prev,
+        id: teacherInfo.id || "",
+        teacherId: teacherInfo.teacherId || "",
+        name: teacherInfo.name || "",
+        email: teacherInfo.email || "",
+        phone: teacherInfo.phone || "",
+        dob: teacherInfo.dob || "",
+        address: teacherInfo.address || "",
+        city: teacherInfo.city || "Tarkwa",
+        gender: teacherInfo.gender || "",
+        nationalId: teacherInfo.nationalId || "",
+        qualifications: teacherInfo.qualifications || "Bachelor's Degree",
+        experience: teacherInfo.experience || "",
+        bio: teacherInfo.bio || "",
+        username: username || "",
+      }));
+    } else if (username) {
+      setProfile(prev => ({
+        ...prev,
+        username: username,
+      }));
+    }
+    setLoading(false);
+  }, [teacherInfo, username]);
 
   const handleChange = (field: string, value: string) => {
     setProfile(prev => ({
@@ -55,10 +90,55 @@ export default function TeacherProfile() {
     }));
   };
 
-  const handleSave = () => {
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 3000);
+  const handleSave = async () => {
+    if (!profile.id) {
+      toast({
+        title: "Error",
+        description: "Teacher profile not found. Please try logging in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await teachersApi.update(profile.id, {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+        dob: profile.dob,
+        address: profile.address,
+        city: profile.city,
+        gender: profile.gender,
+        nationalId: profile.nationalId,
+        qualifications: profile.qualifications,
+        experience: profile.experience,
+        bio: profile.bio,
+      });
+
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been saved successfully.",
+      });
+    } catch (error: any) {
+      console.error("Profile save error:", error);
+      toast({
+        title: "Save Failed",
+        description: error?.message || "Failed to save profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -100,9 +180,15 @@ export default function TeacherProfile() {
                 <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <User className="h-12 w-12 text-primary" />
                 </div>
-                <h2 className="font-semibold text-lg">{profile.name}</h2>
+                <h2 className="font-semibold text-lg">{profile.name || "Teacher"}</h2>
                 <p className="text-sm text-muted-foreground">{profile.email}</p>
-                <p className="text-xs text-muted-foreground mt-2">ID: {profile.id}</p>
+                <p className="text-xs text-muted-foreground mt-2">ID: {profile.teacherId}</p>
+                <div className="mt-3 pt-3 border-t">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <KeyRound className="h-3.5 w-3.5" />
+                    <span className="font-mono">{profile.username}</span>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
@@ -122,6 +208,19 @@ export default function TeacherProfile() {
 
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
+                      <Label htmlFor="username" className="flex items-center gap-2">
+                        <KeyRound className="h-4 w-4" />
+                        Username (Login)
+                      </Label>
+                      <Input
+                        id="username"
+                        value={profile.username}
+                        disabled
+                        className="bg-muted cursor-not-allowed"
+                      />
+                      <p className="text-xs text-muted-foreground">Username cannot be changed. Contact admin if needed.</p>
+                    </div>
+                    <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
                       <Input
                         id="name"
@@ -130,6 +229,9 @@ export default function TeacherProfile() {
                         placeholder="Enter your full name"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="email" className="flex items-center gap-2">
                         <Mail className="h-4 w-4" />
@@ -143,9 +245,6 @@ export default function TeacherProfile() {
                         placeholder="your.email@example.com"
                       />
                     </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone" className="flex items-center gap-2">
                         <Phone className="h-4 w-4" />
@@ -159,6 +258,9 @@ export default function TeacherProfile() {
                         placeholder="+233 5XX XXX XXX"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="dob" className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
@@ -171,21 +273,20 @@ export default function TeacherProfile() {
                         onChange={(e) => handleChange("dob", e.target.value)}
                       />
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gender</Label>
-                    <Select value={profile.gender} onValueChange={(val) => handleChange("gender", val)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="MALE">Male</SelectItem>
-                        <SelectItem value="FEMALE">Female</SelectItem>
-                        <SelectItem value="OTHER">Other</SelectItem>
-                        <SelectItem value="PREFER_NOT">Prefer not to say</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-2">
+                      <Label htmlFor="gender">Gender</Label>
+                      <Select value={profile.gender} onValueChange={(val) => handleChange("gender", val)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select gender" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MALE">Male</SelectItem>
+                          <SelectItem value="FEMALE">Female</SelectItem>
+                          <SelectItem value="OTHER">Other</SelectItem>
+                          <SelectItem value="PREFER_NOT">Prefer not to say</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
 
@@ -278,20 +379,15 @@ export default function TeacherProfile() {
                     <p className="text-xs text-muted-foreground">{profile.bio.length} / 500 characters</p>
                   </div>
                 </div>
-
-                {submitted && (
-                  <Alert className="bg-green-50 border-green-200">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800 ml-2">
-                      Profile updated successfully!
-                    </AlertDescription>
-                  </Alert>
-                )}
               </CardContent>
               <CardFooter>
-                <Button onClick={handleSave} className="w-full gap-2">
-                  <Save className="h-4 w-4" />
-                  Save Profile
+                <Button onClick={handleSave} className="w-full gap-2" disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {saving ? "Saving..." : "Save Profile"}
                 </Button>
               </CardFooter>
             </Card>

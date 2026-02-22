@@ -787,6 +787,7 @@ export default function Teachers() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Teacher ID</TableHead>
+                  <TableHead>Username</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Assigned Subjects & Classes</TableHead>
@@ -797,7 +798,7 @@ export default function Teachers() {
               <TableBody>
                 {filteredTeachers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       No teachers found
                     </TableCell>
                   </TableRow>
@@ -809,6 +810,7 @@ export default function Teachers() {
                     return (
                       <TableRow key={teacher.id} data-testid={`row-teacher-${teacher.id}`}>
                         <TableCell className="font-mono text-sm">{teacher.teacherId}</TableCell>
+                        <TableCell className="font-mono text-sm text-muted-foreground">{teacher.username || "-"}</TableCell>
                         <TableCell className="font-medium">{teacher.name}</TableCell>
                         <TableCell>{teacher.email || "-"}</TableCell>
                         <TableCell>

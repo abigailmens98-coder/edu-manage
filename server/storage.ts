@@ -607,45 +607,6 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Assessment Config operations
-  async getAssessmentConfigs(): Promise<AssessmentConfig[]> {
-    return await db.select().from(schema.assessmentConfigs);
-  }
-
-  async updateAssessmentConfig(id: string, config: Partial<InsertAssessmentConfig>): Promise<AssessmentConfig | undefined> {
-    const [updated] = await db
-      .update(schema.assessmentConfigs)
-      .set({ ...config })
-      .where(eq(schema.assessmentConfigs.id, id))
-      .returning();
-    return updated;
-  }
-
-  async seedAssessmentConfigs(): Promise<void> {
-    const existing = await this.getAssessmentConfigs();
-    if (existing.length > 0) return;
-
-    const defaults: InsertAssessmentConfig[] = [
-      {
-        classGroup: "Basic 1-6 (Lower/Upper Primary)",
-        minClassLevel: 1,
-        maxClassLevel: 6,
-        classScoreWeight: 50,
-        examScoreWeight: 50,
-      },
-      {
-        classGroup: "Basic 7-9 (JHS)",
-        minClassLevel: 7,
-        maxClassLevel: 9,
-        classScoreWeight: 40,
-        examScoreWeight: 60,
-      },
-    ];
-
-    for (const config of defaults) {
-      await db.insert(schema.assessmentConfigs).values(config);
-    }
-  }
 
   // User Password Management
   async updateUserPassword(userId: string, newPassword: string): Promise<boolean> {
@@ -1240,6 +1201,9 @@ class StorageManager implements IStorage {
   private seeder: (() => Promise<void>) | null = null;
   private isSeeded = false;
   private lastFailingError: string | null = null;
+  private lastReconnectAttempt = 0;
+  private isRecovering = false;
+  private static RECONNECT_COOLDOWN_MS = 30000; // 30 seconds between reconnection attempts
 
   constructor() {
     this.memStorage = new MemStorage();
@@ -1287,6 +1251,13 @@ class StorageManager implements IStorage {
   }
 
 
+  // Check if an error is a schema-level problem (missing column/table) — these won't fix themselves
+  private isSchemaError(msg: string): boolean {
+    return msg.includes('does not exist') ||
+      msg.includes('relation') && msg.includes('does not exist') ||
+      msg.includes('column') && msg.includes('does not exist');
+  }
+
   private async handleFailure(err: any) {
     if (this.isFallback) return;
 
@@ -1296,13 +1267,17 @@ class StorageManager implements IStorage {
     this.isFallback = true;
     databaseSuccessfullyConnected = false;
 
-    if (this.isSeeded && this.seeder) {
+    // Don't re-seed if we're already in a recovery/seeding cycle
+    if (this.isSeeded && this.seeder && !this.isRecovering) {
+      this.isRecovering = true;
       console.log('🌱 Re-seeding memory storage after fallback...');
       try {
         await this.seeder();
         console.log('✅ Re-seeding complete.');
       } catch (seedErr: any) {
         console.error('❌ Failed to re-seed after fallback:', seedErr.message);
+      } finally {
+        this.isRecovering = false;
       }
     }
 
@@ -1310,6 +1285,8 @@ class StorageManager implements IStorage {
       console.error('🛑 DATABASE AUTHENTICATION ERROR: Please check your password in the Render dashboard!');
     } else if (err.message.includes('ENOTFOUND')) {
       console.error('🛑 HOSTNAME ERROR: Your DATABASE_URL hostname is invalid or incomplete. Please check for copy-paste errors!');
+    } else if (this.isSchemaError(err.message)) {
+      console.error('🛑 SCHEMA ERROR: Your database schema is out of sync. Run `npx drizzle-kit push` to update it.');
     }
   }
 
@@ -1323,10 +1300,20 @@ class StorageManager implements IStorage {
 
   // Wrapper to catch errors and fallback immediately
   private async exec<T>(fn: (storage: IStorage) => Promise<T>): Promise<T> {
-    // If in fallback, try to reconnect ONCE more if we have a pool
-    if (this.isFallback && pool && !this.lastFailingError?.includes('password')) {
-      console.log("🔄 Storage in fallback but pool exists. Attempting proactive recovery...");
-      await this.tryReconnect();
+    // If in fallback, try to reconnect — but only if:
+    // 1. We have a pool
+    // 2. The last error wasn't a password/schema problem (those won't fix themselves)
+    // 3. We're not already inside a recovery/seeding cycle
+    // 4. Enough time has passed since the last attempt (cooldown)
+    if (this.isFallback && pool && !this.isRecovering &&
+      !this.lastFailingError?.includes('password') &&
+      !this.isSchemaError(this.lastFailingError || '')) {
+      const now = Date.now();
+      if (now - this.lastReconnectAttempt > StorageManager.RECONNECT_COOLDOWN_MS) {
+        this.lastReconnectAttempt = now;
+        console.log("🔄 Storage in fallback but pool exists. Attempting proactive recovery...");
+        await this.tryReconnect();
+      }
     }
 
     if (!this.isFallback && this.dbStorage) {

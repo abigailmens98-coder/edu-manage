@@ -83,6 +83,15 @@ export const teachers = pgTable("teachers", {
   subject: text("subject"),
   email: text("email"),
   assignedClass: text("assigned_class"), // e.g., "Basic 1"
+  phone: text("phone"),
+  dob: text("dob"),
+  address: text("address"),
+  city: text("city"),
+  gender: text("gender"),
+  nationalId: text("national_id"),
+  qualifications: text("qualifications"),
+  experience: text("experience"),
+  bio: text("bio"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

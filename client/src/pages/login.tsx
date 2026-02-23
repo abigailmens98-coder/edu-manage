@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Mail, Phone } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function Login() {
   const [identifier, setIdentifier] = useState("");
@@ -15,6 +16,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [showReset, setShowReset] = useState(false);
   const [resetIdentifier, setResetIdentifier] = useState("");
   const [resetSecret, setResetSecret] = useState("");
@@ -33,7 +35,7 @@ export default function Login() {
     if (success) {
       setLocation("/");
     } else {
-      setError("Invalid username or password. Check demo credentials below.");
+      setError("Invalid username or password. Please check your credentials and try again.");
     }
     setIsLoading(false);
   };
@@ -135,25 +137,129 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-6 pt-4 border-t space-y-3 text-sm">
-              <p className="font-semibold text-foreground">Demo Credentials:</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 text-xs">
-                <div>
-                  <p className="font-semibold text-blue-900">Admin:</p>
-                  <p className="text-blue-800"><span className="font-mono">admin</span> / <span className="font-mono">admin123</span></p>
-                </div>
-                <div>
-                  <p className="font-semibold text-blue-900">Teacher:</p>
-                  <p className="text-blue-800"><span className="font-mono">teacher_001</span> / <span className="font-mono">teacher123</span></p>
-                  <p className="text-blue-800"><span className="font-mono">sarah@academia.edu</span> / <span className="font-mono">teacher123</span></p>
-                  <p className="text-xs text-muted-foreground mt-1">All teacher accounts use password: <span className="font-mono">teacher123</span></p>
-                </div>
-              </div>
-
+            <div className="mt-6 pt-4 border-t text-sm">
+              <p className="text-muted-foreground text-center text-xs leading-relaxed">
+                Don't have an account? Please contact the <span className="font-semibold text-blue-800">IT Department</span> or your <span className="font-semibold text-blue-800">School Administrator</span> to request access credentials.
+              </p>
             </div>
           </CardContent>
         </Card>
+
+        {/* Footer */}
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Powered by <span className="font-semibold text-blue-800">B&P Code Lab</span>
+          </p>
+          <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Phone className="h-3 w-3" /> 0242099920
+            </span>
+            <span>|</span>
+            <span className="flex items-center gap-1">
+              <Mail className="h-3 w-3" /> b&pcode@gmail.com
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowTerms(true)}
+            className="text-xs text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
+            data-testid="button-terms-of-use"
+          >
+            Terms of Use
+          </button>
+        </div>
       </div>
+
+      {/* Terms of Use Dialog */}
+      <Dialog open={showTerms} onOpenChange={setShowTerms}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Terms of Use</DialogTitle>
+            <DialogDescription>
+              Please read these terms carefully before using this system.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[50vh] pr-4">
+            <div className="space-y-4 text-sm text-muted-foreground leading-relaxed">
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">1. Acceptance of Terms</h3>
+                <p>
+                  By accessing and using the University Basic School Administrative Management System, you agree to comply with and be bound by these Terms of Use. If you do not agree with any part of these terms, you must not use this system.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">2. Authorized Use</h3>
+                <p>
+                  This system is intended solely for authorized staff, teachers, and administrators of University Basic School. Unauthorized access or use of this system is strictly prohibited and may result in disciplinary action and/or legal proceedings.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">3. User Responsibilities</h3>
+                <p>
+                  Users are responsible for maintaining the confidentiality of their login credentials. You must not share your account information with any other person. Any activity that occurs under your account is your responsibility.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">4. Data Privacy & Confidentiality</h3>
+                <p>
+                  All student records, academic data, and personal information accessed through this system are confidential. Users must not disclose, copy, or distribute any data obtained from this system without proper authorization from the School Administration.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">5. System Integrity</h3>
+                <p>
+                  Users must not attempt to interfere with, disrupt, or compromise the security or functionality of this system. Any suspicious activity or security vulnerabilities should be reported immediately to the IT Department.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">6. Intellectual Property</h3>
+                <p>
+                  This system and its contents, including software, design, and documentation, are the intellectual property of B&P Code Lab. Unauthorized reproduction, modification, or distribution of any part of this system is prohibited.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">7. Limitation of Liability</h3>
+                <p>
+                  B&P Code Lab and University Basic School shall not be held liable for any loss or damage arising from the use of this system, including but not limited to data loss, system downtime, or unauthorized access resulting from user negligence.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">8. Modifications</h3>
+                <p>
+                  B&P Code Lab reserves the right to modify these Terms of Use at any time. Continued use of the system after changes constitutes acceptance of the updated terms.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-semibold text-foreground mb-1">9. Contact</h3>
+                <p>
+                  For questions or concerns regarding these terms, please contact:
+                </p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>B&P Code Lab — Phone: 0242099920</li>
+                  <li>Email: b&pcode@gmail.com</li>
+                </ul>
+              </section>
+            </div>
+          </ScrollArea>
+          <div className="pt-4 border-t">
+            <Button
+              onClick={() => setShowTerms(false)}
+              className="w-full"
+              data-testid="button-close-terms"
+            >
+              I Understand
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Password Reset Dialog */}
       <Dialog open={showReset} onOpenChange={setShowReset}>

@@ -274,7 +274,7 @@ export default function Login() {
           <DialogHeader>
             <DialogTitle>Reset Your Password</DialogTitle>
             <DialogDescription>
-              Enter your email/username and secret word to reset your password
+              Enter your email/username and secret word to reset your password or contact administrator
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleResetPassword} className="space-y-4">
@@ -294,7 +294,7 @@ export default function Login() {
               <Label htmlFor="reset-identifier">Email or Username</Label>
               <Input
                 id="reset-identifier"
-                placeholder="admin or sarah@academia.edu"
+                placeholder="admin or teacher@gmail.com"
                 value={resetIdentifier}
                 onChange={(e) => setResetIdentifier(e.target.value)}
                 data-testid="input-reset-identifier"
@@ -311,7 +311,7 @@ export default function Login() {
                 onChange={(e) => setResetSecret(e.target.value)}
                 data-testid="input-reset-secret"
               />
-              <p className="text-xs text-muted-foreground">Demo: teacher_001 → ghana, admin → governance</p>
+
             </div>
 
             <div className="flex gap-2 pt-4">

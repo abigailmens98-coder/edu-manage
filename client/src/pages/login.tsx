@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Eye, EyeOff, Mail, Phone } from "lucide-react";
+import { AlertCircle, Eye, EyeOff, Info, Mail, Phone } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -62,7 +62,7 @@ export default function Login() {
           <div>
             <h1 className="text-3xl sm:text-4xl font-serif font-bold text-blue-900">University Basic School</h1>
             <p className="text-sm font-italic text-blue-700 mt-1 tracking-wide">Knowledge, Truth and Excellence</p>
-            <p className="text-xs text-muted-foreground mt-3">Administrative Management System</p>
+            <p className="text-xs text-muted-foreground mt-3">Report Management System</p>
           </div>
         </div>
 
@@ -80,11 +80,18 @@ export default function Login() {
                 </Alert>
               )}
 
+              <div className="flex items-start gap-2 bg-blue-50/80 border border-blue-200 rounded-lg p-3">
+                <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <span className="font-semibold">Notice:</span> This system is strictly for Teachers and Administrators only.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="identifier">Email or Username</Label>
                 <Input
                   id="identifier"
-                  placeholder="admin or sarah@academia.edu"
+                  placeholder="teacher@gmail.com"
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   disabled={isLoading}

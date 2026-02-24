@@ -343,8 +343,14 @@ export async function registerRoutes(
       const validated = insertStudentSchema.parse(req.body);
       const student = await storage.createStudent(validated);
       res.status(201).json(student);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid student data" });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        console.error("Zod Validation Error for student:", JSON.stringify(error.errors, null, 2));
+        console.error("Received data:", req.body);
+      } else {
+        console.error("Create student error:", error);
+      }
+      res.status(400).json({ error: "Invalid student data", details: error.errors });
     }
   });
 

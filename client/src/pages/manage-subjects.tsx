@@ -51,7 +51,7 @@ export default function ManageSubjects() {
     try {
       let maxId = 0;
       subjects.forEach(s => {
-        const num = parseInt(s.subjectId.replace(/\\D/g, ''), 10);
+        const num = parseInt(s.subjectId.replace(/\D/g, ''), 10);
         if (!isNaN(num) && num > maxId) maxId = num;
       });
       const subjectId = `SUB${String(maxId + 1).padStart(3, "0")}`;
@@ -164,7 +164,7 @@ export default function ManageSubjects() {
         let imported = 0;
         let maxId = 0;
         subjects.forEach(s => {
-          const num = parseInt(s.subjectId.replace(/\\D/g, ''), 10);
+          const num = parseInt(s.subjectId.replace(/\D/g, ''), 10);
           if (!isNaN(num) && num > maxId) maxId = num;
         });
 

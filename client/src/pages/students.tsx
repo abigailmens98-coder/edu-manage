@@ -103,7 +103,7 @@ export default function Students() {
     try {
       let maxId = 0;
       students.forEach(s => {
-        const num = parseInt(s.studentId.replace(/\\D/g, ''), 10);
+        const num = parseInt(s.studentId.replace(/\D/g, ''), 10);
         if (!isNaN(num) && num > maxId) maxId = num;
       });
       const studentId = `S${String(maxId + 1).padStart(3, "0")}`;
@@ -391,7 +391,7 @@ export default function Students() {
 
       let maxId = 0;
       students.forEach(s => {
-        const num = parseInt(s.studentId.replace(/\\D/g, ''), 10);
+        const num = parseInt(s.studentId.replace(/\D/g, ''), 10);
         if (!isNaN(num) && num > maxId) maxId = num;
       });
 

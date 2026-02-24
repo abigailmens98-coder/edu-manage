@@ -107,7 +107,7 @@ export default function Academics() {
 
     let maxId = 0;
     subjects.forEach((s: any) => {
-      const num = parseInt(String(s.subjectId).replace(/\\D/g, ''), 10);
+      const num = parseInt(String(s.subjectId).replace(/\D/g, ''), 10);
       if (!isNaN(num) && num > maxId) maxId = num;
     });
     const subjectId = `SUB${String(maxId + 1).padStart(3, "0")}`;

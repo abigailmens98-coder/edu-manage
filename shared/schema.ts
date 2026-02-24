@@ -225,3 +225,16 @@ export const insertAssessmentConfigSchema = createInsertSchema(assessmentConfigs
 });
 export type InsertAssessmentConfig = z.infer<typeof insertAssessmentConfigSchema>;
 export type AssessmentConfig = typeof assessmentConfigs.$inferSelect;
+// Classes table
+export const classes = pgTable("classes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // e.g., "Basic 7D"
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertClassSchema = createInsertSchema(classes).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertClass = z.infer<typeof insertClassSchema>;
+export type Class = typeof classes.$inferSelect;

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, isDatabaseAvailable } from "./storage";
 import bcrypt from "bcryptjs";
-import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema, insertTeacherAssignmentSchema, insertStudentTermDetailsSchema } from "@shared/schema";
+import { insertStudentSchema, insertTeacherSchema, insertSubjectSchema, insertAcademicYearSchema, insertAcademicTermSchema, insertScoreSchema, insertTeacherAssignmentSchema, insertStudentTermDetailsSchema, insertClassSchema } from "@shared/schema";
 import { seedDatabase } from "./seed";
 import "./types"; // Import session type declarations
 
@@ -433,6 +433,43 @@ export async function registerRoutes(
       res.status(400).json({ error: "Invalid details data" });
     }
   });
+
+  // Classes API
+  app.get("/api/classes", async (req, res) => {
+    try {
+      const classes = await storage.getClasses();
+      res.json(classes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch classes" });
+    }
+  });
+
+  app.post("/api/classes", async (req, res) => {
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    try {
+      const validated = insertClassSchema.parse(req.body);
+      const cls = await storage.createClass(validated);
+      res.status(201).json(cls);
+    } catch (error) {
+      res.status(400).json({ error: "Invalid class data" });
+    }
+  });
+
+  app.delete("/api/classes/:name", async (req, res) => {
+    if (!req.session.userId || req.session.role !== "admin") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    try {
+      const name = decodeURIComponent(req.params.name);
+      await storage.deleteClass(name);
+      res.json({ message: "Class deleted from list" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete class" });
+    }
+  });
+
 
   // Teachers API
   app.get("/api/teachers", async (req, res) => {

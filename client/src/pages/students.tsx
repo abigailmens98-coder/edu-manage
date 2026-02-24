@@ -72,6 +72,10 @@ export default function Students() {
   });
   const [parsedStudents, setParsedStudents] = useState<ParsedStudent[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [customClasses, setCustomClasses] = useState<string[]>([]);
+  const [showAddClassDialog, setShowAddClassDialog] = useState(false);
+  const [newClassName, setNewClassName] = useState("");
+  const [isAddingClass, setIsAddingClass] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -82,7 +86,20 @@ export default function Students() {
 
   useEffect(() => {
     fetchStudents();
+    fetchCustomClasses();
   }, []);
+
+  const fetchCustomClasses = async () => {
+    try {
+      const response = await fetch('/api/classes');
+      if (response.ok) {
+        const data = await response.json();
+        setCustomClasses(data.map((c: any) => c.name));
+      }
+    } catch (error) {
+      console.error("Failed to fetch classes:", error);
+    }
+  };
 
   const fetchStudents = async () => {
     try {
@@ -144,6 +161,7 @@ export default function Students() {
       });
       setDeleteConfirm(null);
       fetchStudents();
+      fetchCustomClasses(); // Refresh list in case it was a custom class
     } catch (error) {
       toast({
         title: "Error",
@@ -158,11 +176,17 @@ export default function Students() {
 
     setIsDeletingClass(true);
     try {
+      // 1. Delete students in the class
       const response = await fetch(`/api/students/class/${encodeURIComponent(classToDelete)}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) throw new Error("Failed to delete class");
+      if (!response.ok) throw new Error("Failed to delete students");
+
+      // 2. Also try to delete from custom classes list if it exists there
+      await fetch(`/api/classes/${encodeURIComponent(classToDelete)}`, {
+        method: 'DELETE',
+      });
 
       const result = await response.json();
       toast({
@@ -171,6 +195,7 @@ export default function Students() {
       });
       setClassToDelete(null);
       fetchStudents();
+      fetchCustomClasses();
     } catch (error) {
       toast({
         title: "Error",
@@ -179,6 +204,37 @@ export default function Students() {
       });
     } finally {
       setIsDeletingClass(false);
+    }
+  };
+
+  const handleCreateClass = async () => {
+    if (!newClassName.trim()) return;
+    setIsAddingClass(true);
+    try {
+      const normalized = normalizeGrade(newClassName);
+      const response = await fetch('/api/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: normalized }),
+      });
+
+      if (!response.ok) throw new Error("Failed to create class");
+
+      toast({
+        title: "Success",
+        description: `Class ${normalized} created successfully`,
+      });
+      setNewClassName("");
+      setShowAddClassDialog(false);
+      fetchCustomClasses();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create class. It may already exist.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAddingClass(false);
     }
   };
 
@@ -485,6 +541,7 @@ export default function Students() {
   const sortedClasses = (() => {
     const allGrades = new Set<string>(GRADES);
     Object.keys(classCounts).forEach(g => allGrades.add(g));
+    customClasses.forEach(g => allGrades.add(g));
     return Array.from(allGrades).sort(sortClassNames);
   })();
 
@@ -514,6 +571,49 @@ export default function Students() {
             <p className="text-muted-foreground mt-1">Select a class to view and manage students.</p>
           </div>
           <div className="flex gap-2">
+            <Dialog open={showAddClassDialog} onOpenChange={setShowAddClassDialog}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+                  <Plus className="h-4 w-4" /> Create Class
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Class</DialogTitle>
+                  <DialogDescription>
+                    Add a new class group to the system. You can then add students to this class.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="className">Class Name</Label>
+                    <Input
+                      id="className"
+                      placeholder="e.g. Basic 7D, KG 2B"
+                      value={newClassName}
+                      onChange={(e) => setNewClassName(e.target.value)}
+                      autoFocus
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Format examples: "Basic 7D", "7D", "KG 2B"
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowAddClassDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreateClass}
+                    disabled={!newClassName.trim() || isAddingClass}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isAddingClass ? "Creating..." : "Create Class"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <Button variant="outline" className="gap-2" onClick={exportToCSV} data-testid="button-export-all-csv">
               <FileDown className="h-4 w-4" /> Export All
             </Button>

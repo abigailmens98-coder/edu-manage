@@ -27,6 +27,8 @@ import type {
   InsertGradingScale,
   AssessmentConfig,
   InsertAssessmentConfig,
+  Class,
+  InsertClass,
 } from "@shared/schema";
 import { and } from "drizzle-orm";
 
@@ -160,6 +162,12 @@ export interface IStorage {
   getAssessmentConfigs(): Promise<AssessmentConfig[]>;
   updateAssessmentConfig(id: string, config: Partial<InsertAssessmentConfig>): Promise<AssessmentConfig | undefined>;
   seedAssessmentConfigs(): Promise<void>;
+
+  // Class operations
+  getClasses(): Promise<Class[]>;
+  createClass(cls: InsertClass): Promise<Class>;
+  deleteClass(name: string): Promise<boolean>;
+  getStorageStatus(): any;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -616,6 +624,25 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.users.id, userId));
     return true;
   }
+
+  // Class operations
+  async getClasses(): Promise<Class[]> {
+    return await db.select().from(schema.classes);
+  }
+
+  async createClass(insertClass: InsertClass): Promise<Class> {
+    const [cls] = await db.insert(schema.classes).values(insertClass).returning();
+    return cls;
+  }
+
+  async deleteClass(name: string): Promise<boolean> {
+    await db.delete(schema.classes).where(eq(schema.classes.name, name));
+    return true;
+  }
+
+  getStorageStatus(): any {
+    return { type: "Database" };
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -630,6 +657,7 @@ export class MemStorage implements IStorage {
   private teacherAssignments: Map<string, TeacherAssignment>;
   private studentTermDetails: Map<string, StudentTermDetails>;
   private assessmentConfigs: Map<string, AssessmentConfig>;
+  private classes: Map<string, Class>;
   private currentId: number;
 
   constructor() {
@@ -644,6 +672,7 @@ export class MemStorage implements IStorage {
     this.scores = new Map();
     this.teacherAssignments = new Map();
     this.studentTermDetails = new Map();
+    this.classes = new Map();
     this.currentId = 1;
 
     // Seed default assessment configs
@@ -1190,6 +1219,30 @@ export class MemStorage implements IStorage {
     });
     console.log("Seeded default assessment configurations (Memory)");
   }
+
+  // Class operations
+  async getClasses(): Promise<Class[]> {
+    return Array.from(this.classes.values());
+  }
+
+  async createClass(insertClass: InsertClass): Promise<Class> {
+    const id = randomUUID();
+    const cls: Class = { ...insertClass, id, createdAt: new Date() };
+    this.classes.set(id, cls);
+    return cls;
+  }
+
+  async deleteClass(name: string): Promise<boolean> {
+    const id = Array.from(this.classes.values()).find(c => c.name === name)?.id;
+    if (id) {
+      return this.classes.delete(id);
+    }
+    return false;
+  }
+
+  getStorageStatus(): any {
+    return { type: "Memory" };
+  }
 }
 
 // Determine which storage to use. 
@@ -1409,6 +1462,11 @@ class StorageManager implements IStorage {
 
   cleanupDemoData() { return this.exec((s) => s.cleanupDemoData()); }
   deleteUserByUsername(u: string) { return this.exec((s) => s.deleteUserByUsername(u)); }
+
+  // Class operations
+  getClasses() { return this.exec((s) => s.getClasses()); }
+  createClass(cls: any) { return this.exec((s) => s.createClass(cls)); }
+  deleteClass(name: string) { return this.exec((s) => s.deleteClass(name)); }
 }
 
 export const storage = new StorageManager();

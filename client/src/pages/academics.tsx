@@ -67,7 +67,7 @@ export default function Academics() {
     try {
       const teacher = teachers.find((t: any) => String(t.id) === selectedTeacher);
       const subject = subjects.find((s: any) => String(s.id) === selectedSubject);
-      
+
       if (teacher && subject) {
         await teachersApi.update(teacher.id, { subject: subject.name });
         queryClient.invalidateQueries({ queryKey: ['/api/teachers'] });
@@ -89,7 +89,7 @@ export default function Academics() {
         variant: "destructive",
       });
     }
-    
+
     setDialogOpen(false);
     setSelectedTeacher("");
     setSelectedSubject("");
@@ -105,7 +105,12 @@ export default function Academics() {
       return;
     }
 
-    const subjectId = `SUB${String(subjects.length + 1).padStart(3, "0")}`;
+    let maxId = 0;
+    subjects.forEach((s: any) => {
+      const num = parseInt(String(s.subjectId).replace(/\\D/g, ''), 10);
+      if (!isNaN(num) && num > maxId) maxId = num;
+    });
+    const subjectId = `SUB${String(maxId + 1).padStart(3, "0")}`;
     addSubjectMutation.mutate({
       subjectId,
       name: newSubject.name,
@@ -265,9 +270,9 @@ export default function Academics() {
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="subjectName">Subject Name</Label>
-                    <Input 
-                      id="subjectName" 
-                      placeholder="e.g., Mathematics" 
+                    <Input
+                      id="subjectName"
+                      placeholder="e.g., Mathematics"
                       value={newSubject.name}
                       onChange={(e) => setNewSubject({ ...newSubject, name: e.target.value })}
                       data-testid="input-new-subject-name"
@@ -275,9 +280,9 @@ export default function Academics() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="subjectCode">Subject Code</Label>
-                    <Input 
-                      id="subjectCode" 
-                      placeholder="e.g., MATH" 
+                    <Input
+                      id="subjectCode"
+                      placeholder="e.g., MATH"
                       value={newSubject.code}
                       onChange={(e) => setNewSubject({ ...newSubject, code: e.target.value.toUpperCase() })}
                       data-testid="input-new-subject-code"

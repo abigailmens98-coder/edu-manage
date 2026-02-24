@@ -49,7 +49,12 @@ export default function ManageSubjects() {
 
   const handleAddSubject = async () => {
     try {
-      const subjectId = `SUB${String(subjects.length + 1).padStart(3, "0")}`;
+      let maxId = 0;
+      subjects.forEach(s => {
+        const num = parseInt(s.subjectId.replace(/\\D/g, ''), 10);
+        if (!isNaN(num) && num > maxId) maxId = num;
+      });
+      const subjectId = `SUB${String(maxId + 1).padStart(3, "0")}`;
       await subjectsApi.create({
         subjectId,
         name: formData.name,
@@ -113,7 +118,7 @@ export default function ManageSubjects() {
       try {
         const text = e.target?.result as string;
         const lines = text.split("\n").filter(line => line.trim());
-        
+
         if (lines.length < 2) {
           setCsvError("CSV file must have a header row and at least one data row");
           return;
@@ -133,7 +138,7 @@ export default function ManageSubjects() {
         }
 
         const existingCodes = subjects.map(s => s.code.toLowerCase());
-        const newSubjects: Array<{name: string, code: string}> = [];
+        const newSubjects: Array<{ name: string, code: string }> = [];
         let duplicates = 0;
 
         for (let i = 1; i < lines.length; i++) {
@@ -157,10 +162,16 @@ export default function ManageSubjects() {
         }
 
         let imported = 0;
+        let maxId = 0;
+        subjects.forEach(s => {
+          const num = parseInt(s.subjectId.replace(/\\D/g, ''), 10);
+          if (!isNaN(num) && num > maxId) maxId = num;
+        });
+
         for (let i = 0; i < newSubjects.length; i++) {
           const subject = newSubjects[i];
           try {
-            const subjectId = `SUB${String(subjects.length + imported + 1).padStart(3, "0")}`;
+            const subjectId = `SUB${String(maxId + imported + 1).padStart(3, "0")}`;
             await subjectsApi.create({
               subjectId,
               name: subject.name,
@@ -202,7 +213,7 @@ export default function ManageSubjects() {
           <Button variant="outline" className="gap-2" onClick={exportToCSV} data-testid="button-export-subjects-csv">
             <FileDown className="h-4 w-4" /> Export CSV
           </Button>
-          
+
           <Dialog open={showImportDialog} onOpenChange={(open) => { setShowImportDialog(open); if (!open) { setCsvError(""); setCsvSuccess(""); } }}>
             <DialogTrigger asChild>
               <Button variant="outline" className="gap-2" data-testid="button-import-subjects-csv">
@@ -244,7 +255,7 @@ export default function ManageSubjects() {
               </div>
             </DialogContent>
           </Dialog>
-          
+
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button className="gap-2 shadow-lg shadow-primary/20" data-testid="button-add-subject">
@@ -252,44 +263,44 @@ export default function ManageSubjects() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Subject</DialogTitle>
-              <DialogDescription>Create a new subject for the curriculum.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="subjectName">Subject Name</Label>
-                <Input
-                  id="subjectName"
-                  placeholder="e.g., English Language"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  data-testid="input-subject-name"
-                />
+              <DialogHeader>
+                <DialogTitle>Add New Subject</DialogTitle>
+                <DialogDescription>Create a new subject for the curriculum.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="subjectName">Subject Name</Label>
+                  <Input
+                    id="subjectName"
+                    placeholder="e.g., English Language"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    data-testid="input-subject-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subjectCode">Subject Code</Label>
+                  <Input
+                    id="subjectCode"
+                    placeholder="e.g., ENG101"
+                    value={formData.code}
+                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                    data-testid="input-subject-code"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="subjectCode">Subject Code</Label>
-                <Input
-                  id="subjectCode"
-                  placeholder="e.g., ENG101"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  data-testid="input-subject-code"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button 
-                type="submit" 
-                onClick={handleAddSubject}
-                disabled={!formData.name || !formData.code}
-                data-testid="button-submit-subject"
-              >
-                Add Subject
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  onClick={handleAddSubject}
+                  disabled={!formData.name || !formData.code}
+                  data-testid="button-submit-subject"
+                >
+                  Add Subject
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 

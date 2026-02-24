@@ -101,7 +101,12 @@ export default function Students() {
 
   const handleAddStudent = async () => {
     try {
-      const studentId = `S${String(students.length + 1).padStart(3, "0")}`;
+      let maxId = 0;
+      students.forEach(s => {
+        const num = parseInt(s.studentId.replace(/\\D/g, ''), 10);
+        if (!isNaN(num) && num > maxId) maxId = num;
+      });
+      const studentId = `S${String(maxId + 1).padStart(3, "0")}`;
       const gradeToUse = selectedClass || formData.grade;
 
       await studentsApi.create({
@@ -384,8 +389,14 @@ export default function Students() {
       const validStudents = parsedStudents.filter(s => s.isValid);
       let importCount = 0;
 
+      let maxId = 0;
+      students.forEach(s => {
+        const num = parseInt(s.studentId.replace(/\\D/g, ''), 10);
+        if (!isNaN(num) && num > maxId) maxId = num;
+      });
+
       for (const student of validStudents) {
-        const studentId = `S${String(students.length + importCount + 1).padStart(3, "0")}`;
+        const studentId = `S${String(maxId + importCount + 1).padStart(3, "0")}`;
         await studentsApi.create({
           studentId,
           name: student.name,

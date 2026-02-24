@@ -464,7 +464,12 @@ export async function registerRoutes(
 
       // Generate teacher ID
       const teachers = await storage.getTeachers();
-      const teacherId = `T${String(teachers.length + 1).padStart(3, "0")}`;
+      let maxTeacherId = 0;
+      teachers.forEach(t => {
+        const num = parseInt(t.teacherId.replace(/\\D/g, ''), 10);
+        if (!isNaN(num) && num > maxTeacherId) maxTeacherId = num;
+      });
+      const teacherId = `T${String(maxTeacherId + 1).padStart(3, "0")}`;
 
       // Create teacher record
       const teacher = await storage.createTeacher({

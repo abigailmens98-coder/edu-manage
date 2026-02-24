@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { eq, sql } from "drizzle-orm";
 import pg from "pg";
@@ -37,7 +38,7 @@ let pool: pg.Pool | null = null;
 let db: any = null;
 let databaseSuccessfullyConnected = false;
 
-const rawUrl = process.env.DATABASE_URL || "";
+const rawUrl = (process.env.DATABASE_URL || "").trim();
 
 // Strip unsupported parameters that cause connection failures
 // channel_binding=require is not supported by node-postgres and silently breaks connections
@@ -52,11 +53,13 @@ if (cleanedUrl.includes("channel_binding")) {
 
 const isDatabaseAvailable = !!rawUrl &&
   process.env.FORCE_IN_MEMORY !== "true" &&
-  !rawUrl.includes("ENOTFOUND") &&
-  !rawUrl.includes("@base") &&
-  !rawUrl.startsWith("psql") &&
-  !rawUrl.startsWith("'") &&
   rawUrl.includes("://");
+
+if (isDatabaseAvailable) {
+  console.log("✅ Database URL detected, initializing storage...");
+} else {
+  console.log("⚠️ Database not configured or disabled (URL present: " + !!rawUrl + ")");
+}
 
 if (isDatabaseAvailable) {
   try {
@@ -224,6 +227,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteStudent(id: string): Promise<boolean> {
+    // Delete dependent records first to satisfy foreign key constraints
+    await db.delete(schema.studentTermDetails).where(eq(schema.studentTermDetails.studentId, id));
+    await db.delete(schema.scores).where(eq(schema.scores.studentId, id));
     await db.delete(schema.students).where(eq(schema.students.id, id));
     return true;
   }
@@ -808,6 +814,14 @@ export class MemStorage implements IStorage {
   }
 
   async deleteStudent(id: string): Promise<boolean> {
+    const scoresToDelete = Array.from(this.scores.entries())
+      .filter(([_, s]) => s.studentId === id).map(([k, _]) => k);
+    for (const key of scoresToDelete) this.scores.delete(key);
+
+    const detailsToDelete = Array.from(this.studentTermDetails.entries())
+      .filter(([_, d]) => d.studentId === id).map(([k, _]) => k);
+    for (const key of detailsToDelete) this.studentTermDetails.delete(key);
+
     return this.students.delete(id);
   }
 
@@ -822,7 +836,23 @@ export class MemStorage implements IStorage {
 
   async createTeacher(insertTeacher: InsertTeacher): Promise<Teacher> {
     const id = randomUUID();
-    const teacher: Teacher = { ...insertTeacher, id, createdAt: new Date(), subject: insertTeacher.subject || null, email: insertTeacher.email || null, assignedClass: insertTeacher.assignedClass || null };
+    const teacher: Teacher = {
+      ...insertTeacher,
+      id,
+      createdAt: new Date(),
+      subject: insertTeacher.subject ?? null,
+      email: insertTeacher.email ?? null,
+      assignedClass: insertTeacher.assignedClass ?? null,
+      phone: insertTeacher.phone ?? null,
+      dob: insertTeacher.dob ?? null,
+      address: insertTeacher.address ?? null,
+      city: insertTeacher.city ?? null,
+      gender: insertTeacher.gender ?? null,
+      nationalId: insertTeacher.nationalId ?? null,
+      qualifications: insertTeacher.qualifications ?? null,
+      experience: insertTeacher.experience ?? null,
+      bio: insertTeacher.bio ?? null,
+    };
     this.teachers.set(id, teacher);
     return teacher;
   }

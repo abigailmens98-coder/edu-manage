@@ -1261,9 +1261,10 @@ class StorageManager implements IStorage {
   private async handleFailure(err: any) {
     if (this.isFallback) return;
 
-    console.error('❌ Database operation failed:', err.message);
+    console.error(`❌ DATABASE FATAL FAILURE: ${err.message}`);
+    if (err.stack) console.error(err.stack);
     this.lastFailingError = err.message;
-    console.warn('🔄 Falling back to in-memory storage immediately.');
+    console.warn('⚠️ CRITICAL: Falling back to in-memory storage. DATA WILL NOT PERSIST!');
     this.isFallback = true;
     databaseSuccessfullyConnected = false;
 

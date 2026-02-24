@@ -1319,7 +1319,13 @@ class StorageManager implements IStorage {
     if (!this.isFallback && this.dbStorage) {
       try {
         return await fn(this.dbStorage);
-      } catch (err) {
+      } catch (err: any) {
+        // CRITICAL: Do not fallback for data/constraint errors (PG error codes starting with '23')
+        // These are "expected" validation failures and falling back to memory causes silent data loss.
+        if (err.code && (err.code.startsWith('23') || err.code.startsWith('22'))) {
+          throw err;
+        }
+
         await this.handleFailure(err);
         return await fn(this.memStorage);
       }

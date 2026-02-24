@@ -234,23 +234,19 @@ export default function Students() {
     if (!grade) return "";
     const g = grade.trim();
 
-    if (/^(kg|kindergarten)\s*[12]$/i.test(g)) {
-      const num = g.replace(/[^0-9]/g, "");
-      return `KG ${num}`;
-    }
-    if (/^(basic|b)\s*\d+$/i.test(g)) {
-      const num = g.replace(/[^0-9]/g, "");
-      return `Basic ${num}`;
-    }
-    if (/^(class|grade|form)\s*\d+$/i.test(g)) {
-      const num = g.replace(/[^0-9]/g, "");
-      const numInt = parseInt(num);
-      if (numInt >= 1 && numInt <= 9) return `Basic ${num}`;
-    }
-    if (/^[1-9]$/.test(g)) {
-      return `Basic ${g}`;
+    // Check for KG/Kindergarten with optional suffix (e.g., KG 1, KG 2A)
+    const kgMatch = g.match(/^(kg|kindergarten)\s*(\d+)\s*([a-z]?)$/i);
+    if (kgMatch) {
+      return `KG ${kgMatch[2]}${kgMatch[3].toUpperCase()}`.trim();
     }
 
+    // Check for Basic/B/Class/Grade/Form/Year with optional suffix (e.g., Basic 7, Grade 7D, 7D)
+    const basicMatch = g.match(/^(basic|b|class|grade|form|year)?\s*(\d+)\s*([a-z]?)$/i);
+    if (basicMatch) {
+      return `Basic ${basicMatch[2]}${basicMatch[3].toUpperCase()}`.trim();
+    }
+
+    // Fallback to exact match or return as is
     const matched = GRADES.find(gr => gr.toLowerCase() === g.toLowerCase());
     if (matched) return matched;
 
@@ -670,7 +666,7 @@ export default function Students() {
                 <DialogDescription>
                   {importStep === "upload"
                     ? "Upload any CSV file with student names. The system will automatically detect columns."
-                    : `Review ${parsedStudents.filter(s => s.isValid).length} students to import to ${selectedClass}`
+                    : `Review ${parsedStudents.filter(s => s.isValid).length} students for import`
                   }
                 </DialogDescription>
               </DialogHeader>

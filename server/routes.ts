@@ -361,12 +361,27 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Expected an array of students" });
       }
 
-      const validated = z.array(insertStudentSchema).parse(studentsData);
+      // No need to use z.array.parse here if Zod isn't imported, just manually map schema
+      const validated: any[] = [];
+      const errors: any[] = [];
+
+      studentsData.forEach((student, index) => {
+        try {
+          validated.push(insertStudentSchema.parse(student));
+        } catch (e: any) {
+          errors.push({ index, errors: e.errors });
+        }
+      });
+
+      if (errors.length > 0) {
+        return res.status(400).json({ error: "Invalid student data", details: errors });
+      }
+
       const students = await storage.createStudents(validated);
       res.status(201).json(students);
     } catch (error: any) {
       console.error("Bulk create student error:", error);
-      res.status(400).json({ error: "Invalid student data", details: error.errors });
+      res.status(400).json({ error: "Invalid student data", details: error.errors || error.message });
     }
   });
 

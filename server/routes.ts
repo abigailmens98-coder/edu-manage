@@ -354,6 +354,22 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/students/bulk", async (req, res) => {
+    try {
+      const studentsData = req.body;
+      if (!Array.isArray(studentsData)) {
+        return res.status(400).json({ error: "Expected an array of students" });
+      }
+
+      const validated = z.array(insertStudentSchema).parse(studentsData);
+      const students = await storage.createStudents(validated);
+      res.status(201).json(students);
+    } catch (error: any) {
+      console.error("Bulk create student error:", error);
+      res.status(400).json({ error: "Invalid student data", details: error.errors });
+    }
+  });
+
   app.patch("/api/students/:id", async (req, res) => {
     try {
       const student = await storage.updateStudent(req.params.id, req.body);

@@ -447,18 +447,19 @@ export default function Students() {
         if (!isNaN(num) && num > maxId) maxId = num;
       });
 
-      for (const student of validStudents) {
-        const studentId = `S${String(maxId + importCount + 1).padStart(3, "0")}`;
-        await studentsApi.create({
-          studentId,
-          name: student.name,
-          grade: student.grade,
-          email: "",
-          status: "Active",
-          attendance: 0,
-        });
-        importCount++;
+      const studentsToCreate = validStudents.map((student, index) => ({
+        studentId: `S${String(maxId + index + 1).padStart(3, "0")}`,
+        name: student.name,
+        grade: student.grade,
+        email: "",
+        status: "Active",
+        attendance: 0,
+      }));
+
+      if (studentsToCreate.length > 0) {
+        await studentsApi.bulkCreate(studentsToCreate);
       }
+      importCount = studentsToCreate.length;
 
       const duplicates = parsedStudents.filter(s => s.isDuplicate).length;
       let message = `Successfully imported ${importCount} student(s)`;

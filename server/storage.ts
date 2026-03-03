@@ -90,6 +90,7 @@ export interface IStorage {
   getStudents(): Promise<Student[]>;
   getStudent(id: string): Promise<Student | undefined>;
   createStudent(student: InsertStudent): Promise<Student>;
+  createStudents(students: InsertStudent[]): Promise<Student[]>;
   updateStudent(id: string, student: Partial<InsertStudent>): Promise<Student | undefined>;
   deleteStudent(id: string): Promise<boolean>;
 
@@ -215,6 +216,11 @@ export class DatabaseStorage implements IStorage {
   async createStudent(insertStudent: InsertStudent): Promise<Student> {
     const [student] = await db.insert(schema.students).values(insertStudent).returning();
     return student;
+  }
+
+  async createStudents(insertStudents: InsertStudent[]): Promise<Student[]> {
+    if (insertStudents.length === 0) return [];
+    return await db.insert(schema.students).values(insertStudents).returning();
   }
 
   async updateStudent(id: string, studentUpdate: Partial<InsertStudent>): Promise<Student | undefined> {
@@ -801,6 +807,10 @@ export class MemStorage implements IStorage {
     };
     this.students.set(id, student);
     return student;
+  }
+
+  async createStudents(insertStudents: InsertStudent[]): Promise<Student[]> {
+    return Promise.all(insertStudents.map(s => this.createStudent(s)));
   }
 
   async updateStudent(id: string, studentUpdate: Partial<InsertStudent>): Promise<Student | undefined> {
@@ -1436,6 +1446,7 @@ class StorageManager implements IStorage {
   getStudents() { return this.exec((s) => s.getStudents()); }
   getStudent(id: string) { return this.exec((s) => s.getStudent(id)); }
   createStudent(student: any) { return this.exec((s) => s.createStudent(student)); }
+  createStudents(students: any[]) { return this.exec((s) => s.createStudents(students)); }
   updateStudent(id: string, student: any) { return this.exec((s) => s.updateStudent(id, student)); }
   deleteStudent(id: string) { return this.exec((s) => s.deleteStudent(id)); }
   getTeachers() { return this.exec((s) => s.getTeachers()); }

@@ -80,6 +80,15 @@ export const studentsApi = {
     return handleResponse<any>(response);
   },
 
+  bulkCreate: async (students: any[]) => {
+    const response = await fetchWithCredentials('/api/students/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(students),
+    });
+    return handleResponse<any[]>(response);
+  },
+
   update: async (id: string, student: any) => {
     const response = await fetchWithCredentials(`/api/students/${id}`, {
       method: 'PATCH',

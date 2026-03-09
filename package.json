@@ -2,6 +2,7 @@
   "name": "rest-express",
   "version": "1.0.0",
   "type": "module",
+  "main": "electron-main.cjs",
   "license": "MIT",
   "scripts": {
     "dev:client": "vite dev --port 5000",
@@ -9,7 +10,27 @@
     "build": "npx tsx script/build.ts",
     "start": "node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "electron:dev": "electron .",
+    "electron:build": "npm run build && electron-builder",
+    "desktop": "electron ."
+  },
+  "build": {
+    "appId": "com.ubas.rms",
+    "productName": "Report Management System",
+    "directories": {
+      "output": "out"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.cjs",
+      "package.json",
+      "client/public/**/*"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "client/public/school-logo.png"
+    }
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -96,6 +117,8 @@
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "drizzle-kit": "^0.31.4",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
     "esbuild": "^0.25.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.14",
